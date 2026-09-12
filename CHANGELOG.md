@@ -4,6 +4,18 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-09-12] - Photo EXIF Metadata Date Extraction
+
+### 🚀 Added:
+- **Automatic EXIF Date Extraction:**
+  - Added the ability to automatically extract the exact date and time a photo was taken directly from its EXIF metadata.
+  - Implemented using the `exifr` library in both the Node.js implementation (`handlers/photoHandler.js`) and the Supabase Edge Function (`supabase/functions/telegram-bot/index.ts`).
+  - Added support for processing uncompressed files (`bot.on('document')`) to preserve EXIF metadata (since Telegram strips EXIF from regular photos).
+  - Automatically calculates the correct `dietary_date` and overrides `created_at` in the database to reflect the true time the meal was consumed.
+  - As a fallback for photos without EXIF or sent as regular photos, uses the message sent time (`msg.date`) or original forwarded time (`msg.forward_date`).
+
+---
+
 ## [2026-09-12] - Codebase Language Optimization (Translation to English)
 
 ### 🌍 Changed:

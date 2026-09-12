@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.1";
+import exifr from "https://esm.sh/exifr@7.1.3";
 
 const TELEGRAM_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!;
 const ALLOWED_USER_ID = parseInt(Deno.env.get('ALLOWED_USER_ID') || '0');
@@ -379,7 +380,6 @@ async function handleUpdate(update: any) {
       return;
     }
 
-    const targetDate = getDietaryDate(new Date(), offsetDays);
     const progressText = isYesterday ? "⏳ Рахую калорії за прийом (за вчора)..." : "⏳ Рахую калорії за прийом...";
     await sendTg('sendMessage', {
       chat_id: chatId,
@@ -387,10 +387,24 @@ async function handleUpdate(update: any) {
     });
 
     let promptData: any[] = [SYSTEM_PROMPT];
+    let targetDate = getDietaryDate(new Date(), offsetDays);
+    let photoDate = new Date(msg.forward_date ? msg.forward_date * 1000 : msg.date * 1000);
 
-    // Working with photo or text
+    // Working with photo, document or text
+    let fileId: string | null = null;
     if (msg.photo && msg.photo.length > 0) {
-      const fileId = msg.photo[msg.photo.length - 1].file_id;
+      fileId = msg.photo[msg.photo.length - 1].file_id;
+    } else if (msg.document) {
+      const mime = msg.document.mime_type;
+      if (mime && mime.startsWith('image/')) {
+        fileId = msg.document.file_id;
+      } else {
+        await sendTg('sendMessage', { chat_id: chatId, text: "⚠️ Будь ласка, надішліть файл зображення." });
+        return;
+      }
+    }
+
+    if (fileId) {
       const fileRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/getFile?file_id=${fileId}`);
       if (!fileRes.ok) throw new Error(`Telegram getFile failed: ${fileRes.statusText}`);
       const filePath = (await fileRes.json()).result.file_path;
@@ -398,6 +412,18 @@ async function handleUpdate(update: any) {
       const imageRes = await fetch(`https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${filePath}`);
       if (!imageRes.ok) throw new Error(`Telegram image download failed: ${imageRes.statusText}`);
       const imageBuffer = await imageRes.arrayBuffer();
+      
+      try {
+        const exifData = await exifr.parse(imageBuffer);
+        if (exifData && exifData.DateTimeOriginal) {
+          photoDate = new Date(exifData.DateTimeOriginal);
+        }
+      } catch (e: any) {
+        console.log("No EXIF data found or parsing error:", e.message);
+      }
+      
+      targetDate = getDietaryDate(photoDate, offsetDays);
+
       const base64Image = base64Encode(new Uint8Array(imageBuffer));
 
       const caption = textToAnalyze ? `\nDescription: ${textToAnalyze}` : "";
@@ -423,7 +449,9 @@ async function handleUpdate(update: any) {
       tags: meal.tags || [],
       micronutrients: meal.micronutrients || {},
       amino_acids: meal.amino_acids || {},
-      dietary_date: targetDate
+      dietary_date: targetDate,
+      created_at: photoDate.toISOString(),
+      telegram_file_id: fileId
     }]);
 
     if (dbError) {

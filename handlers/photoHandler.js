@@ -2,12 +2,13 @@ const { SYSTEM_PROMPT } = require('../utils/prompt');
 const { getDietaryDate } = require('../utils/dateUtils');
 const { generateMealJSON } = require('../utils/gemini');
 const { MAIN_KEYBOARD } = require('../utils/keyboard');
+const exifr = require('exifr');
 
-async function getPhotoBase64(bot, fileId) {
+async function getPhotoBuffer(bot, fileId) {
     const fileLink = await bot.getFileLink(fileId);
     const response = await fetch(fileLink);
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer).toString('base64');
+    return Buffer.from(arrayBuffer);
 }
 
 module.exports = async (msg, bot, supabase, genAI, allowedUserId) => {
@@ -27,14 +28,38 @@ module.exports = async (msg, bot, supabase, genAI, allowedUserId) => {
         isYesterday = true;
     }
 
-    const targetDate = getDietaryDate(new Date(), offsetDays);
     const progressPrefix = isYesterday ? "⏳ Рахую калорії за прийом (за вчора)..." : "📸 Рахую калорії за прийом...";
     bot.sendMessage(chatId, progressPrefix);
 
     try {
-        const photo = msg.photo[msg.photo.length - 1];
-        const fileId = photo.file_id;
-        const base64Image = await getPhotoBase64(bot, fileId);
+        let fileId;
+        if (msg.photo && msg.photo.length > 0) {
+            fileId = msg.photo[msg.photo.length - 1].file_id;
+        } else if (msg.document) {
+            fileId = msg.document.file_id;
+            const mime = msg.document.mime_type;
+            if (!mime || !mime.startsWith('image/')) {
+                bot.sendMessage(chatId, "⚠️ Будь ласка, надішліть файл зображення.");
+                return;
+            }
+        } else {
+            return;
+        }
+
+        const imageBuffer = await getPhotoBuffer(bot, fileId);
+        const base64Image = imageBuffer.toString('base64');
+
+        let photoDate = new Date(msg.forward_date ? msg.forward_date * 1000 : msg.date * 1000);
+        try {
+            const exifData = await exifr.parse(imageBuffer);
+            if (exifData && exifData.DateTimeOriginal) {
+                photoDate = new Date(exifData.DateTimeOriginal);
+            }
+        } catch (e) {
+            console.log("No EXIF data found or parsing error:", e.message);
+        }
+
+        const targetDate = getDietaryDate(photoDate, offsetDays);
 
         const captionContext = rawCaption ? `\nAdditional user description: ${rawCaption}` : "";
 
@@ -56,6 +81,7 @@ module.exports = async (msg, bot, supabase, genAI, allowedUserId) => {
             micronutrients: mealData.micronutrients || {},
             amino_acids: mealData.amino_acids || {},
             dietary_date: targetDate,
+            created_at: photoDate.toISOString(),
             telegram_file_id: fileId
         }]);
 

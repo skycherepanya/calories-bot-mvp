@@ -19,5 +19,6 @@ console.log('🤖 Bot is running. Waiting for food (photo or text)...');
 
 // 2. Connect handlers and pass instances
 bot.on('photo', (msg) => photoHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID));
+bot.on('document', (msg) => photoHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID));
 bot.on('text', (msg) => textHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID));
 bot.on('callback_query', (query) => callbackHandler(query, bot, supabase));

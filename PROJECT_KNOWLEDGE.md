@@ -80,7 +80,7 @@ The project is implemented as a Dual Architecture with full logic synchronizatio
 * **Entry Point:** [index.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/index.js)
 * **Stack:** `node-telegram-bot-api` (polling: true), `@google/generative-ai`, `@supabase/supabase-js`, `dotenv`.
 * **Handlers (`handlers/`):**
-  - [handlers/photoHandler.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/handlers/photoHandler.js): receives photo (supports `/y` in caption), calls AI via `generateMealJSON`, saves result along with `tags`, `micronutrients`, and `amino_acids` to `meals` table, returns macro card with fiber, sodium, BCAA, and quality tags.
+  - [handlers/photoHandler.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/handlers/photoHandler.js): receives photo or uncompressed document (extracts EXIF date via `exifr` or falls back to message date, supports `/y` in caption), calls AI via `generateMealJSON`, saves result along with `tags`, `micronutrients`, and `amino_acids` to `meals` table (overriding `created_at` with exact meal time), returns macro card with fiber, sodium, BCAA, and quality tags.
   - [handlers/textHandler.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/handlers/textHandler.js): routes commands `/stats`, `/w` (to `weightHandler`), `/y` (record for yesterday), or analyzes food description via `generateMealJSON`.
   - [handlers/weightHandler.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/handlers/weightHandler.js): handles `/w <weight>` command, calculates delta from the last measurement, and saves to `body_measurements`.
   - [handlers/callbackHandler.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/handlers/callbackHandler.js): handles inline pagination buttons for stats (`stats_YYYY-MM-DD`).
@@ -96,7 +96,7 @@ The project is implemented as a Dual Architecture with full logic synchronizatio
 * **Path:** [supabase/functions/telegram-bot/index.ts](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/supabase/functions/telegram-bot/index.ts)
 * **Stack:** Deno runtime, `std/http/server.ts`, `std/encoding/base64.ts`, `@supabase/supabase-js`, `@google/generative-ai`.
 * **Features:**
-  - Full parity with Node.js logic: photo/text recognition, commands `/w`, `/y`, `/stats`, `/start`.
+  - Full parity with Node.js logic: photo/document recognition (with EXIF date extraction), commands `/w`, `/y`, `/stats`, `/start`.
   - Persistent keyboard `MAIN_KEYBOARD`.
   - Automatic weight recognizer on prompt reply or entering a number between 30 and 350.
   - "Record for yesterday" mode via `force_reply` button.
