@@ -2,7 +2,7 @@ const { SYSTEM_PROMPT } = require('../utils/prompt');
 const { getDietaryDate } = require('../utils/dateUtils');
 const { generateMealJSON } = require('../utils/gemini');
 const { MAIN_KEYBOARD } = require('../utils/keyboard');
-const exifr = require('exifr');
+const ExifReader = require('exifreader');
 
 async function getPhotoBuffer(bot, fileId) {
     const fileLink = await bot.getFileLink(fileId);
@@ -51,12 +51,17 @@ module.exports = async (msg, bot, supabase, genAI, allowedUserId) => {
 
         let photoDate = new Date(msg.forward_date ? msg.forward_date * 1000 : msg.date * 1000);
         try {
-            const exifData = await exifr.parse(imageBuffer);
-            if (exifData && exifData.DateTimeOriginal) {
-                photoDate = new Date(exifData.DateTimeOriginal);
+            const tags = ExifReader.load(imageBuffer);
+            const dateStr = tags['DateTimeOriginal']?.description || tags['Creation Date']?.description || tags['CreateDate']?.description;
+            if (dateStr) {
+                const isoStr = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+                const parsed = new Date(isoStr);
+                if (!isNaN(parsed.getTime())) {
+                    photoDate = parsed;
+                }
             }
         } catch (e) {
-            console.log("No EXIF data found or parsing error:", e.message);
+            console.log("ExifReader parsing error:", e.message);
         }
 
         const targetDate = getDietaryDate(photoDate, offsetDays);

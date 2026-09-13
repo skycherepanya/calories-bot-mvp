@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.1";
-import exifr from "https://esm.sh/exifr@7.1.3";
+import ExifReader from "npm:exifreader@4.23.1";
 
 const TELEGRAM_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!;
 const ALLOWED_USER_ID = parseInt(Deno.env.get('ALLOWED_USER_ID') || '0');
@@ -414,12 +414,18 @@ async function handleUpdate(update: any) {
       const imageBuffer = await imageRes.arrayBuffer();
       
       try {
-        const exifData = await exifr.parse(imageBuffer);
-        if (exifData && exifData.DateTimeOriginal) {
-          photoDate = new Date(exifData.DateTimeOriginal);
+        const tags = ExifReader.load(imageBuffer);
+        const dateStr = tags['DateTimeOriginal']?.description || tags['Creation Date']?.description || tags['CreateDate']?.description;
+        if (dateStr) {
+          // Convert "YYYY:MM:DD HH:MM:SS" to "YYYY-MM-DD HH:MM:SS" for proper parsing
+          const isoStr = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+          const parsed = new Date(isoStr);
+          if (!isNaN(parsed.getTime())) {
+            photoDate = parsed;
+          }
         }
       } catch (e: any) {
-        console.log("No EXIF data found or parsing error:", e.message);
+        console.log("ExifReader parsing error:", e.message);
       }
       
       targetDate = getDietaryDate(photoDate, offsetDays);
@@ -427,7 +433,8 @@ async function handleUpdate(update: any) {
       const base64Image = base64Encode(new Uint8Array(imageBuffer));
 
       const caption = textToAnalyze ? `\nDescription: ${textToAnalyze}` : "";
-      promptData = [SYSTEM_PROMPT + caption, { inlineData: { data: base64Image, mimeType: "image/jpeg" } }];
+      const actualMime = msg.document?.mime_type || "image/jpeg";
+      promptData = [SYSTEM_PROMPT + caption, { inlineData: { data: base64Image, mimeType: actualMime } }];
     } else if (textToAnalyze) {
       promptData = [SYSTEM_PROMPT, `Description: ${textToAnalyze}`];
     } else {
