@@ -131,7 +131,7 @@ serve(async (req: Request) => {
       ? Number(w.avg_pace_min_km)
       : (distanceKm && durationMin ? +(durationMin / distanceKm).toFixed(2) : null);
 
-    const { error } = await supabase.from('workouts').insert({
+    const workoutPayload = {
       user_id: userId,
       workout_type: w.type || w.workout_type || 'other',
       source: 'apple_health',
@@ -146,10 +146,27 @@ serve(async (req: Request) => {
       dietary_date: dietaryDate(startedAt),
       notes: w.notes || null,
       raw_data: w,
-    });
+    };
+
+    // Deduplicate: check if workout at this exact start time already exists
+    const { data: existingWorkout } = await supabase
+      .from('workouts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('started_at', startedAt)
+      .maybeSingle();
+
+    let error: any;
+    if (existingWorkout) {
+      const res = await supabase.from('workouts').update(workoutPayload).eq('id', existingWorkout.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('workouts').insert(workoutPayload);
+      error = res.error;
+    }
 
     if (error) {
-      console.error('[ingest-health] workout insert error:', error);
+      console.error('[ingest-health] workout upsert error:', error);
       errors.workout = error.message;
     } else {
       inserted.workout = true;

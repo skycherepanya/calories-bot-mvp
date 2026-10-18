@@ -145,7 +145,7 @@ Dual Architecture — all logic changes must be applied to **both** implementati
   - **Native Swift AppIntent:** [`ios/Lifecore/`](./ios/Lifecore/) (`HealthKitManager.swift`, `LifecoreSyncIntent.swift`) — recommended, type-safe, <5ms execution.
   - **iOS Shortcuts:** [`shortcuts/ingest_health_shortcut.md`](./shortcuts/ingest_health_shortcut.md) — visual shortcut fallback.
 - Auth: `INGEST_SECRET` from Supabase Secrets (not JWT)
-- Writes to `daily_metrics` (steps, active kcal, NEAT), `sleep_logs`, and `workouts`
+- Writes to `daily_metrics` (steps, active kcal, NEAT), `sleep_logs`, and `workouts` (deduplicated by `(user_id, started_at)`)
 
 ---
 

@@ -4,6 +4,19 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Workout Deduplication in Ingest-Health & Database Cleanup
+
+### 🔄 Ingestion & Data Integrity:
+- **Workout Deduplication in `ingest-health`:** Added lookup for existing workouts by `(user_id, started_at)`. If a workout session has already been recorded for the same start time, it updates the record instead of creating a duplicate row.
+- **Database Cleanup:** Removed legacy curl mock test workout (`id: 411`, 5 km / 380 kcal) from the `workouts` table, leaving strictly the genuine 10.02 km run (`id: 412`, 695 kcal).
+- **Coach Output Accuracy Restored:** Eliminated double-counting in `/coach` recommendations where total run volume was artificially inflated to 15.02 km / 1075 kcal and NEAT was depressed to 0 kcal.
+- **Deployment:** Redeployed `ingest-health` to Supabase production.
+
+### Affected Files
+`supabase/functions/ingest-health/index.ts`, `CHANGELOG.md`, `PROJECT_KNOWLEDGE.md`
+
+---
+
 ## [2026-10-18] - NEAT Activity Isolation & Double-Counting Prevention in Coach
 
 ### 🧠 Domain Math & AI Coach Engineering:
