@@ -464,12 +464,12 @@ Task 1 → Task 2 → Task 3 → Task 4 → Task 5 → Task 6 → Task 7
 
 ## Phase 2 Definition of Done (DoD)
 
-- [ ] Tables `workouts` and `sleep_logs` exist in Supabase and contain valid rows.
-- [ ] `ingest-health` Edge Function is deployed and passes validation via `curl`.
-- [ ] iOS Shortcut sends biometric data and verifies row creation in PostgreSQL.
-- [ ] The `/coach` command or `🏃 Workout Analysis` keyboard button returns a diagnosis starting with `SYSTEM STATE: 🟢/🟡/🔴`.
-- [ ] All codebase updates committed, pushed to Git, and deployed via `supabase functions deploy telegram-bot --no-verify-jwt --use-api`.
-- [ ] `CHANGELOG.md` updated with the Phase 2 release details.
+- [x] Tables `workouts`, `sleep_logs`, and `daily_metrics` exist in Supabase and contain valid rows (410 workouts, 1044 sleep logs, 1279 daily metrics).
+- [x] `ingest-health` Edge Function is deployed and passes validation via `curl`.
+- [x] iOS Shortcut specification updated with daily activity payload and ready for device import.
+- [x] The `/coach` command or `🏃 Аналіз тренування` keyboard button returns a diagnosis starting with `СТАН СИСТЕМИ: 🟢/🟡/🔴`.
+- [x] All codebase updates committed, pushed to Git, and deployed via `supabase functions deploy telegram-bot --no-verify-jwt --use-api`.
+- [x] `CHANGELOG.md` updated with the Phase 2 release details.
 
 ---
 

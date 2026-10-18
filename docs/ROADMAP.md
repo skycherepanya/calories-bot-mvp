@@ -29,43 +29,44 @@ Development roadmap transitioning from MVP (`calories-bot-mvp`) to the full **Li
 - [x] Apply migration `002_workouts.sql` in Supabase.
 - [x] Apply migration `003_sleep_logs.sql` in Supabase.
 - [x] Apply migration `004_fix_sleep_logs_nullable.sql` in Supabase.
+- [x] Apply migration `005_daily_metrics_enhancements.sql` in Supabase.
 
 ### 2.2. Historical Data Archive Ingestion
 - [x] Run `Lifecore/scripts/deep_health_analysis.py` → generate `daily_health_summary.json`.
-- [x] Run `Lifecore/scripts/sync_to_supabase.py` → bulk-upload Apple Health & Strava history to Supabase (410 workouts, 1044 sleep logs, with deduplication).
+- [x] Run `Lifecore/scripts/sync_to_supabase.py` → bulk-upload Apple Health & Strava history to Supabase (410 workouts, 1044 sleep logs, 1279 daily metrics, with deduplication).
 
 ### 2.3. Edge Function `ingest-health`
-- [ ] Create `supabase/functions/ingest-health/index.ts`.
-- [ ] Handle incoming JSON: `{ secret, user_id, sleep, workout }`.
-- [ ] Validate `INGEST_SECRET` against Supabase Secrets.
-- [ ] Upsert into `sleep_logs` and/or insert into `workouts`.
-- [ ] Deploy function: `supabase functions deploy ingest-health --no-verify-jwt --use-api`.
-- [ ] Set secret: `supabase secrets set INGEST_SECRET=...`.
+- [x] Create `supabase/functions/ingest-health/index.ts`.
+- [x] Handle incoming JSON: `{ secret, user_id, daily_activity, sleep, workout }`.
+- [x] Validate `INGEST_SECRET` against Supabase Secrets.
+- [x] Upsert into `daily_metrics`, `sleep_logs`, and insert into `workouts`.
+- [x] Deploy function: `supabase functions deploy ingest-health --no-verify-jwt --use-api`.
+- [x] Set secret: `supabase secrets set INGEST_SECRET=...`.
 
 ### 2.4. iOS Shortcut `Lifecore Morning Sync`
+- [x] Specification reference: [`shortcuts/ingest_health_shortcut.md`](../shortcuts/ingest_health_shortcut.md) (ready for device import).
 - [ ] Read HealthKit data: HRV (SDNN), RHR, sleep stages.
-- [ ] Read latest workout: activity type, duration, avg HR, active kcal, distance.
+- [ ] Read daily activity: steps, active kcal, walking distance.
 - [ ] Send POST request to `ingest-health` Edge Function.
-- [ ] Trigger push notification confirming sync status.
 - [ ] Setup iOS automation: daily at 09:00 AM or upon workout completion.
-- [ ] Specification reference: [`shortcuts/ingest_health_shortcut.md`](../shortcuts/ingest_health_shortcut.md).
 
 ### 2.5. Coach Prompt (`utils/coachPrompt.js`)
-- [ ] Implement `buildCoachContext(userId)` — queries 3-day history of workouts, sleep, and nutrition.
-- [ ] Implement `buildCoachPrompt(context)` — builds structured prompt for Gemini.
-- [ ] Response format: `SYSTEM STATE: 🟢/🟡/🔴` with up to 4 causal insights.
-- [ ] Guardrails: if HRV < baseline by >15% or RHR > baseline by >3 bpm → mandate recovery recommendation.
+- [x] Implement `buildCoachContext(userId)` — queries 3-day history of workouts, sleep, nutrition, and daily NEAT activity.
+- [x] Implement `buildCoachPrompt(context)` — builds structured prompt for Gemini with 4-part causal insights.
+- [x] Response format: `SYSTEM STATE: 🟢/🟡/🔴` with up to 4 causal insights.
+- [x] Guardrails: if HRV < baseline by >15% or RHR > baseline by >3 bpm → mandate recovery recommendation.
 
 ### 2.6. Coach Handler (`handlers/coachHandler.js`)
-- [ ] Command `/coach` → triggers `buildCoachContext` + Gemini analysis + Telegram response.
+- [x] Command `/coach` → triggers `buildCoachContext` + Gemini analysis + Telegram response.
+- [x] Multi-model fallback cascade with 25s timeout race (`gemini-2.5-flash`, `gemini-3.8-flash`, `gemini-3.6-flash`).
 - [ ] Command `/workout <type> <minutes> [km, avg_hr]` — manual workout logging fallback.
 - [ ] Command `/sleep <hours>` — manual sleep logging fallback (without Apple Watch).
-- [ ] Mirror logic into Supabase Edge Function `telegram-bot/index.ts`.
+- [x] Mirror logic into Supabase Edge Function `telegram-bot/index.ts`.
 
 ### 2.7. Update MAIN_KEYBOARD
-- [ ] Add `🏃 Workout Analysis` button → `/coach`.
+- [x] Add `🏃 Аналіз тренування` button → `/coach`.
 - [ ] Add `📋 Weekly Report` button → weekly summary digest.
-- [ ] Synchronize in both implementations: `utils/keyboard.js` + Edge Function.
+- [x] Synchronize in both implementations: `utils/keyboard.js` + Edge Function.
 
 ---
 

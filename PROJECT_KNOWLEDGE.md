@@ -126,15 +126,15 @@ Dual Architecture — all logic changes must be applied to **both** implementati
 
 **Features (full parity with Node.js):**
 - Photo/document recognition with EXIF date extraction
-- Commands: `/w`, `/y`, `/stats`, `/start`, `/coach` 🔜
-- Persistent `MAIN_KEYBOARD`
+- Commands: `/w`, `/y`, `/stats`, `/start`, `/coach` ✅
+- Persistent `MAIN_KEYBOARD` (including `🏃 Аналіз тренування` button)
 - Automatic weight recognizer (30–350 number range)
 - "Yesterday mode" via force_reply
-- Gemini fallback chain (`gemini-3.8-flash` → `gemini-2.5-flash` → `gemini-3.6-flash`)
+- Gemini fallback chain (`gemini-2.5-flash` / `gemini-3.8-flash` / `gemini-3.6-flash` with timeout race)
 - Fault-tolerant `sendTg` with Markdown fallback to plain text
 - `await handleUpdate(update)` before HTTP 200 OK (prevents Deno isolate freeze)
 
-**`ingest-health` Edge Function** 🔜 — new function for iOS Shortcuts:
+**`ingest-health` Edge Function** ✅ *(Deployed)* — webhook for iOS Shortcuts:
 - Path: `supabase/functions/ingest-health/index.ts`
 - Auth: `INGEST_SECRET` from Supabase Secrets (not JWT)
 - Writes to `daily_metrics` (steps, active kcal, NEAT), `sleep_logs`, and `workouts`

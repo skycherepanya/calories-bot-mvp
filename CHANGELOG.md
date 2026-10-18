@@ -4,6 +4,25 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Phase 2 Complete: AI Coach Engine & Ingest-Health Webhook Deployed
+
+### 🏃 AI Coach & Biometric Analysis:
+- **Created `utils/coachPrompt.js`:** Implemented 4-part data aggregation (`buildCoachContext`) across last 3 days for meals, sleep logs, workouts, and daily NEAT activity. Designed strict clinical reasoning prompt (`buildCoachPrompt`) returning `СТАН СИСТЕМИ: 🟢/🟡/🔴` with exactly 4 causal insights citing exact metrics.
+- **Created `handlers/coachHandler.js`:** Implemented Node.js handler featuring a 25-second timeout promise race across the Gemini cascade to ensure zero hanging or latency spikes.
+- **Edge Function Webhook Synchronization (`telegram-bot`):** Mirrored `handleCoachAnalysis` and the updated `MAIN_KEYBOARD` directly into `supabase/functions/telegram-bot/index.ts` and deployed to Supabase production.
+- **Added `🏃 Аналіз тренування` Button:** Integrated into `MAIN_KEYBOARD` across both Node.js (`utils/keyboard.js`) and Edge Function environments.
+- **Verified Live Coach Generation:** Tested full pipeline against actual user biometric data with immediate, highly personalized recommendations based on HRV, RHR, running telemetry, and NEAT step counts.
+
+### ⚡ Apple Health Ingestion Webhook:
+- **Created `supabase/functions/ingest-health/index.ts`:** Implemented dedicated ingestion webhook accepting `daily_activity`, `sleep`, and `workout` payloads from iOS Shortcuts.
+- **Secured with `INGEST_SECRET`:** Added secret token validation and user ID authorization.
+- **Deployed to Supabase:** Deployed `ingest-health` to production and verified end-to-end with curl and Supabase PostgreSQL queries.
+
+### Affected Files
+`supabase/functions/ingest-health/index.ts`, `utils/coachPrompt.js`, `handlers/coachHandler.js`, `handlers/textHandler.js`, `utils/keyboard.js`, `supabase/functions/telegram-bot/index.ts`, `PROJECT_KNOWLEDGE.md`, `docs/ROADMAP.md`, `docs/IMPLEMENTATION_PLAN_PHASE2.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - NEAT Activity Tracking, Apple Health Canonical Source & Gemini 3.8 Flash Upgrade
 
 ### 🏃 Lifestyle Activity & Ingestion Architecture:

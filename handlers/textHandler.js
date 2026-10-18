@@ -3,6 +3,7 @@ const { getDietaryDate, getStatsMessage } = require('../utils/dateUtils');
 const { generateMealJSON } = require('../utils/gemini');
 const { MAIN_KEYBOARD } = require('../utils/keyboard');
 const weightHandler = require('./weightHandler');
+const coachHandler = require('./coachHandler');
 
 module.exports = async (msg, bot, supabase, genAI, allowedUserId) => {
     const chatId = msg.chat.id;
@@ -16,8 +17,14 @@ module.exports = async (msg, bot, supabase, genAI, allowedUserId) => {
             "📸 **Їжа:** надішліть фото або опис страви текстом.\n" +
             "⚖️ **Вага:** кнопка «Записати вагу» або просто введіть число (наприклад `76.2`).\n" +
             "📅 **Вчора:** кнопка «Запис за вчора» для внесення страв за минулий день.\n" +
-            "📊 **Статистика:** перегляд денного звіту та порад нутриціолога.";
+            "📊 **Статистика:** перегляд денного звіту та порад нутриціолога.\n" +
+            "🏃 **Тренер:** кнопка «Аналіз тренування» або команда /coach для оцінки відновлення та готовності.";
         return bot.sendMessage(chatId, welcome, { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
+    }
+
+    // 0.1 /coach command or "🏃 Аналіз тренування" button
+    if (text === '/coach' || text === '🏃 Аналіз тренування') {
+        return coachHandler(msg, bot, supabase, genAI, allowedUserId);
     }
 
     // 1. /stats command or "📊 Статистика" button
