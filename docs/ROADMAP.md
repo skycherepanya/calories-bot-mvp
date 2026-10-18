@@ -43,12 +43,13 @@ Development roadmap transitioning from MVP (`calories-bot-mvp`) to the full **Li
 - [x] Deploy function: `supabase functions deploy ingest-health --no-verify-jwt --use-api`.
 - [x] Set secret: `supabase secrets set INGEST_SECRET=...`.
 
-### 2.4. iOS Shortcut `Lifecore Morning Sync`
-- [x] Specification reference: [`shortcuts/ingest_health_shortcut.md`](../shortcuts/ingest_health_shortcut.md) (ready for device import).
-- [ ] Read HealthKit data: HRV (SDNN), RHR, sleep stages.
-- [ ] Read daily activity: steps, active kcal, walking distance.
-- [ ] Send POST request to `ingest-health` Edge Function.
-- [ ] Setup iOS automation: daily at 09:00 AM or upon workout completion.
+### 2.4. iOS Telemetry Ingestion (Swift AppIntent & Shortcuts)
+- [x] Specification reference: [`shortcuts/ingest_health_shortcut.md`](../shortcuts/ingest_health_shortcut.md).
+- [x] Native Swift AppIntent implementation: [`ios/Lifecore/`](../ios/Lifecore/) (`HealthKitManager`, `HealthPayload`, `LifecoreSyncIntent`).
+- [x] Read HealthKit data via Swift: HRV (SDNN), RHR, sleep stages (Core, Deep, REM) via `HKStatisticsQuery` & `HKSampleQuery`.
+- [x] Read daily activity: steps, active kcal, walking distance.
+- [x] Send POST request to `ingest-health` Edge Function via `URLSession`.
+- [ ] Connect `LifecoreSyncIntent` in Xcode project and link to single-action iOS Automation (09:00 AM & Workout Ends).
 
 ### 2.5. Coach Prompt (`utils/coachPrompt.js`)
 - [x] Implement `buildCoachContext(userId)` — queries 3-day history of workouts, sleep, nutrition, and daily NEAT activity.

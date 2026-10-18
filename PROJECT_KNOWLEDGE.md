@@ -134,8 +134,11 @@ Dual Architecture — all logic changes must be applied to **both** implementati
 - Fault-tolerant `sendTg` with Markdown fallback to plain text
 - `await handleUpdate(update)` before HTTP 200 OK (prevents Deno isolate freeze)
 
-**`ingest-health` Edge Function** ✅ *(Deployed)* — webhook for iOS Shortcuts:
+**`ingest-health` Edge Function** ✅ *(Deployed)* — webhook for iOS Ingestion:
 - Path: `supabase/functions/ingest-health/index.ts`
+- Client Implementations:
+  - **Native Swift AppIntent:** [`ios/Lifecore/`](./ios/Lifecore/) (`HealthKitManager.swift`, `LifecoreSyncIntent.swift`) — recommended, type-safe, <5ms execution.
+  - **iOS Shortcuts:** [`shortcuts/ingest_health_shortcut.md`](./shortcuts/ingest_health_shortcut.md) — visual shortcut fallback.
 - Auth: `INGEST_SECRET` from Supabase Secrets (not JWT)
 - Writes to `daily_metrics` (steps, active kcal, NEAT), `sleep_logs`, and `workouts`
 

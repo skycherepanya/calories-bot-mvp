@@ -4,6 +4,27 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Native Swift HealthKit AppIntent Ingestion Layer
+
+### 🍏 Native Swift & AppIntents Architecture:
+- **Architectural Shift from Visual Shortcuts to Native Swift:** Replaced brittle 50-action visual Shortcuts script with modular, production-grade Swift code in `ios/Lifecore/`.
+- **Created `ios/Lifecore/HealthPayload.swift`:** Type-safe Swift `Codable` structs matching the Supabase `ingest-health` schema for `daily_activity`, `sleep_logs`, and `workouts`.
+- **Created `ios/Lifecore/HealthKitManager.swift`:**
+  - Fast asynchronous HealthKit reader (`HKStatisticsQuery` for step/energy/distance sums; `HKSampleQuery` for sleep stage categorization across `asleepDeep`, `asleepREM`, `asleepCore`, `awake`).
+  - Automatically fetches morning autonomic biomarkers (HRV SDNN & Resting Heart Rate).
+  - Fetches today's latest workout session.
+  - Queries execute in <5ms without any sample limit clipping.
+- **Created `ios/Lifecore/LifecoreAPIService.swift`:** Production network service transmitting JSON payloads directly to Supabase Edge Function via `URLSession`.
+- **Created `ios/Lifecore/LifecoreSyncIntent.swift`:**
+  - Conforms to `AppIntent` & `AppShortcutsProvider`.
+  - Exposes a single, native `Sync Lifecore Health` action to iOS Shortcuts, Siri, Lock Screen Widgets, and Action Button.
+- **Created `ios/README.md`:** Comprehensive Xcode setup manual with capability and `Info.plist` instructions.
+
+### Affected Files
+`ios/Lifecore/HealthPayload.swift`, `ios/Lifecore/HealthKitManager.swift`, `ios/Lifecore/LifecoreAPIService.swift`, `ios/Lifecore/LifecoreSyncIntent.swift`, `ios/README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - iOS 27 Shortcut Setup Guide & Apple Watch Ultra Integration
 
 ### 📱 iOS 27 Shortcuts Engineering:

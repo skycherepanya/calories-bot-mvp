@@ -19,8 +19,9 @@ Commercial health trackers (Cronometer, MyFitnessPal) suffer from severe **vendo
 flowchart TD
     subgraph Ingestion ["1️⃣ Ingestion Layer — Data Intake"]
         TG["📱 Telegram Bot\n(Photo / Text / Commands)"]
-        Shortcuts["🍎 iOS Shortcuts\n(HealthKit: Sleep, HRV, RHR, Workouts)"]
-        BLE["⚖️ Bluetooth Smart Scale\n(CoreBluetooth — future)"]
+        NativeApp["🍏 Native iOS / AppIntents (Swift)\n(HealthKit: Sleep, HRV, RHR, Steps, Workouts)"]
+        Shortcuts["🍎 iOS Shortcuts Automation\n(Calls LifecoreSyncIntent in 1 action)"]
+        BLE["⚖️ Bluetooth Smart Scale\n(CoreBluetooth)"]
         Strava["🏃 Strava / Apple Health Archive\n(CSV / XML — one-time bulk import)"]
     end
 
