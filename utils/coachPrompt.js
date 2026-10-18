@@ -51,6 +51,27 @@ async function buildCoachContext(supabase, userId) {
     (meal.tags || []).forEach(t => mealsByDay[d].tags.add(t));
   }
 
+  // Map workout calories by date to isolate pure NEAT
+  const workoutKcalByDay = {};
+  for (const w of (workoutsRes.data || [])) {
+    const d = w.dietary_date;
+    workoutKcalByDay[d] = (workoutKcalByDay[d] || 0) + (Number(w.active_kcal) || 0);
+  }
+
+  const enrichedActivity = (activityRes.data || []).map(a => {
+    const totalActiveKcal = Number(a.active_kcal) || 0;
+    const wKcal = workoutKcalByDay[a.metric_date] || 0;
+    const neatKcal = Math.max(0, Math.round(totalActiveKcal - wKcal));
+    return {
+      date: a.metric_date,
+      total_steps: a.steps,
+      total_active_kcal: Math.round(totalActiveKcal),
+      workout_kcal: Math.round(wKcal),
+      neat_kcal: neatKcal,
+      distance_km: a.distance_km,
+    };
+  });
+
   return {
     nutrition: Object.entries(mealsByDay).map(([date, v]) => ({
       date,
@@ -62,7 +83,7 @@ async function buildCoachContext(supabase, userId) {
     })),
     sleep: sleepRes.data || [],
     workouts: workoutsRes.data || [],
-    daily_activity: activityRes.data || [],
+    daily_activity: enrichedActivity,
   };
 }
 
@@ -93,24 +114,29 @@ ${JSON.stringify(context.sleep, null, 2)}
 3. ТРЕНУВАННЯ (біг, силове навантаження, пульсові зони, спалені ккал):
 ${JSON.stringify(context.workouts, null, 2)}
 
-4. ПОБУТОВА АКТИВНІСТЬ ТА НЕ-ТРЕНУВАЛЬНІ ЕНЕРГОВИТРАТИ (NEAT - кроки, щоденні активні ккал):
+4. ЗАГАЛЬНА ЩОДЕННА АКТИВНІСТЬ (Apple Watch):
 ${JSON.stringify(context.daily_activity, null, 2)}
+⚠️ ВАЖЛИВЕ ПРАВИЛО ЩОДО ЕНЕРГОВИТРАТ (УНИКАТИ ДУБЛЮВАННЯ):
+- \`total_active_kcal\` та \`total_steps\` — це СУМАРНІ показники за добу з Apple Watch. Вони ВЖЕ ВКЛЮЧАЮТЬ у себе калорії та кроки з тренувань!
+- НЕ додавай калорії тренувань (\`workout_kcal\`) до \`total_active_kcal\` ще раз — це буде подвійний підрахунок!
+- Чистий побутовий рух поза тренуваннями розраховано в полі \`neat_kcal\` (= total_active_kcal - workout_kcal).
 
 ПРАВИЛА ТА СТРУКТУРА ВІДПОВІДІ:
 1. ПЕРШИЙ РЯДОК ОБОВ'ЯЗКОВО:
    "СТАН СИСТЕМИ: 🟢" або "СТАН СИСТЕМИ: 🟡" або "СТАН СИСТЕМИ: 🔴"
-   - 🟢 = HRV у межах норми (>60-70 мс або стабільний), RHR спокійний (<52 bpm), сон > 7 годин, відновлення повне.
+   - 🟢 = HRV у межах норми (>60-70 мс або стабільний), RHR спокійний (<52-58 bpm), сон > 7 годин, відновлення повне.
    - 🟡 = помірне навантаження / недосип (сон 6-7 годин, або висока побутова активність >12k кроків, або легке зниження HRV).
    - 🔴 = перевтома / симпатичний стрес (HRV впав >15% від попередніх днів, або RHR зріс на >3 bpm, або сон <5.5 годин, або високе навантаження при сильному дефіциті калорій).
 
 2. Дай РІВНО 4 чіткі інсайти у форматі:
    • **[Короткий заголовок]** → [Фізіологічна причина зі згадкою точних цифр з контексту] → [Конкретна дія на сьогодні/завтра]
 
-3. Обов'язково враховуй побутову активність (NEAT): якщо тренувань не було, але кроків багато (наприклад, 8k-15k), це суттєво впливає на загальний дефіцит калорій та глікоген ніг!
+3. Обов'язково оцінюй співвідношення тренувального навантаження та чистого побутового руху (NEAT).
 
 4. Якщо статус 🔴 — перший інсайт ЗАВЖДИ має починатися з: "• **⛔ СТОП / ВІДНОВЛЕННЯ:** ..." з поясненням, чому сьогодні не можна робити інтенсивне тренування.
 
 5. Відповідай українською мовою. Тон — спортивний лікар/аналітик: лаконічно, строго, без "води" та мотиваційних гасел.`;
 }
+
 
 module.exports = { buildCoachContext, buildCoachPrompt };

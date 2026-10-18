@@ -81,6 +81,11 @@ Physical activity is not limited to structured workouts:
 - **Coach Intelligence:** If the Coach only evaluates formal workouts, it risks misinterpreting a high-NEAT day as a sedentary day, falsely projecting a smaller caloric deficit and misdiagnosing recovery fatigue.
 - **Source of Truth:** **Apple Health / Apple Fitness is the Canonical Primary Source of Truth** for all activity and workouts because Apple Watch passively and automatically logs every heartbeat, step, and exercise session directly to HealthKit. Strava is strictly a secondary export/social channel.
 - **Storage:** Daily total steps, active energy burned, and distance are stored in `daily_metrics`.
+- **Double-Counting Prevention Rule:** 
+  - `daily_metrics.active_kcal` and `daily_metrics.steps` are **aggregate whole-day metrics** reported by Apple Health, meaning they **already incorporate** formal workout calories and steps.
+  - Pure NEAT (lifestyle movement) is mathematically isolated:  
+    $\text{NEAT}_{\text{kcal}} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_active\_kcal})$.
+  - AI Coach prompt explicitly enforces: never add `workout.active_kcal` to `daily_metrics.active_kcal`, avoiding a ~500–1000 kcal artificial deficit calculation error.
 
 ---
 

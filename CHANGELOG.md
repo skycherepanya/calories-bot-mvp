@@ -4,6 +4,22 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - NEAT Activity Isolation & Double-Counting Prevention in Coach
+
+### 🧠 Domain Math & AI Coach Engineering:
+- **Mathematical Isolation of Pure NEAT:** Implemented explicit separation of structured workouts from total daily activity:
+  - Total Daily Active Calories (`daily_metrics.active_kcal`) is recognized as inclusive of workouts.
+  - Pure NEAT energy is calculated as: `neat_kcal = Math.max(0, total_active_kcal - workout_kcal)`.
+- **Synchronized Coach Prompt:** Updated both Node.js (`utils/coachPrompt.js`) and Supabase Edge Function (`supabase/functions/telegram-bot/index.ts`):
+  - Injected enriched daily activity objects with explicit `total_steps`, `total_active_kcal`, `workout_kcal`, and `neat_kcal`.
+  - Added strict guardrail instructing Gemini to never re-add workout calories to total active calories, eliminating a ~700 kcal artificial deficit inflation.
+- **Redeployed Edge Function:** Redeployed `telegram-bot` to Supabase production.
+
+### Affected Files
+`utils/coachPrompt.js`, `supabase/functions/telegram-bot/index.ts`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Native Swift HealthKit AppIntent Ingestion Layer
 
 ### 🍏 Native Swift & AppIntents Architecture:
