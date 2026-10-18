@@ -29,3 +29,12 @@ env/
 
 # ── Supabase ────────────────────────────────────────────────
 .supabase/
+
+# ── Xcode ───────────────────────────────────────────────────
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+build/
+*.hmap
+*.ipa
