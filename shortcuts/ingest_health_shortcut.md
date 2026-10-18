@@ -18,25 +18,74 @@
 
 ---
 
-## 2. English Prompt for iOS 27 AI Generator (Apple Intelligence)
+## 2. English Prompt for iOS 27 AI Generator (Ultra-Detailed & Bug-Free)
 
-В iOS 27 у додатку **Shortcuts** при натисканні на **`+`** введи цей промпт англійською мовою в поле генератора:
+> ⚠️ **Чому виникала помилка з «5500 результатів» та незрозумілими змінними:**
+> 1. **5500 результатів:** Екшен `Find Health Samples` (для кроків або сну) створився **без фільтра дати** або з фільтром «All», і Apple Health підтягнув усю історію за всі роки! А потім цикл намагався 5500 разів її обробити. У новому промпті додано жорсткі обмеження (`Limit: 60` для сну та `Limit: 300` для кроків), тому шорткат фізично більше ніколи не зчитає 5500 семплів!
+> 2. **Каша зі змінними:** Apple Intelligence за замовчуванням ліпить «Magic Variables» (автозв'язки між діями), замість того щоб створювати блоки `Set Variable`. Нижче наведено промпт із явною імперативною директивою `Add action "Set Variable" with Variable Name ...` для кожного кроку.
+
+В iOS 27 у додатку **Shortcuts** натисни **`+`** і встав цей ультра-деталізований промпт:
 
 ```text
-Create a shortcut named "Lifecore Sync":
-1. Find the 1 most recent sample of Heart Rate Variability (SDNN), get its Value, round to 1 decimal, and set variable hrv_val.
-2. Find the 1 most recent sample of Resting Heart Rate, get its Value, round to 1 decimal, and set variable rhr_val.
-3. Find Step Count samples where Start Date is Today, calculate Sum, round to 0 decimals, and set variable steps_val.
-4. Find Active Energy Burned samples where Start Date is Today, calculate Sum, round to 0 decimals, and set variable active_kcal_val.
-5. Find Walking + Running Distance samples where Start Date is Today, calculate Sum, round to 1 decimal, and set variable dist_val.
-6. Format Current Date as "yyyy-MM-dd" and set variable today_date. Adjust Current Date by subtracting 1 day, format as "yyyy-MM-dd", and set variable sleep_date.
-7. Find Sleep Analysis samples where Start Date is in the last 1 day. Repeat with each: if Value contains Deep, add Duration to DeepDurations; otherwise if Value contains REM, add Duration to REMDurations; otherwise if Value contains Core, add Duration to CoreDurations.
-8. Calculate Sum of DeepDurations / 3600 rounded to 2 decimals as deep_hours. Calculate Sum of REMDurations / 3600 rounded to 2 decimals as rem_hours. Calculate Sum of CoreDurations / 3600 rounded to 2 decimals as core_hours. Calculate total_hours as deep_hours + rem_hours + core_hours.
-9. Find Workouts where Start Date is Today, latest first, limit 1. If found, extract duration in minutes, avg heart rate, max heart rate, active calories, and distance.
-10. Build a JSON text payload with secret "3c021bc09943639b6e1abd58f90a6434208093169e70875f", user_id 472025574, daily_activity object, sleep object, and optional workout object.
-11. Send HTTP POST request to "https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health" with Content-Type application/json and the JSON text as body.
-12. If response contains '"ok":true', show notification "Lifecore synced successfully", otherwise show notification "Lifecore sync failed".
+Create a shortcut named "Lifecore Sync". Follow these exact steps with explicit "Set Variable" actions and strict sample limits:
+
+1. Dates:
+- Add action "Current Date". Add action "Format Date" with Custom Format "yyyy-MM-dd". Add action "Set Variable" with Variable Name "today_date".
+- Add action "Current Date". Add action "Adjust Date" to Subtract 1 day. Add action "Format Date" with Custom Format "yyyy-MM-dd". Add action "Set Variable" with Variable Name "sleep_date".
+
+2. Autonomic Recovery Biomarkers:
+- Add action "Find Health Samples": Type: "Heart Rate Variability", Sort by: "Start Date", Order: "Latest First", Limit: 1. Add action "Get Details of Health Sample": Detail: "Value". Add action "Round Number" to 1 decimal place. Add action "Set Variable" with Variable Name "hrv_val".
+- Add action "Find Health Samples": Type: "Resting Heart Rate", Sort by: "Start Date", Order: "Latest First", Limit: 1. Add action "Get Details of Health Sample": Detail: "Value". Add action "Round Number" to 1 decimal place. Add action "Set Variable" with Variable Name "rhr_val".
+
+3. Daily Activity & NEAT:
+- Add action "Find Health Samples": Type: "Step Count", Filter: "Start Date is Today", Limit: 300. Add action "Calculate Statistics": Operation: "Sum". Add action "Round Number" to 0 decimal places. Add action "Set Variable" with Variable Name "steps_val".
+- Add action "Find Health Samples": Type: "Active Energy", Filter: "Start Date is Today", Limit: 300. Add action "Calculate Statistics": Operation: "Sum". Add action "Round Number" to 0 decimal places. Add action "Set Variable" with Variable Name "active_kcal_val".
+- Add action "Find Health Samples": Type: "Walking + Running Distance", Filter: "Start Date is Today", Limit: 300. Add action "Calculate Statistics": Operation: "Sum". Add action "Round Number" to 1 decimal place. Add action "Set Variable" with Variable Name "dist_val".
+
+4. Sleep Stages (Apple Watch Ultra):
+- Add action "Find Health Samples": Type: "Sleep Analysis", Filter: "Start Date is in the last 1 days", Sort by: "Start Date", Order: "Latest First", Limit: 60.
+- Add action "Repeat with Each" for the found sleep samples:
+  - Add action "Get Details of Health Sample": Detail: "Value" from Repeat Item.
+  - Add action "Get Details of Health Sample": Detail: "Duration" from Repeat Item.
+  - Add action "If" Value contains "Deep": Add action "Add to Variable" Duration to variable "DeepDurations".
+  - Add action "Otherwise If" Value contains "REM": Add action "Add to Variable" Duration to variable "REMDurations".
+  - Add action "Otherwise If" Value contains "Core": Add action "Add to Variable" Duration to variable "CoreDurations".
+  - Add action "End If".
+- Add action "End Repeat".
+- After Repeat:
+  - Add action "Calculate Statistics": Sum of "DeepDurations". Add action "Calculate": divide by 3600. Add action "Round Number" to 2 decimal places. Add action "Set Variable" with Variable Name "deep_hours".
+  - Add action "Calculate Statistics": Sum of "REMDurations". Add action "Calculate": divide by 3600. Add action "Round Number" to 2 decimal places. Add action "Set Variable" with Variable Name "rem_hours".
+  - Add action "Calculate Statistics": Sum of "CoreDurations". Add action "Calculate": divide by 3600. Add action "Round Number" to 2 decimal places. Add action "Set Variable" with Variable Name "core_hours".
+  - Add action "Calculate": "deep_hours" + "rem_hours" + "core_hours". Add action "Round Number" to 2 decimal places. Add action "Set Variable" with Variable Name "total_hours".
+
+5. Workouts:
+- Add action "Find Workouts": Filter: "Start Date is Today", Sort by: "Start Date", Order: "Latest First", Limit: 1.
+- Add action "If" Workouts has any value:
+  - Add action "Get Details of Workout": Duration in minutes. Add action "Set Variable" with Variable Name "w_dur".
+  - Add action "Get Details of Workout": Average Heart Rate. Add action "Set Variable" with Variable Name "w_hr".
+  - Add action "Get Details of Workout": Maximum Heart Rate. Add action "Set Variable" with Variable Name "w_max_hr".
+  - Add action "Get Details of Workout": Active Energy Burned. Add action "Set Variable" with Variable Name "w_kcal".
+  - Add action "Get Details of Workout": Distance. Add action "Set Variable" with Variable Name "w_dist".
+  - Add action "Get Details of Workout": Workout Type. Add action "Set Variable" with Variable Name "w_type".
+  - Add action "Get Details of Workout": Start Date formatted as ISO 8601. Add action "Set Variable" with Variable Name "w_start".
+  - Add action "Text" with content:
+    , "workout": {"type": "w_type", "duration_min": w_dur, "avg_heart_rate": w_hr, "max_heart_rate": w_max_hr, "active_calories": w_kcal, "distance_km": w_dist, "started_at": "w_start"}
+  - Add action "Set Variable" with Variable Name "workout_fragment".
+- Add action "Otherwise":
+  - Add action "Text" (leave completely empty). Add action "Set Variable" with Variable Name "workout_fragment".
+- Add action "End If".
+
+6. Payload & HTTP POST Webhook:
+- Add action "Text" containing this JSON structure:
+{"secret": "3c021bc09943639b6e1abd58f90a6434208093169e70875f", "user_id": 472025574, "daily_activity": {"date": "today_date", "steps": steps_val, "active_kcal": active_kcal_val, "distance_km": dist_val}, "sleep": {"sleep_date": "sleep_date", "total_hours": total_hours, "deep_hours": deep_hours, "rem_hours": rem_hours, "core_hours": core_hours, "hrv_avg_ms": hrv_val, "rhr_bpm": rhr_val} workout_fragment}
+- Add action "Get Contents of URL": URL: "https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health", Method: POST, Header: "Content-Type": "application/json", Request Body: File (select the Text action).
+- Add action "If" Contents of URL contains "ok":
+  - Add action "Show Notification" with title "Lifecore": "Synced successfully".
+- Add action "Otherwise":
+  - Add action "Show Notification" with title "Lifecore": "Sync failed".
+- Add action "End If".
 ```
+
 
 ---
 
