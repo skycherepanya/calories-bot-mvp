@@ -1,75 +1,172 @@
-# 🍏 Lifecore: Calories Bot & Health Data Warehouse
+# Lifecore: AI Health Coach & Nutrition Data Warehouse
 
-**Lifecore** is a personal, modular ecosystem for collecting, aggregating, and analyzing health metrics (Quantified Self). The project combines fast food input via a Telegram bot with AI vision support (Google Gemini), data storage in a relational Supabase (PostgreSQL) database, and future correlation analysis between nutrition, sleep, and body composition.
-
----
-
-## ⚡ Key Features
-
-* **📸 Frictionless Photo Tracking:** Send a photo of your meal — the `gemini-3.6-flash` model recognizes the portion, calculates the ready-to-eat macros (Kcal, Protein, Fats, Carbs), and extracts quality tags.
-* **✍️ Text or Voice Input:** Ability to send a text description of the food or add a text caption to a photo.
-* **🛡️ Deficit Buffer (+15% Kcal):** The calculated calories are automatically multiplied by 1.15 as a safety margin against underestimating restaurant portions and to guarantee a caloric deficit.
-* **🌙 Dietary Day (4-Hour Shift):** A new day starts at 04:00 AM. Nighttime meals eaten before 04:00 AM are credited to the previous day.
-* **📅 Record for Yesterday (`/y`):** Ability to retroactively log a meal for the previous day.
-* **⚖️ Weight Logging (`/w <weight>`):** Record your morning weight (e.g., `/w 78.5` or `/w 78,5`) with automatic calculation of dynamics (+/- kg since the last weigh-in).
-* **🌾 Micronutrients & Amino Acids:** Estimation of fiber, sodium, potassium, and BCAA/leucine for protein-rich meals.
-* **🧠 Diet Analysis & Recommendations:** With the `/stats` command, the bot analyzes the ratio of whole foods, sodium, and fiber, providing tips on saving calories or addressing protein deficiency.
-* **📊 Interactive Statistics:** The `/stats` command displays the day's weight and provides inline buttons (⬅️ / ➡️) to quickly navigate between dates.
-* **🏷️ Food Quality Taxonomy:** Automatic tagging of meals (`whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`).
+**Lifecore** — особистий модульний трекер здоров'я, побудований на принципі *Quantified Self*. Система збирає дані про харчування (фото через Telegram), тренування та відновлення (Apple Health / Strava) в єдину реляційну базу даних і використовує Gemini AI для пошуку причинно-наслідкових зв'язків між твоїми звичками та фізичним станом.
 
 ---
 
-## 🏗️ Architecture (Dual Implementation)
+## ⚡ Ключові функції (поточний стан)
 
-The project has two parallel backend implementations:
+### ✅ Реалізовано
+* **📸 Фото-трекінг їжі:** Надіслав фото — Gemini розпізнає порцію, розраховує Ккал/Б/Ж/В + якісні теги
+* **🛡️ Deficit Buffer (+12.5% Ккал):** Автоматично множить калорії ×1.125 для гарантованого дефіциту
+* **🌙 4-годинний зсув:** День змінюється о 04:00, нічна їжа зараховується до попереднього дня
+* **📅 Запис за вчора (`/y`):** Ретроспективне логування прийому їжі
+* **⚖️ Вага (`/w <вага>`):** Запис ранкової ваги з динамікою змін
+* **🌾 Мікронутрієнти & амінокислоти:** Клітковина, натрій, калій, BCAA, лейцин
+* **📊 Аналіз дня (`/stats`):** Співвідношення цільних/ультраоброблених продуктів, натрій, рекомендації
+* **🏷️ Таксономія якості:** `whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`
+* **🔄 Inline-навігація по датах:** Кнопки ⬅️/➡️ у `/stats`
 
-1. **Node.js Process (Long Polling):**
-   - Files: [index.js](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/index.js), [handlers/](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/handlers/), [utils/](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/utils/)
-   - Ideal for rapid local development and debugging.
-2. **Supabase Edge Function (Webhook):**
-   - File: [supabase/functions/telegram-bot/index.ts](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/supabase/functions/telegram-bot/index.ts)
-   - Serverless architecture on Deno for production deployment with Telegram webhooks.
-
----
-
-## 📚 Project Documentation
-
-* **[PROJECT_KNOWLEDGE.md](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/PROJECT_KNOWLEDGE.md)** — Single source of project knowledge, physiological formulas (glycogen, water noise, TEF), and prompt rules.
-* **[AGENTS.md](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/AGENTS.md)** — Operational instructions for AI agents.
-* **[docs/ARCHITECTURE.md](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/docs/ARCHITECTURE.md)** — Detailed description of system layers (Ingestion, Storage, Processing, Analytics).
-* **[docs/DATABASE.md](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/docs/DATABASE.md)** — PostgreSQL table specifications and ER diagram.
-* **[docs/ROADMAP.md](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/docs/ROADMAP.md)** — Action plan and development stages.
-* **[CHANGELOG.md](file:///Users/skycherepanya/Documents/GitHub/calories-bot-mvp/CHANGELOG.md)** — Change log and release history.
+### 🔜 В розробці (Фаза 2)
+* **🏃 AI-тренер (`/coach`):** Аналіз тренування + сну + харчування за 3 дні через Gemini
+* **💤 Трекінг сну:** Автоматична синхронізація з Apple Health (фази сну, HRV, ЧСС)
+* **🏃 Трекінг тренувань:** Синхронізація Strava + Apple Health + ручне логування
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🏗️ Архітектура
 
-### 1. Install Dependencies
+Проект використовує **дуальну реалізацію**:
+
+| | Node.js (Dev) | Supabase Edge (Prod) |
+|---|---|---|
+| Файли | `index.js`, `handlers/`, `utils/` | `supabase/functions/telegram-bot/index.ts` |
+| Режим | Long Polling | Webhook (Deno) |
+| Призначення | Локальна розробка | Production |
+
+---
+
+## 📁 Структура проєкту
+
+```
+lifecore/
+├── AGENTS.md              # Правила для AI-агентів
+├── PROJECT_KNOWLEDGE.md   # Єдине джерело правди (master context)
+├── CHANGELOG.md           # Лог змін
+│
+├── handlers/              # Telegram handlers (Node.js)
+│   ├── photoHandler.js    ✅ Розпізнавання фото через Gemini
+│   ├── textHandler.js     ✅ Команди та текстові описи їжі
+│   ├── weightHandler.js   ✅ Команда /w
+│   ├── callbackHandler.js ✅ Inline-кнопки пагінації stats
+│   └── coachHandler.js    🔜 /coach — AI-аналіз відновлення
+│
+├── utils/
+│   ├── gemini.js          ✅ Fallback chain: 2.5-flash → 3.6-flash
+│   ├── keyboard.js        ✅ MAIN_KEYBOARD (постійне меню)
+│   ├── dateUtils.js       ✅ 4-годинний зсув, агрегація stats
+│   ├── prompt.js          ✅ Системний промпт розпізнавання їжі
+│   └── coachPrompt.js     🔜 Контекстний промпт для /coach
+│
+├── supabase/
+│   ├── functions/
+│   │   ├── telegram-bot/  ✅ Production webhook (Deno)
+│   │   └── ingest-health/ 🔜 iOS Shortcut endpoint
+│   └── migrations/
+│       ├── 001_initial.sql    ✅ meals + body_measurements (є в БД)
+│       ├── 002_workouts.sql   🔜 PENDING — застосувати
+│       └── 003_sleep_logs.sql 🔜 PENDING — застосувати
+│
+├── shortcuts/             🔜 iOS Shortcuts документація
+│   ├── README.md
+│   └── ingest_health_shortcut.md
+│
+├── Lifecore/              📊 Офлайн-аналітика (Python)
+│   ├── data/
+│   │   ├── health/        Apple Health XML export (1.97 GB)
+│   │   └── strava/        Strava activities.csv
+│   ├── scripts/
+│   │   ├── deep_health_analysis.py  ✅ XML → daily_health_summary.json
+│   │   ├── analyze_health.py        ✅ HRV/RHR/Steps trends
+│   │   ├── analyze_steps.py         ✅ Steps double-counting check
+│   │   ├── analyze_strava.py        ✅ Pace/distance/HR correlations
+│   │   └── sync_to_supabase.py      🔜 Завантаження архіву в БД
+│   ├── prompts/           Системні промпти (reference)
+│   │   ├── antigravity_health_assistant_prompt_sasha.md
+│   │   └── antigravity_health_assistant_prompt_vika.md
+│   └── reports/           Архівні аналітичні звіти
+│
+└── docs/
+    ├── ARCHITECTURE.md    Системна архітектура
+    ├── DATABASE.md        Схема БД + ERD + SQL DDL
+    └── ROADMAP.md         Дорожня карта розробки
+```
+
+---
+
+## 📚 Документація
+
+| Файл | Зміст |
+|---|---|
+| [PROJECT_KNOWLEDGE.md](./PROJECT_KNOWLEDGE.md) | Master context: фізіологічна математика, промпти, правила |
+| [AGENTS.md](./AGENTS.md) | Правила для AI-агентів |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 5-рівнева архітектура системи |
+| [docs/DATABASE.md](./docs/DATABASE.md) | Схема БД, ERD, SQL DDL для всіх таблиць |
+| [docs/ROADMAP.md](./docs/ROADMAP.md) | Дорожня карта та статус завдань |
+| [CHANGELOG.md](./CHANGELOG.md) | Хронологія всіх змін |
+| [shortcuts/ingest_health_shortcut.md](./shortcuts/ingest_health_shortcut.md) | Специфікація iOS Shortcut |
+
+---
+
+## 🚀 Швидкий старт (локальна розробка)
+
+### 1. Встановити залежності
 ```bash
 npm install
 ```
 
-### 2. Configure Environment Variables
-Create a `.env` file in the project root:
+### 2. Налаштувати `.env`
 ```env
-TELEGRAM_BOT_TOKEN="your_botfather_token"
-ALLOWED_USER_ID="your_numeric_telegram_id"
-GEMINI_API_KEY="your_google_ai_studio_api_key"
+TELEGRAM_BOT_TOKEN="токен від BotFather"
+ALLOWED_USER_ID="числовий Telegram ID"
+GEMINI_API_KEY="ключ Google AI Studio"
 SUPABASE_URL="https://xxxxxxxxxxxx.supabase.co"
-SUPABASE_KEY="your_supabase_anon_or_service_role_key"
+SUPABASE_KEY="anon або service_role ключ Supabase"
 ```
 
-### 3. Run Local Bot (Node.js)
+### 3. Запустити бота локально
 ```bash
 node index.js
 ```
 
 ### 4. Deploy Edge Function (Supabase)
 ```bash
-supabase functions deploy telegram-bot --no-verify-jwt
+supabase functions deploy telegram-bot --no-verify-jwt --use-api
 ```
-Set webhook in Telegram:
+
+### 5. Встановити Webhook
 ```bash
-curl -F "url=https://<PROJECT-REF>.supabase.co/functions/v1/telegram-bot" https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook
+curl -F "url=https://<PROJECT-REF>.supabase.co/functions/v1/telegram-bot" \
+     https://api.telegram.org/bot<TOKEN>/setWebhook
 ```
+
+---
+
+## 🐍 Офлайн-аналітика (Python)
+
+```bash
+cd Lifecore/
+# 1. Спершу запарси Apple Health XML (потрібен export.xml в data/health/)
+python scripts/deep_health_analysis.py
+# → генерує reports/daily_health_summary.json
+
+# 2. Завантаж архів у Supabase (після застосування міграцій 002 та 003)
+python scripts/sync_to_supabase.py
+
+# 3. Аналіз бігових показників Strava
+python scripts/analyze_strava.py
+```
+
+---
+
+## 🌍 Ключові константи
+
+| Параметр | Значення |
+|---|---|
+| Deficit Buffer | ×1.125 (+12.5% до Ккал) |
+| Dietary day shift | 04:00 AM |
+| Primary AI model | `gemini-2.5-flash` |
+| Fallback AI model | `gemini-3.6-flash` |
+| DB | PostgreSQL via Supabase |
+| Backend (prod) | Deno Edge Functions |
+| Backend (dev) | Node.js Long Polling |

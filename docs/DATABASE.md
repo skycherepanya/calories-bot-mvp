@@ -4,56 +4,82 @@ Data is stored in a relational **PostgreSQL** database managed by **Supabase**.
 
 ---
 
-## 1. Conceptual ERD Diagram
+## 1. ERD Diagram
 
 ```mermaid
 erDiagram
-    USERS ||--o{ MEALS : logs
-    USERS ||--o{ DAILY_METRICS : records
-    USERS ||--o{ ACTIVITIES : performs
-    MEALS ||--o{ MEAL_INGREDIENTS : contains
-
-    USERS {
-        bigint id PK "Telegram User ID"
-        text username
-        numeric target_kcal
-        numeric target_protein
-        numeric target_fat
-        numeric target_carbs
-        timestamptz created_at
-    }
-
     MEALS {
         bigint id PK
-        bigint user_id FK
+        bigint user_id
         text meal_name
-        numeric kcal
+        numeric kcal "incl. +12.5% buffer"
         numeric protein
         numeric fat
         numeric carbs
         numeric weight_g
         numeric confidence
-        text[] tags "['whole_food', 'high_sodium', etc.]"
-        date dietary_date "Shifted by 4 hours"
+        text[] tags
+        jsonb micronutrients
+        jsonb amino_acids
+        date dietary_date "4-hour shift"
         text telegram_file_id
         timestamptz created_at
     }
 
-    MEAL_INGREDIENTS {
+    BODY_MEASUREMENTS {
         bigint id PK
-        bigint meal_id FK
-        text name
-        numeric weight_g
-        numeric kcal
-        numeric protein
-        numeric fat
-        numeric carbs
-        text food_category
+        bigint user_id
+        numeric weight_kg
+        date dietary_date
+        timestamptz measured_at
+        numeric impedance_ohms
+        numeric body_fat_pct
+        numeric water_pct
+        numeric muscle_mass_kg
+        numeric bone_mass_kg
+        numeric visceral_fat
+        text source "telegram_w | apple_health | bluetooth_scale"
+        timestamptz created_at
+    }
+
+    WORKOUTS {
+        bigint id PK
+        bigint user_id
+        text workout_type "running | strength | cycling | walking"
+        text source "apple_health | strava | telegram | manual"
+        timestamptz started_at
+        numeric duration_min
+        numeric distance_km
+        numeric avg_heart_rate
+        numeric max_heart_rate
+        numeric active_kcal
+        numeric avg_pace_min_km
+        numeric elevation_m
+        text notes
+        jsonb raw_data
+        date dietary_date
+        timestamptz created_at
+    }
+
+    SLEEP_LOGS {
+        bigint id PK
+        bigint user_id
+        text source "apple_health | manual"
+        date sleep_date "date of the night"
+        numeric total_hours
+        numeric deep_hours
+        numeric rem_hours
+        numeric core_hours
+        numeric awake_hours
+        numeric hrv_avg_ms "HRV SDNN (ms)"
+        numeric rhr_bpm "Resting Heart Rate"
+        numeric vo2max
+        timestamptz created_at
     }
 
     DAILY_METRICS {
         bigint id PK
-        bigint user_id FK
+        bigint user_id
         date metric_date
         numeric morning_weight_kg
         numeric body_fat_pct
@@ -63,23 +89,10 @@ erDiagram
         numeric rem_sleep_hours
         numeric resting_hr
         numeric hrv_ms
-        numeric steps
+        integer steps
         numeric active_kcal
         numeric rolling_avg_weight_7d
         numeric rolling_avg_weight_14d
-        timestamptz created_at
-    }
-
-    ACTIVITIES {
-        bigint id PK
-        bigint user_id FK
-        date activity_date
-        text activity_type "run, cycling, gym, walk"
-        numeric duration_minutes
-        numeric distance_km
-        numeric avg_hr
-        numeric kcal_burned
-        text source "Apple Health / Strava"
         timestamptz created_at
     }
 ```
@@ -88,142 +101,178 @@ erDiagram
 
 ## 2. Table Specifications
 
-### 2.1. `meals` Table
-Stores each individual meal, recognized via Telegram bot or entered manually.
+### 2.1. `meals` ✅ *Implemented*
+Stores each meal logged via Telegram (photo or text).
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
-| `id` | `BIGINT PRIMARY KEY` | Unique record identifier |
-| `user_id` | `BIGINT NOT NULL` | User's Telegram Chat ID |
-| `meal_name` | `TEXT NOT NULL` | Meal name |
-| `kcal` | `NUMERIC NOT NULL` | Calories (including the +15% deficit buffer) |
-| `protein` | `NUMERIC NOT NULL` | Protein (grams) |
-| `fat` | `NUMERIC NOT NULL` | Fats (grams) |
-| `carbs` | `NUMERIC NOT NULL` | Carbohydrates (grams) |
-| `weight_g` | `NUMERIC NOT NULL` | Estimated cooked meal weight (grams) |
-| `confidence` | `NUMERIC` | AI confidence percentage (0–100) |
-| `tags` | `TEXT[]` | Quality tags array: `['whole_food', 'solid', 'high_sodium']` |
-| `micronutrients` | `JSONB` | Micronutrient estimation (`fiber_g`, `sodium_mg`, `potassium_mg`, `vitamin_c_mg`, etc.) |
-| `amino_acids` | `JSONB` | Amino acid profile (`bcaa_g`, `leucine_g`) for protein meals |
-| `dietary_date` | `DATE NOT NULL` | Dietary date (4-hour shift, day changes at 04:00) |
-| `telegram_file_id` | `TEXT` | Telegram photo ID for further analysis |
-| `created_at` | `TIMESTAMPTZ` | Exact system recording time (UTC) |
+| `id` | `BIGINT PK` | Unique ID |
+| `user_id` | `BIGINT NOT NULL` | Telegram Chat ID |
+| `meal_name` | `TEXT NOT NULL` | Short name in Ukrainian |
+| `kcal` | `NUMERIC NOT NULL` | Calories incl. +12.5% deficit buffer |
+| `protein` | `NUMERIC NOT NULL` | Protein (g) — exact |
+| `fat` | `NUMERIC NOT NULL` | Fat (g) — exact |
+| `carbs` | `NUMERIC NOT NULL` | Carbs (g) — exact |
+| `weight_g` | `NUMERIC NOT NULL` | Estimated cooked weight |
+| `confidence` | `NUMERIC` | AI confidence 0–100 |
+| `tags` | `TEXT[]` | `['whole_food', 'solid', 'high_sodium', ...]` |
+| `micronutrients` | `JSONB` | `{fiber_g, sodium_mg, potassium_mg, vitamin_c_mg, iron_mg, calcium_mg}` |
+| `amino_acids` | `JSONB` | `{bcaa_g, leucine_g}` |
+| `dietary_date` | `DATE NOT NULL` | 4-hour shifted date |
+| `telegram_file_id` | `TEXT` | Telegram file ID for re-analysis |
+| `created_at` | `TIMESTAMPTZ` | Exact logging time (UTC) |
 
 ---
 
-### 2.2. `body_measurements` Table
-Stores individual weight measurements via the `/w` command or smart scale with placeholders for electrical impedance.
+### 2.2. `body_measurements` ✅ *Implemented*
+Weight measurements from `/w` command or smart scale.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
-| `id` | `BIGINT PRIMARY KEY` | Unique measurement identifier |
-| `user_id` | `BIGINT NOT NULL` | User's Telegram Chat ID |
-| `weight_kg` | `NUMERIC NOT NULL` | Body weight (kg) |
-| `dietary_date` | `DATE NOT NULL` | Dietary date of the measurement |
-| `measured_at` | `TIMESTAMPTZ` | Exact measurement time (UTC) |
-| `impedance_ohms` | `NUMERIC` | Tissue electrical impedance (Ohms) from smart scale |
-| `impedance_frequency_khz` | `NUMERIC` | Scale current frequency (default 50 kHz) |
-| `body_fat_pct` | `NUMERIC` | Body fat percentage (%) |
-| `water_pct` | `NUMERIC` | Tissue hydration percentage (%) |
-| `muscle_mass_kg` | `NUMERIC` | Muscle mass (kg) |
-| `bone_mass_kg` | `NUMERIC` | Bone mass (kg) |
-| `visceral_fat` | `NUMERIC` | Visceral fat level (1-50) |
-| `source` | `TEXT` | Source of record: `telegram_w`, `bluetooth_scale`, `apple_health` |
-| `created_at` | `TIMESTAMPTZ` | System entry time |
+| `id` | `BIGINT PK` | |
+| `user_id` | `BIGINT NOT NULL` | |
+| `weight_kg` | `NUMERIC NOT NULL` | Body weight |
+| `dietary_date` | `DATE NOT NULL` | |
+| `measured_at` | `TIMESTAMPTZ` | |
+| `impedance_ohms` | `NUMERIC` | BIA impedance |
+| `impedance_frequency_khz` | `NUMERIC` | Default 50 kHz |
+| `body_fat_pct` | `NUMERIC` | % body fat |
+| `water_pct` | `NUMERIC` | % body water |
+| `muscle_mass_kg` | `NUMERIC` | Muscle mass |
+| `bone_mass_kg` | `NUMERIC` | Bone mass |
+| `visceral_fat` | `NUMERIC` | Visceral fat level 1–50 |
+| `source` | `TEXT` | `telegram_w` \| `bluetooth_scale` \| `apple_health` |
 
 ---
 
-### 2.3. `daily_metrics` Table
-Stores aggregated daily metrics for body, sleep, and overall activity.
+### 2.3. `workouts` 🔜 *Pending migration 002*
+Physical activity: running, strength, cycling — from Telegram, Apple Health, or Strava.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
-| `id` | `BIGINT PRIMARY KEY` | Unique identifier |
-| `user_id` | `BIGINT NOT NULL` | User's Telegram Chat ID |
-| `metric_date` | `DATE NOT NULL` | Calendar date of measurements |
-| `morning_weight_kg` | `NUMERIC` | Morning weight on an empty stomach |
-| `body_fat_pct` | `NUMERIC` | Body fat percentage (from smart scale) |
-| `water_pct` | `NUMERIC` | Body water percentage |
-| `sleep_hours` | `NUMERIC` | Total sleep duration (hours) |
-| `deep_sleep_hours` | `NUMERIC` | Deep sleep phase (hours) |
-| `rem_sleep_hours` | `NUMERIC` | REM sleep phase (hours) |
-| `resting_hr` | `NUMERIC` | Resting Heart Rate (bpm) |
-| `hrv_ms` | `NUMERIC` | Heart Rate Variability (HRV, milliseconds) |
-| `steps` | `INTEGER` | Steps taken during the day |
-| `active_kcal` | `NUMERIC` | Calories burned from activity (Active Burn) |
-| `rolling_avg_weight_7d` | `NUMERIC` | 7-day rolling average weight |
-| `rolling_avg_weight_14d` | `NUMERIC` | 14-day rolling average weight |
+| `id` | `BIGINT PK` | |
+| `user_id` | `BIGINT NOT NULL` | |
+| `workout_type` | `TEXT NOT NULL` | `running` \| `strength` \| `cycling` \| `walking` \| `other` |
+| `source` | `TEXT` | `apple_health` \| `strava` \| `telegram` \| `manual` |
+| `started_at` | `TIMESTAMPTZ NOT NULL` | Workout start time |
+| `duration_min` | `NUMERIC NOT NULL` | Duration (min) |
+| `distance_km` | `NUMERIC` | Distance (cardio only) |
+| `avg_heart_rate` | `NUMERIC` | Avg HR (bpm) |
+| `max_heart_rate` | `NUMERIC` | Max HR (bpm) |
+| `active_kcal` | `NUMERIC` | Calories burned |
+| `avg_pace_min_km` | `NUMERIC` | Pace min/km (running/cycling) |
+| `elevation_m` | `NUMERIC` | Elevation gain (m) |
+| `notes` | `TEXT` | User note or AI summary |
+| `raw_data` | `JSONB` | Original payload from Strava/Health |
+| `dietary_date` | `DATE NOT NULL` | 4-hour shifted date |
 
 ---
 
-## 3. SQL Structure Creation Script (DDL)
+### 2.4. `sleep_logs` 🔜 *Pending migration 003*
+Nightly sleep phases + recovery biomarkers from Apple Watch.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `BIGINT PK` | |
+| `user_id` | `BIGINT NOT NULL` | |
+| `source` | `TEXT` | `apple_health` \| `manual` |
+| `sleep_date` | `DATE NOT NULL` | Date of the night (evening date) |
+| `total_hours` | `NUMERIC NOT NULL` | Total sleep time |
+| `deep_hours` | `NUMERIC` | Deep sleep phase |
+| `rem_hours` | `NUMERIC` | REM phase |
+| `core_hours` | `NUMERIC` | Core/light sleep |
+| `awake_hours` | `NUMERIC` | Time awake in bed |
+| `hrv_avg_ms` | `NUMERIC` | HRV SDNN averaged overnight (ms) |
+| `rhr_bpm` | `NUMERIC` | Resting Heart Rate at wake-up |
+| `vo2max` | `NUMERIC` | VO2Max estimate if updated |
+
+**Constraint:** `UNIQUE (user_id, sleep_date)` — одна запис на ніч.
+
+---
+
+### 2.5. `daily_metrics` 📅 *Phase 3*
+Aggregated daily dashboard view (filled by PostgreSQL trigger or Edge Function).
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `morning_weight_kg` | `NUMERIC` | From `body_measurements` |
+| `sleep_hours` | `NUMERIC` | From `sleep_logs` |
+| `resting_hr` | `NUMERIC` | From `sleep_logs.rhr_bpm` |
+| `hrv_ms` | `NUMERIC` | From `sleep_logs.hrv_avg_ms` |
+| `steps` | `INTEGER` | From iOS Shortcut or Apple Health |
+| `active_kcal` | `NUMERIC` | From `workouts` |
+| `rolling_avg_weight_7d` | `NUMERIC` | Computed: 7-day rolling avg |
+| `rolling_avg_weight_14d` | `NUMERIC` | Computed: 14-day rolling avg |
+
+---
+
+## 3. SQL DDL
+
+### Migration 001 — Initial (✅ Applied)
+See: [`supabase/migrations/001_initial.sql`](../supabase/migrations/001_initial.sql)
+
+### Migration 002 — Workouts (🔜 Pending)
+See: [`supabase/migrations/002_workouts.sql`](../supabase/migrations/002_workouts.sql)
 
 ```sql
--- Meals table
-CREATE TABLE IF NOT EXISTS public.meals (
-    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    meal_name TEXT NOT NULL,
-    kcal NUMERIC NOT NULL,
-    protein NUMERIC NOT NULL,
-    fat NUMERIC NOT NULL,
-    carbs NUMERIC NOT NULL,
-    weight_g NUMERIC NOT NULL,
-    confidence NUMERIC,
-    tags TEXT[] DEFAULT '{}'::TEXT[],
-    micronutrients JSONB DEFAULT '{}'::JSONB,
-    amino_acids JSONB DEFAULT '{}'::JSONB,
-    dietary_date DATE NOT NULL,
-    telegram_file_id TEXT,
-    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
-);
+-- Quick apply in Supabase SQL Editor:
+\i supabase/migrations/002_workouts.sql
+```
 
-CREATE INDEX IF NOT EXISTS idx_meals_user_date ON public.meals(user_id, dietary_date);
-CREATE INDEX IF NOT EXISTS idx_meals_tags ON public.meals USING GIN (tags);
-CREATE INDEX IF NOT EXISTS idx_meals_micronutrients ON public.meals USING GIN (micronutrients);
-CREATE INDEX IF NOT EXISTS idx_meals_amino_acids ON public.meals USING GIN (amino_acids);
+### Migration 003 — Sleep Logs (🔜 Pending)
+See: [`supabase/migrations/003_sleep_logs.sql`](../supabase/migrations/003_sleep_logs.sql)
 
--- Body measurements table
-CREATE TABLE IF NOT EXISTS public.body_measurements (
-    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    weight_kg NUMERIC NOT NULL,
-    dietary_date DATE NOT NULL,
-    measured_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
-    impedance_ohms NUMERIC,
-    impedance_frequency_khz NUMERIC DEFAULT 50,
-    body_fat_pct NUMERIC,
-    water_pct NUMERIC,
-    muscle_mass_kg NUMERIC,
-    bone_mass_kg NUMERIC,
-    visceral_fat NUMERIC,
-    source TEXT DEFAULT 'telegram_w',
-    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
-);
+```sql
+\i supabase/migrations/003_sleep_logs.sql
+```
 
-CREATE INDEX IF NOT EXISTS idx_body_measurements_user_date ON public.body_measurements(user_id, dietary_date);
-CREATE INDEX IF NOT EXISTS idx_body_measurements_measured_at ON public.body_measurements(user_id, measured_at DESC);
+---
 
--- Daily biometric metrics table
-CREATE TABLE IF NOT EXISTS public.daily_metrics (
-    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    metric_date DATE NOT NULL,
-    morning_weight_kg NUMERIC,
-    body_fat_pct NUMERIC,
-    water_pct NUMERIC,
-    sleep_hours NUMERIC,
-    deep_sleep_hours NUMERIC,
-    rem_sleep_hours NUMERIC,
-    resting_hr NUMERIC,
-    hrv_ms NUMERIC,
-    steps INTEGER,
-    active_kcal NUMERIC,
-    rolling_avg_weight_7d NUMERIC,
-    rolling_avg_weight_14d NUMERIC,
-    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE(user_id, metric_date)
-);
+## 4. Key Indexes
 
-CREATE INDEX IF NOT EXISTS idx_daily_metrics_date ON public.daily_metrics(user_id, metric_date);
+```sql
+-- meals: fast daily aggregation
+CREATE INDEX idx_meals_user_date ON meals(user_id, dietary_date);
+CREATE INDEX idx_meals_tags ON meals USING GIN (tags);
+
+-- body_measurements: latest weight query
+CREATE INDEX idx_body_measurements_measured_at ON body_measurements(user_id, measured_at DESC);
+
+-- workouts: coach context query (last 3 days)
+CREATE INDEX idx_workouts_user_date ON workouts(user_id, dietary_date);
+CREATE INDEX idx_workouts_started_at ON workouts(user_id, started_at DESC);
+
+-- sleep_logs: coach context query
+CREATE INDEX idx_sleep_logs_user_date ON sleep_logs(user_id, sleep_date DESC);
+```
+
+---
+
+## 5. Coach Context Query
+
+The `/coach` command uses this query to gather 3-day context for Gemini:
+
+```sql
+-- Meals (last 3 dietary days)
+SELECT dietary_date,
+       SUM(kcal) AS total_kcal,
+       SUM(protein) AS protein_g,
+       SUM(carbs) AS carbs_g,
+       SUM(fat) AS fat_g,
+       array_agg(DISTINCT unnest(tags)) AS all_tags
+FROM meals
+WHERE user_id = $1 AND dietary_date >= CURRENT_DATE - 3
+GROUP BY dietary_date ORDER BY dietary_date;
+
+-- Sleep (last 3 nights)
+SELECT sleep_date, total_hours, deep_hours, rem_hours, hrv_avg_ms, rhr_bpm
+FROM sleep_logs
+WHERE user_id = $1 AND sleep_date >= CURRENT_DATE - 4
+ORDER BY sleep_date;
+
+-- Workouts (last 3 days)
+SELECT dietary_date, workout_type, duration_min, avg_heart_rate, active_kcal, distance_km, avg_pace_min_km
+FROM workouts
+WHERE user_id = $1 AND dietary_date >= CURRENT_DATE - 3
+ORDER BY started_at;
 ```

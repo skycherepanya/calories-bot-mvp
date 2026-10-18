@@ -4,6 +4,47 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Lifecore Analytics Module Merge & Repository Restructure
+
+### 🏗 Structural Changes
+- **Merged `Lifecore/` analytics module** into the main repository as a first-class submodule alongside the Telegram bot.
+- **Removed duplicate files:**
+  - `Lifecore/docs/quantified_self_concepts.md` → content consolidated into `PROJECT_KNOWLEDGE.md`
+  - `Lifecore/docs/architecture_vision.md` → merged into `docs/ARCHITECTURE.md`
+  - `Lifecore/docs/Персональний AI-тренер у Telegram.md` → merged into `docs/ARCHITECTURE.md`
+- **Renamed** `Lifecore/scripts/analyze_strava_tmp.py` → `analyze_strava.py`
+
+### 🗄 Database
+- **Added DB migration files** (pending application in Supabase):
+  - `supabase/migrations/001_initial.sql` — documents existing schema (meals, body_measurements)
+  - `supabase/migrations/002_workouts.sql` — new `workouts` table (type, HR, pace, kcal, source)
+  - `supabase/migrations/003_sleep_logs.sql` — new `sleep_logs` table (phases, HRV, RHR, VO2Max)
+- **Coach Context SQL Query** documented in `docs/DATABASE.md`
+
+### 🐍 New Scripts
+- `Lifecore/scripts/sync_to_supabase.py` — bulk upload Apple Health JSON + Strava CSV to Supabase `workouts` and `sleep_logs` tables
+
+### 📱 iOS Shortcuts
+- `shortcuts/README.md` + `shortcuts/ingest_health_shortcut.md` — full specification for `Lifecore Morning Sync` iOS Shortcut (HealthKit → `ingest-health` Edge Function)
+
+### 📚 Documentation Updated
+- `README.md` — full rewrite: unified structure, new feature list, Python analytics quickstart
+- `docs/ARCHITECTURE.md` — merged with Lifecore docs, added 5-layer diagram with workouts/sleep data flows
+- `docs/DATABASE.md` — added `workouts`, `sleep_logs` table specs, ERD, Coach Context SQL query
+- `docs/ROADMAP.md` — Phase 1 completed, detailed Phase 2 (Coach) tasks, Phases 3–5 outlined
+- `PROJECT_KNOWLEDGE.md` — expanded: recovery biomarkers (HRV/RHR/VO2Max), Sasha's baseline, Coach prompt rules, `ingest-health` Edge Function spec, new env variable `INGEST_SECRET`
+- `Lifecore/README.md` — rewritten as module-level guide within the unified repo
+
+### 🔜 Planned (Phase 2 — not yet implemented)
+- `supabase/functions/ingest-health/index.ts`
+- `handlers/coachHandler.js` + `utils/coachPrompt.js`
+- New keyboard buttons: `🏃 Аналіз тренування`, `📋 Звіт за тиждень`
+
+### Affected Files
+`README.md`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`, `Lifecore/README.md`, `supabase/migrations/001_initial.sql`, `supabase/migrations/002_workouts.sql`, `supabase/migrations/003_sleep_logs.sql`, `Lifecore/scripts/sync_to_supabase.py`, `shortcuts/README.md`, `shortcuts/ingest_health_shortcut.md`
+
+---
+
 ## [2026-09-12] - Photo EXIF Metadata Date Extraction
 
 ### 🚀 Added:

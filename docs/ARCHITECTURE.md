@@ -1,128 +1,183 @@
 # Lifecore System Architecture
 *(Quantified Self Health & Nutrition Data Warehouse)*
 
-## 1. System Overview
+> Об'єднаний документ архітектурного бачення: злиття `docs/ARCHITECTURE.md`, `Lifecore/docs/architecture_vision.md` та `Lifecore/docs/Персональний AI-тренер у Telegram.md`.
 
-Lifecore is a personal modular system for collecting, storing, and intelligently analyzing health metrics. 
-The system is built as a **multi-layer Data Warehouse platform**:
+---
+
+## 1. Контекст та проблема
+
+Комерційні трекери (Cronometer, MyFitnessPal) страждають від **vendor lock-in**: змінюють монетизацію, обрізають функції, не дають доступу до raw-даних. Стравa та Apple Health є ізольованими сайлосами — вони не знають, скільки натрію ти з'їв перед пробіжкою.
+
+**Головна мета Lifecore:** зібрати харчування, тренування, сон і склад тіла в **одну реляційну базу даних** і знаходити неочевидні причинно-наслідкові зв'язки між ними за допомогою AI та статистичного аналізу.
+
+---
+
+## 2. Архітектурна діаграма (5-рівнева система)
 
 ```mermaid
 flowchart TD
-    subgraph Ingestion ["1. Ingestion Layer"]
-        TG["Telegram Bot (Photo / Text / Audio)"]
-        Shortcuts["Apple Shortcuts (HealthKit Export)"]
-        BLE["Bluetooth Smart Scale (CoreBluetooth)"]
-        Strava["Activity Sync (Strava API / NRC)"]
+    subgraph Ingestion ["1️⃣ Ingestion Layer — Введення даних"]
+        TG["📱 Telegram Bot\n(Photo / Text / Commands)"]
+        Shortcuts["🍎 iOS Shortcuts\n(HealthKit: Sleep, HRV, RHR, Workouts)"]
+        BLE["⚖️ Bluetooth Smart Scale\n(CoreBluetooth — future)"]
+        Strava["🏃 Strava / Apple Health Archive\n(CSV / XML — одноразовий імпорт)"]
     end
 
-    subgraph Processing ["2. Processing & AI Layer"]
-        Edge["Supabase Edge Functions / Node.js Engine"]
-        Gemini["Google Gemini 3.6 Flash (Vision & Nutrition JSON)"]
-        Tagging["Taxonomy Tagging Engine (Whole food, TEF, Sodium)"]
+    subgraph Processing ["2️⃣ Processing & AI Layer"]
+        Edge["☁️ Supabase Edge Functions (Deno)\ntelegram-bot | ingest-health"]
+        Gemini["🤖 Google Gemini API\n2.5-flash → 3.6-flash (fallback)"]
+        TagEngine["🏷️ Taxonomy Tagging Engine\nwhole_food | TEF | Sodium | Absorption"]
     end
 
-    subgraph Storage ["3. Storage / Data Warehouse Layer"]
-        PG[(PostgreSQL / Supabase)]
-        Meals[(meals table)]
-        Body[(body_measurements table)]
-        Ingredients[(ingredients table)]
-        Daily[(daily_metrics table)]
-        Activities[(activities table)]
+    subgraph Storage ["3️⃣ Data Warehouse Layer (Supabase PostgreSQL)"]
+        Meals[("🍽 meals\nКкал, Б/Ж/В, tags, micronutrients")]
+        Body[("⚖️ body_measurements\nВага, % жиру, BIA")]
+        Workouts[("🏃 workouts\nТип, HR, Pace, kcal")]
+        Sleep[("💤 sleep_logs\nФази, HRV, RHR")]
+        Daily[("📅 daily_metrics\nRolling avg, кроки, TDEE")]
     end
 
-    subgraph Analytics ["4. Analytics & Math Engine"]
-        Math["Python Engine (Pandas, Scipy, Statsmodels)"]
-        Rolling["Rolling Average 7-14d (Water noise filtering)"]
-        Lags["Time-Lagged Correlation (T+1, T+2 analysis)"]
+    subgraph Analytics ["4️⃣ Analytics & Math Engine"]
+        Python["🐍 Python Scripts\n(Pandas, SciPy, Statsmodels)"]
+        Rolling["📈 Rolling Average 7/14d\n(Фільтрація водного шуму ваги)"]
+        Lags["⏱ Time-Lagged Correlation\nT+1, T+2 аналіз"]
     end
 
-    subgraph Presentation ["5. Presentation & Insights Layer"]
-        TG_Reports["Telegram Bot Digests and Stats"]
-        AI_Insights["Gemini Natural Language Insights"]
-        BI["BI Dashboards (Metabase / Superset)"]
+    subgraph Presentation ["5️⃣ Presentation & Insights Layer"]
+        TG_Coach["💬 Telegram /coach\nAI-тренер: стан системи 🟢/🟡/🔴"]
+        TG_Stats["📊 /stats та /w\nЩоденна статистика"]
+        Morning["🌅 Ранковий дайджест\n(cron о 08:00)"]
+        BI["📊 BI Dashboard (future)\nMetabase / Superset"]
     end
 
     TG --> Edge
     Shortcuts --> Edge
     BLE --> Edge
-    Strava --> Edge
+    Strava --> Python
 
     Edge --> Gemini
-    Gemini --> Tagging
-    Tagging --> Storage
+    Gemini --> TagEngine
+    TagEngine --> Meals
+    Edge --> Body
+    Edge --> Workouts
+    Edge --> Sleep
 
-    Storage --> Math
-    Math --> Rolling
-    Math --> Lags
-    Lags --> AI_Insights
-    AI_Insights --> TG_Reports
+    Meals --> Python
+    Body --> Python
+    Workouts --> Python
+    Sleep --> Python
+
+    Python --> Rolling
+    Python --> Lags
+    Rolling --> Daily
+    Lags --> Gemini
+
+    Gemini --> TG_Coach
+    Daily --> TG_Stats
+    Daily --> Morning
     Storage --> BI
 ```
 
 ---
 
-## 2. Layer Details
+## 3. Детальний опис шарів
 
-### 2.1. Ingestion Layer
-The main principle is **Frictionless (Zero Barrier)**:
-1. **Telegram Bot (Food Input):**
-   - User sends a photo of a dish right before eating.
-   - Optionally adds a text or voice comment (e.g., *"there are 2 eggs here, fried in 5g of butter"*).
-   - Supports quick day correction: `/y` command prefix for logging food retroactively (yesterday's diet).
-2. **Apple Shortcuts (Sleep & Activity Metrics Collection):**
-   - An iOS automation is set up that pulls from Apple Health every morning (e.g., at 08:30):
-     - Total sleep time, sleep phases (Deep, REM, Core).
-     - Resting Heart Rate and HRV.
-     - Steps count and Active Energy burned yesterday.
-     - Morning weight (if entered manually or from scale).
-   - The shortcut sends a POST JSON to the Supabase webhook.
-3. **Smart Scales (Body Composition):**
-   - Retrieves weight, impedance (% water, fat mass, bone mass).
-   - In later stages: native background collection via SwiftUI app.
+### 3.1. Ingestion Layer — Введення даних
+
+**Принцип: Frictionless Input (нульовий поріг входу)**
+
+| Джерело | Що передає | Метод | Статус |
+|---|---|---|---|
+| Telegram Bot | Фото/текст їжі, вага (/w) | Webhook → Edge Function | ✅ Prod |
+| iOS Shortcuts | Сон, HRV, RHR, тренування | POST → `ingest-health` | 🔜 |
+| Python sync | Strava CSV + Apple Health XML | Direct Supabase insert | 🔜 |
+| Bluetooth Scale | Вага + BIA | CoreBluetooth (future) | 📅 Future |
+
+**Критичне правило — 4-годинний зсув:**
+День змінюється о **04:00 AM**, а не опівночі. Їжа після північ і до 04:00 зараховується до попереднього дня. Це стосується всіх таблиць: `meals`, `workouts`, `sleep_logs`.
 
 ---
 
-### 2.2. Processing & AI Layer
-1. **Multimodal Vision:**
-   - Model: `gemini-3.6-flash`.
-   - Mode: strict `responseMimeType: "application/json"`.
-   - The prompt controls:
-     - Assessing the depth and scale of the plate (not overestimating restaurant portions).
-     - Calculating cooked food (Cooked weight vs Dry weight).
-     - **Deficit Buffer (+15% to calories):** artificially inflating calories while keeping exact macros (protein, fats, carbs).
-2. **Taxonomy & Tagging Engine:**
-   - Automatic metadata assignment:
-     - `whole_food` vs `ultra_processed`
-     - `solid` vs `liquid`
-     - `fast_absorbing` vs `slow_absorbing`
-     - `high_sodium`
+### 3.2. Processing & AI Layer
+
+**Gemini Vision (розпізнавання їжі):**
+- Модель: `gemini-2.5-flash` (основна) → `gemini-3.6-flash` (fallback при 503)
+- Формат відповіді: `responseMimeType: "application/json"` — завжди
+- **Deficit Buffer:** Ккал × 1.125 (+12.5%), макроси — точні
+- Таксономія якості: `whole_food` | `ultra_processed` | `solid` | `liquid` | `fast_absorbing` | `slow_absorbing` | `high_sodium`
+- Мікронутрієнти: `fiber_g`, `sodium_mg`, `potassium_mg`, `vitamin_c_mg`, `iron_mg`, `calcium_mg`
+- Амінокислоти (для білкових страв): `bcaa_g`, `leucine_g`
+
+**Gemini Coach (аналіз відновлення):**
+- Отримує агрегований контекст з БД: 3 дні тренувань + сон + харчування
+- НЕ отримує сирі цифри — отримує підготовлений структурований JSON
+- Повертає: `СТАН СИСТЕМИ: 🟢/🟡/🔴` + причинно-наслідкові інсайти
 
 ---
 
-### 2.3. Data Warehouse Layer
-Built on managed **PostgreSQL in Supabase**:
-* **Relational model:** Instead of isolated logs, a linked schema is formed between meals, ingredients, workouts, and daily biometric metrics.
-* **Security:** Row Level Security (RLS) at the `user_id` level.
-* **Indexing:** Composite indexes `(user_id, dietary_date)` for instant aggregations.
+### 3.3. Data Warehouse Layer
+
+Побудований на **PostgreSQL через Supabase**:
+- Реляційна структура з FK-зв'язками (user_id скрізь)
+- Безпека: ALLOWED_USER_ID перевіряється на рівні коду (Edge Function + Node.js)
+- Індекси: `(user_id, dietary_date)` для миттєвих агрегацій
+- Детальна схема: [DATABASE.md](./DATABASE.md)
 
 ---
 
-### 2.4. Analytics Engine
-The system does not allow AI to hallucinate over raw numbers. The Python math layer processes data algorithmically:
-1. **Rolling Averages Smoothing:**
-   $$W_{7d}(t) = \frac{1}{7} \sum_{i=0}^{6} W(t-i)$$
-   $$W_{14d}(t) = \frac{1}{14} \sum_{i=0}^{13} W(t-i)$$
-   This eliminates the 1–2 kg water fluctuations from glycogen or cortisol.
-2. **Time Lags Analysis:**
-   Calculating body reaction delay:
-   $$\text{Corr}(X_t, Y_{t + \Delta t}), \quad \Delta t \in \{1, 2, 3\}$$
-   where $X_t$ is, for example, the amount of sodium or carbs on day $t$, and $Y_{t + \Delta t}$ is the morning weight or running pace.
-3. **Statistical Validation:**
-   Filtering out noise via $p$-value ($p < 0.05$).
+### 3.4. Analytics Engine
+
+**Офлайн Python-скрипти** (`Lifecore/scripts/`):
+
+| Скрипт | Що робить |
+|---|---|
+| `deep_health_analysis.py` | Парсить Apple Health XML → `daily_health_summary.json` |
+| `analyze_health.py` | Тренди HRV/RHR/Steps по місяцях |
+| `analyze_steps.py` | Перевірка подвійного підрахунку кроків |
+| `analyze_strava.py` | Темп, дистанції, кореляції Strava |
+| `sync_to_supabase.py` | Завантаження архіву в БД |
+
+**Математика:**
+- Rolling Average: $W_{7d}(t) = \frac{1}{7} \sum_{i=0}^{6} W(t-i)$ (фільтрація водного шуму)
+- Time-Lag Correlation: $Corr(X_t, Y_{t+\Delta t}), \Delta t \in \{1, 2, 3\}$ (натрій → вага наступного дня)
+- Statistical validation: $p$-value $< 0.05$
 
 ---
 
-### 2.5. AI Insights & Presentation Layer
-* After receiving mathematically proven facts, the LLM translates them into plain human language:
-  > *"Over the last 14 days, your average weight decreased by 350g/week (trend is normal). Yesterday's meal contained high salt (+850g water retention today) — this is not fat, your weight will normalize within 48 hours."*
-* Daily morning or evening reports are sent directly to Telegram.
+### 3.5. Presentation Layer
+
+| Інтерфейс | Реалізація | Статус |
+|---|---|---|
+| `/stats` — щоденна статистика | Telegram + inline кнопки | ✅ |
+| `/coach` — AI-аналіз відновлення | Telegram + Gemini | 🔜 |
+| Ранковий дайджест о 08:00 | Supabase cron | 📅 Phase 3 |
+| BI Dashboard | Metabase/Superset → Supabase | 📅 Phase 4 |
+
+---
+
+## 4. Edge Functions Map
+
+| Function | Trigger | Дія |
+|---|---|---|
+| `telegram-bot` | Telegram Webhook | Food logging, stats, coach, weight |
+| `ingest-health` | iOS Shortcuts POST | Save sleep + workout data |
+
+---
+
+## 5. Ключові принципи (непорушні)
+
+1. **Data Ownership:** Всі дані у власній PostgreSQL, без vendor lock-in
+2. **Frictionless Input:** Фото або короткий текст — максимум 5 секунд на запис
+3. **Modularity:** Кожен шар незалежний — можна замінити Gemini на GPT-4V без переписування БД
+4. **AI не вигадує числа:** LLM отримує готові статистичні факти, а не сирі таблиці
+5. **Deficit Discipline:** +12.5% buffer незмінний, якщо користувач явно не попросив інакше
+
+---
+
+## 6. Відкриті питання (Room for thoughts)
+
+* **Apple Health ↔ БД:** Суперечність даних? Apple Health — source of truth чи лише один із клієнтів?
+* **Confidence validation:** При `confidence < 60` — потрібен UI для ручного коригування порції?
+* **Multi-user:** Як масштабувати на другого користувача (Віка-профіль) — один бот, різні user_id?
+* **Bluetooth Scale:** CoreBluetooth автоматизація без відкриття нативного додатку — SwiftUI app?
