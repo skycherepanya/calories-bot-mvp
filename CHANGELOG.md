@@ -4,6 +4,26 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - NEAT Activity Tracking, Apple Health Canonical Source & Gemini 3.8 Flash Upgrade
+
+### 🏃 Lifestyle Activity & Ingestion Architecture:
+- **Canonical Primary Source Established:** Declared Apple Health / Apple Fitness (Apple Watch) as the single primary source of truth for workouts, steps, sleep, and recovery metrics. Strava designated as secondary/export-only.
+- **NEAT & Daily Activity Tracking:** Created and applied migration `005_daily_metrics_enhancements.sql` enhancing `daily_metrics` with `steps`, `active_kcal`, and device prioritization (`apple_watch` preferred over `iphone` to eliminate double counting).
+- **Imported 1,279 Days of Daily Activity:** Extended `Lifecore/scripts/sync_to_supabase.py` with `sync_daily_metrics()` uploading 1,279 days of step counts and active energy expenditure to remote Supabase.
+- **iOS Shortcut Spec Enhanced:** Updated `shortcuts/ingest_health_shortcut.md` and docs to include daily activity payload (`daily_activity: { date, steps, active_kcal, distance_km }`).
+
+### 🤖 AI Models & Infrastructure:
+- **AI Model Upgrade to Gemini 3.8 Flash:** Benchmarked models live against the Gemini API. Upgraded production AI cascade across Node.js (`utils/gemini.js`) and Edge Function (`supabase/functions/telegram-bot/index.ts`) to:
+  1. `gemini-3.8-flash` (Primary — superior reasoning for Coach & fast multimodal vision)
+  2. `gemini-2.5-flash` (First fallback — ultra-fast latency)
+  3. `gemini-3.6-flash` (Secondary fallback)
+- **Deployed Edge Function:** Redeployed `telegram-bot` Edge Function to Supabase production with new model cascade.
+
+### Affected Files
+`supabase/migrations/005_daily_metrics_enhancements.sql`, `Lifecore/scripts/sync_to_supabase.py`, `utils/gemini.js`, `supabase/functions/telegram-bot/index.ts`, `PROJECT_KNOWLEDGE.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/IMPLEMENTATION_PLAN_PHASE2.md`, `shortcuts/ingest_health_shortcut.md`, `README.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Database Migrations Applied & Historical Data Ingested
 
 ### 🗄 Database & Migrations:

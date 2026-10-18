@@ -23,6 +23,12 @@ Every morning (or directly upon completing an exercise session), the Shortcut qu
 {
   "secret": "YOUR_INGEST_SECRET",
   "user_id": 123456789,
+  "daily_activity": {
+    "date": "2026-10-18",
+    "steps": 11450,
+    "active_kcal": 520,
+    "distance_km": 8.2
+  },
   "sleep": {
     "sleep_date": "2026-10-16",
     "total_hours": 6.8,
@@ -46,7 +52,7 @@ Every morning (or directly upon completing an exercise session), the Shortcut qu
 }
 ```
 
-The `sleep` and `workout` objects are **optional** — the payload can transmit either one or both simultaneously.
+The `daily_activity`, `sleep`, and `workout` objects are **optional** — the payload can transmit any combination based on available telemetry.
 
 ---
 
@@ -78,7 +84,23 @@ Get health samples:
   - Type: Resting Heart Rate → latest value
 ```
 
-### Block 4: Workout Sampling (Today's Activities)
+### Block 4a: Daily Lifestyle Activity & NEAT (Today)
+```
+Get health samples:
+  - Type: Step Count
+  - Period: Today (00:00 → Current Time)
+  - Aggregate: Sum → steps
+Get health samples:
+  - Type: Active Energy Burned
+  - Period: Today (00:00 → Current Time)
+  - Aggregate: Sum (kcal) → active_kcal
+Get health samples:
+  - Type: Walking + Running Distance
+  - Period: Today (00:00 → Current Time)
+  - Aggregate: Sum (km) → distance_km
+```
+
+### Block 4b: Workout Sampling (Today's Activities)
 ```
 Get workouts:
   - Period: Today (since 00:00)
@@ -99,6 +121,7 @@ If workouts found:
 Construct JSON Dictionary:
   secret → SECRET
   user_id → USER_ID (as number)
+  daily_activity → {date: Today (YYYY-MM-DD), steps, active_kcal, distance_km}
   sleep → {sleep_date, total_hours, deep_hours, rem_hours, core_hours, hrv_avg_ms, rhr_bpm}
   workout → {type, duration_min, avg_heart_rate, ...} (if workout detected)
 

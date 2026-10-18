@@ -131,7 +131,23 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Missing user_id' }), { status: 400 });
   }
 
-  const inserted = { sleep: false, workout: false };
+  const inserted = { daily_activity: false, sleep: false, workout: false };
+
+  // Insert or update daily activity (NEAT: steps, active energy)
+  if (body.daily_activity) {
+    const a = body.daily_activity;
+    const metricDate = a.date || dietaryDate(new Date().toISOString());
+    const { error } = await supabase.from('daily_metrics').upsert({
+      user_id: userId,
+      metric_date: metricDate,
+      steps: a.steps ?? null,
+      active_kcal: a.active_kcal ?? null,
+      distance_km: a.distance_km ?? null,
+      source: 'apple_health',
+    }, { onConflict: 'user_id,metric_date' });
+    if (error) console.error('[ingest-health] daily_activity insert error:', error);
+    else inserted.daily_activity = true;
+  }
 
   // Insert or update sleep log
   if (body.sleep) {
@@ -197,6 +213,12 @@ curl -X POST https://<PROJECT-REF>.supabase.co/functions/v1/ingest-health \
   -d '{
     "secret": "your_random_secret_32chars",
     "user_id": YOUR_TELEGRAM_ID,
+    "daily_activity": {
+      "date": "2026-10-18",
+      "steps": 10500,
+      "active_kcal": 450.0,
+      "distance_km": 7.8
+    },
     "sleep": {
       "sleep_date": "2026-10-17",
       "total_hours": 7.2,
@@ -204,7 +226,7 @@ curl -X POST https://<PROJECT-REF>.supabase.co/functions/v1/ingest-health \
       "rhr_bpm": 50.0
     }
   }'
-# Expected response: {"ok":true,"inserted":{"sleep":true,"workout":false}}
+# Expected response: {"ok":true,"inserted":{"daily_activity":true,"sleep":true,"workout":false}}
 ```
 
 ---
@@ -223,7 +245,7 @@ const { getDietaryDate } = require('./dateUtils');
 async function buildCoachContext(supabase, userId) {
   const threeDaysAgo = getDietaryDate(new Date(), -3);
 
-  const [mealsRes, sleepRes, workoutsRes] = await Promise.all([
+  const [mealsRes, sleepRes, workoutsRes, activityRes] = await Promise.all([
     supabase
       .from('meals')
       .select('dietary_date, kcal, protein, carbs, fat, tags')
@@ -240,10 +262,17 @@ async function buildCoachContext(supabase, userId) {
 
     supabase
       .from('workouts')
-      .select('dietary_date, workout_type, duration_min, avg_heart_rate, active_kcal, distance_km, avg_pace_min_km')
+      .select('dietary_date, workout_type, duration_min, avg_heart_rate, active_kcal, distance_km, avg_pace_min_km, notes')
       .eq('user_id', userId)
       .gte('dietary_date', threeDaysAgo)
       .order('started_at'),
+
+    supabase
+      .from('daily_metrics')
+      .select('metric_date, steps, active_kcal, distance_km')
+      .eq('user_id', userId)
+      .gte('metric_date', threeDaysAgo)
+      .order('metric_date'),
   ]);
 
   // Aggregate daily nutrition macros
@@ -269,14 +298,15 @@ async function buildCoachContext(supabase, userId) {
     })),
     sleep: sleepRes.data || [],
     workouts: workoutsRes.data || [],
+    daily_activity: activityRes.data || [],
   };
 }
 
 /**
- * Builds the Gemini prompt embedding 3-day recovery and nutrition context.
+ * Builds the Gemini prompt embedding 3-day recovery, activity, and nutrition context.
  */
 function buildCoachPrompt(context) {
-  const hasData = context.nutrition.length > 0 || context.sleep.length > 0 || context.workouts.length > 0;
+  const hasData = context.nutrition.length > 0 || context.sleep.length > 0 || context.workouts.length > 0 || context.daily_activity.length > 0;
   if (!hasData) {
     return null; // Insufficient data
   }
@@ -295,16 +325,20 @@ ${JSON.stringify(context.sleep, null, 2)}
 ТРЕНУВАННЯ:
 ${JSON.stringify(context.workouts, null, 2)}
 
+ПОБУТОВА АКТИВНІСТЬ ТА КРОКИ (NEAT):
+${JSON.stringify(context.daily_activity, null, 2)}
+
 ПРАВИЛА ВІДПОВІДІ:
-1. ПЕРШИЙ РЯДОК обов'язково: "СТАН СИСТЕМИ: 🟢" або "🟡" або "🔴" — на основі HRV + RHR + сон.
+1. ПЕРШИЙ РЯДОК обов'язково: "СТАН СИСТЕМИ: 🟢" або "🟡" або "🔴" — на основі HRV + RHR + сон + навантаження (тренування + побутова активність).
    - 🟢 = HRV в нормі, RHR стабільний, сон >7h
-   - 🟡 = незначні відхилення (HRV -10%, або сон 6-7h, або RHR +2 bpm)
+   - 🟡 = незначні відхилення (HRV -10%, або сон 6-7h, або висока побутова активність >12k кроків)
    - 🔴 = HRV впав >15% від попередніх днів, або RHR >+3 bpm, або сон <5.5h
 2. Дай РІВНО 4 інсайти у форматі: **[Спостереження]** → [фізіологічна причина] → [конкретна рекомендація]
-3. Якщо стан 🔴 — перший інсайт ЗАВЖДИ: "⛔ СТОП / ВІДНОВЛЕННЯ: ..." з поясненням чому
-4. Кожен інсайт спирається на конкретні цифри з контексту
-5. Відповідай українською. Без мотиваційного тону — тільки факти та дії.
-6. Не вигадуй дані яких немає — якщо якогось показника бракує, прямо скажи`;
+3. Враховуй побутову активність: навіть якщо формальних тренувань не було, але кроків >10k, врахуй ці енерговитрати у баланс калорій та втому ніг!
+4. Якщо стан 🔴 — перший інсайт ЗАВЖДИ: "⛔ СТОП / ВІДНОВЛЕННЯ: ..." з поясненням чому
+5. Кожен інсайт спирається на конкретні цифри з контексту
+6. Відповідай українською. Без мотиваційного тону — тільки факти та дії.
+7. Не вигадуй дані яких немає — якщо якогось показника бракує, прямо скажи`;
 }
 
 module.exports = { buildCoachContext, buildCoachPrompt };
@@ -338,8 +372,8 @@ async function coachHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID) {
       return;
     }
 
-    // Call Gemini with cascade fallback (text mode)
-    const models = ['gemini-2.5-flash', 'gemini-3.6-flash'];
+    // Call Gemini with cascade fallback (text mode) — gemini-3.8-flash is primary
+    const models = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
     let response = null;
 
     for (const modelName of models) {

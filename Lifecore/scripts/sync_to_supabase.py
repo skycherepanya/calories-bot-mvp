@@ -106,6 +106,52 @@ def sync_sleep_logs():
     print(f"[OK]   sleep_logs: {len(records)} records processed.")
 
 
+# ── 1b. Sync Daily Activity Metrics (Steps, Active Kcal, NEAT) ─────────────
+def sync_daily_metrics():
+    if not HEALTH_SUMMARY.exists():
+        print(f"[SKIP] daily_health_summary.json not found.")
+        return
+
+    with open(HEALTH_SUMMARY, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    daily = data.get('daily', [])
+    records = []
+    for day in daily:
+        steps_src = day.get('steps_by_source', {})
+        active_src = day.get('active_by_source', {})
+        if not steps_src and not active_src:
+            continue
+
+        # Prioritize Apple Watch over iPhone to avoid double counting
+        watch_steps = next((v for k, v in steps_src.items() if 'watch' in k.lower()), None)
+        iphone_steps = next((v for k, v in steps_src.items() if 'iphone' in k.lower()), None)
+        steps = int(round(watch_steps if watch_steps else (iphone_steps if iphone_steps else sum(steps_src.values()))))
+
+        watch_active = next((v for k, v in active_src.items() if 'watch' in k.lower()), None)
+        active_kcal = round(watch_active if watch_active else sum(active_src.values()), 1)
+
+        records.append({
+            'user_id': USER_ID,
+            'metric_date': day['date'],
+            'steps': steps if steps > 0 else None,
+            'active_kcal': active_kcal if active_kcal > 0 else None,
+            'source': 'apple_health',
+        })
+
+    if not records:
+        print("[SKIP] No daily steps/active energy data found.")
+        return
+
+    print(f"[SYNC] Uploading {len(records)} daily_metrics records...")
+    chunk_size = 100
+    for i in range(0, len(records), chunk_size):
+        chunk = records[i:i + chunk_size]
+        supabase.table('daily_metrics').upsert(chunk, on_conflict='user_id,metric_date').execute()
+        print(f"  → Daily metrics chunk {i // chunk_size + 1}/{(len(records) + chunk_size - 1) // chunk_size} uploaded.")
+    print(f"[OK]   daily_metrics: {len(records)} records processed.")
+
+
 # ── 2. Sync Strava Activities ───────────────────────────────────────────────
 def sync_strava_activities():
     """Returns list of indexed (datetime, elapsed_min, moving_min) for deduplication with Health."""
@@ -261,6 +307,7 @@ if __name__ == '__main__':
     print("=" * 60)
 
     sync_sleep_logs()
+    sync_daily_metrics()
     strava_index = sync_strava_activities()
     sync_health_workouts(strava_index)
 

@@ -121,7 +121,7 @@ async function runPing() {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         results.gemini.models = {};
 
-        const testModels = ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+        const testModels = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-3.6-flash"];
 
         for (const modelName of testModels) {
             try {

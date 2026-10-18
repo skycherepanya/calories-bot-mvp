@@ -74,7 +74,17 @@ Key metrics from Apple Watch used by the Coach:
 
 ---
 
-### 2.4. Time-Lag Correlations (planned Phase 3)
+### 2.4. Lifestyle Activity & NEAT (Non-Exercise Activity Thermogenesis)
+
+Physical activity is not limited to structured workouts:
+- **NEAT Impact:** Daily errands, shopping mall walking, or active city commutes often accumulate 8,000–14,000 steps and burn 300–600 active kcal without a formal workout.
+- **Coach Intelligence:** If the Coach only evaluates formal workouts, it risks misinterpreting a high-NEAT day as a sedentary day, falsely projecting a smaller caloric deficit and misdiagnosing recovery fatigue.
+- **Source of Truth:** **Apple Health / Apple Fitness is the Canonical Primary Source of Truth** for all activity and workouts because Apple Watch passively and automatically logs every heartbeat, step, and exercise session directly to HealthKit. Strava is strictly a secondary export/social channel.
+- **Storage:** Daily total steps, active energy burned, and distance are stored in `daily_metrics`.
+
+---
+
+### 2.5. Time-Lag Correlations (planned Phase 3)
 
 Nutrition and exercise events affect body metrics with delays:
 - **Lag T+1 / T+2:** Sodium/carb intake on day T → morning weight on T+1, T+2
@@ -101,7 +111,8 @@ Dual Architecture — all logic changes must be applied to **both** implementati
 - `coachHandler.js` 🔜 — `/coach`, `/workout`, `/sleep` commands
 
 **Utils (`utils/`):**
-- [`gemini.js`](./utils/gemini.js) — `generateMealJSON(genAI, promptData)` with cascade fallback (`gemini-2.5-flash` → `gemini-3.6-flash`)
+**Utils (`utils/`):**
+- [`gemini.js`](./utils/gemini.js) — `generateMealJSON(genAI, promptData)` with cascade fallback (`gemini-3.8-flash` → `gemini-2.5-flash` → `gemini-3.6-flash`)
 - [`keyboard.js`](./utils/keyboard.js) — `MAIN_KEYBOARD` persistent bottom menu (will add 🏃 button in Phase 2)
 - [`dateUtils.js`](./utils/dateUtils.js) — `getDietaryDate(date, offsetDays)` with `shiftHours = 4`; `getStatsMessage()` with aggregation
 - [`prompt.js`](./utils/prompt.js) — system prompt for food recognition (tags, micronutrients, amino acids, ×1.125 buffer)
@@ -119,14 +130,14 @@ Dual Architecture — all logic changes must be applied to **both** implementati
 - Persistent `MAIN_KEYBOARD`
 - Automatic weight recognizer (30–350 number range)
 - "Yesterday mode" via force_reply
-- Gemini fallback chain (`gemini-2.5-flash` → `gemini-3.6-flash`)
+- Gemini fallback chain (`gemini-3.8-flash` → `gemini-2.5-flash` → `gemini-3.6-flash`)
 - Fault-tolerant `sendTg` with Markdown fallback to plain text
 - `await handleUpdate(update)` before HTTP 200 OK (prevents Deno isolate freeze)
 
 **`ingest-health` Edge Function** 🔜 — new function for iOS Shortcuts:
 - Path: `supabase/functions/ingest-health/index.ts`
 - Auth: `INGEST_SECRET` from Supabase Secrets (not JWT)
-- Writes to `sleep_logs` and/or `workouts`
+- Writes to `daily_metrics` (steps, active kcal, NEAT), `sleep_logs`, and `workouts`
 
 ---
 
@@ -138,7 +149,7 @@ Dual Architecture — all logic changes must be applied to **both** implementati
 - `analyze_health.py` — HRV/RHR/Steps monthly trends
 - `analyze_steps.py` — step double-counting check (iPhone vs Watch sources)
 - `analyze_strava.py` — pace, distance, HR correlations from Strava CSV
-- `sync_to_supabase.py` 🔜 — bulk-upload `daily_health_summary.json` + `activities.csv` → Supabase
+- `sync_to_supabase.py` ✅ — bulk-upload `daily_health_summary.json` + `activities.csv` → Supabase with cross-source deduplication
 
 **Reference prompts (`Lifecore/prompts/`):**
 - `antigravity_health_assistant_prompt_sasha.md` — Sasha's personal AI coach profile (age 24, 175cm/76kg, running + calisthenics, goals: recomposition)
@@ -165,8 +176,6 @@ muscle_mass_kg, bone_mass_kg, visceral_fat,
 source TEXT DEFAULT 'telegram_w', created_at
 ```
 
-### In DB (✅ Applied)
-
 **`workouts`** — physical activity (Migration 002)
 ```sql
 id, user_id, workout_type TEXT, source TEXT,
@@ -180,6 +189,16 @@ notes TEXT, raw_data JSONB, dietary_date DATE, created_at
 id, user_id, source TEXT, sleep_date DATE UNIQUE(user_id, sleep_date),
 total_hours, deep_hours, rem_hours, core_hours, awake_hours,
 hrv_avg_ms, rhr_bpm, vo2max, created_at
+```
+
+**`daily_metrics`** — lifestyle activity, steps, active energy & rolling metrics (Migrations 20260904160000 & 005)
+```sql
+id, user_id, metric_date DATE UNIQUE(user_id, metric_date),
+steps INTEGER, active_kcal NUMERIC, distance_km NUMERIC,
+morning_weight_kg NUMERIC, body_fat_pct NUMERIC, water_pct NUMERIC,
+sleep_hours NUMERIC, deep_sleep_hours NUMERIC, rem_sleep_hours NUMERIC,
+resting_hr NUMERIC, hrv_ms NUMERIC, rolling_avg_weight_7d NUMERIC,
+rolling_avg_weight_14d NUMERIC, source TEXT DEFAULT 'apple_health', created_at
 ```
 
 Full DDL: see [`docs/DATABASE.md`](./docs/DATABASE.md) and [`supabase/migrations/`](./supabase/migrations/).

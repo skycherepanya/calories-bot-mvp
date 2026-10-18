@@ -190,41 +190,39 @@ Nightly sleep phases + recovery biomarkers from Apple Watch.
 
 ---
 
-### 2.5. `daily_metrics` 📅 *Phase 3*
-Aggregated daily dashboard view (filled by PostgreSQL trigger or Edge Function).
+### 2.5. `daily_metrics` ✅ *Implemented (Migrations 20260904160000 & 005)*
+Daily lifestyle telemetry, NEAT (steps, active energy), and rolling trend metrics.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
-| `morning_weight_kg` | `NUMERIC` | From `body_measurements` |
-| `sleep_hours` | `NUMERIC` | From `sleep_logs` |
-| `resting_hr` | `NUMERIC` | From `sleep_logs.rhr_bpm` |
-| `hrv_ms` | `NUMERIC` | From `sleep_logs.hrv_avg_ms` |
-| `steps` | `INTEGER` | From iOS Shortcut or Apple Health |
-| `active_kcal` | `NUMERIC` | From `workouts` |
-| `rolling_avg_weight_7d` | `NUMERIC` | Computed: 7-day rolling avg |
-| `rolling_avg_weight_14d` | `NUMERIC` | Computed: 14-day rolling avg |
+| `id` | `BIGINT PK` | |
+| `user_id` | `BIGINT NOT NULL` | Telegram Chat ID |
+| `metric_date` | `DATE NOT NULL` | Calendar date (UNIQUE per user) |
+| `steps` | `INTEGER` | Total daily steps from HealthKit / Apple Watch |
+| `active_kcal` | `NUMERIC` | Active energy burned across the day (NEAT + exercise) |
+| `distance_km` | `NUMERIC` | Total daily walking/running distance |
+| `morning_weight_kg` | `NUMERIC` | Morning weight from `body_measurements` |
+| `sleep_hours` | `NUMERIC` | Total sleep duration |
+| `resting_hr` | `NUMERIC` | Resting heart rate |
+| `hrv_ms` | `NUMERIC` | Overnight HRV SDNN |
+| `rolling_avg_weight_7d` | `NUMERIC` | Computed 7-day rolling weight average |
+| `rolling_avg_weight_14d` | `NUMERIC` | Computed 14-day rolling weight average |
+| `source` | `TEXT` | `apple_health` (canonical) |
 
 ---
 
-## 3. SQL DDL
+## 3. SQL Migrations Status
 
-### Migration 001 — Initial (✅ Applied)
-See: [`supabase/migrations/001_initial.sql`](../supabase/migrations/001_initial.sql)
+All migrations are applied to production Supabase PostgreSQL:
 
-### Migration 002 — Workouts (🔜 Pending)
-See: [`supabase/migrations/002_workouts.sql`](../supabase/migrations/002_workouts.sql)
-
-```sql
--- Quick apply in Supabase SQL Editor:
-\i supabase/migrations/002_workouts.sql
-```
-
-### Migration 003 — Sleep Logs (🔜 Pending)
-See: [`supabase/migrations/003_sleep_logs.sql`](../supabase/migrations/003_sleep_logs.sql)
-
-```sql
-\i supabase/migrations/003_sleep_logs.sql
-```
+| Migration | Purpose | Status |
+|---|---|---|
+| `20260904160000_lifecore_schema.sql` | Base schema: `meals`, `body_measurements`, `daily_metrics` | ✅ Applied |
+| `001_initial.sql` | Verified baseline DDL | ✅ Applied |
+| `002_workouts.sql` | `workouts` table (type, HR, pace, kcal, distance) | ✅ Applied |
+| `003_sleep_logs.sql` | `sleep_logs` table (phases, HRV, RHR, VO2Max) | ✅ Applied |
+| `004_fix_sleep_logs_nullable.sql` | Relaxed `total_hours` NOT NULL constraint | ✅ Applied |
+| `005_daily_metrics_enhancements.sql` | Added `distance_km`, `source` to `daily_metrics` | ✅ Applied |
 
 ---
 
@@ -244,16 +242,19 @@ CREATE INDEX idx_workouts_started_at ON workouts(user_id, started_at DESC);
 
 -- sleep_logs: coach context query
 CREATE INDEX idx_sleep_logs_user_date ON sleep_logs(user_id, sleep_date DESC);
+
+-- daily_metrics: coach lifestyle activity query
+CREATE INDEX idx_daily_metrics_user_date ON daily_metrics(user_id, metric_date DESC);
 ```
 
 ---
 
 ## 5. Coach Context Query
 
-The `/coach` command uses this query to gather 3-day context for Gemini:
+The `/coach` command executes this unified 4-part query to gather 3-day context for Gemini:
 
 ```sql
--- Meals (last 3 dietary days)
+-- 1. Meals (last 3 dietary days)
 SELECT dietary_date,
        SUM(kcal) AS total_kcal,
        SUM(protein) AS protein_g,
@@ -264,15 +265,21 @@ FROM meals
 WHERE user_id = $1 AND dietary_date >= CURRENT_DATE - 3
 GROUP BY dietary_date ORDER BY dietary_date;
 
--- Sleep (last 3 nights)
+-- 2. Sleep & Biomarkers (last 3 nights)
 SELECT sleep_date, total_hours, deep_hours, rem_hours, hrv_avg_ms, rhr_bpm
 FROM sleep_logs
 WHERE user_id = $1 AND sleep_date >= CURRENT_DATE - 4
 ORDER BY sleep_date;
 
--- Workouts (last 3 days)
-SELECT dietary_date, workout_type, duration_min, avg_heart_rate, active_kcal, distance_km, avg_pace_min_km
+-- 3. Workouts (last 3 days)
+SELECT dietary_date, workout_type, duration_min, avg_heart_rate, active_kcal, distance_km, avg_pace_min_km, notes
 FROM workouts
 WHERE user_id = $1 AND dietary_date >= CURRENT_DATE - 3
 ORDER BY started_at;
+
+-- 4. Daily Lifestyle Activity (NEAT / steps / daily active energy)
+SELECT metric_date, steps, active_kcal, distance_km
+FROM daily_metrics
+WHERE user_id = $1 AND metric_date >= CURRENT_DATE - 3
+ORDER BY metric_date;
 ```

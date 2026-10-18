@@ -168,8 +168,9 @@ python scripts/analyze_strava.py
 |---|---|
 | Deficit Buffer | ×1.125 (+12.5% to Kcal) |
 | Dietary Day Shift | 04:00 AM |
-| Primary AI Model | `gemini-2.5-flash` |
-| Fallback AI Model | `gemini-3.6-flash` |
+| Primary AI Model | `gemini-3.8-flash` |
+| Fallback AI Models | `gemini-2.5-flash`, `gemini-3.6-flash` |
 | Database | PostgreSQL via Supabase |
 | Backend (Prod) | Deno Edge Functions |
 | Backend (Dev) | Node.js Long Polling |
+

@@ -90,7 +90,7 @@ async function sendTg(method: string, payload: any) {
 
 // Gemini request with automatic fallback between models
 async function generateMealJSON(promptData: any[]): Promise<any> {
-  const models = ["gemini-2.5-flash", "gemini-3.6-flash"];
+  const models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-3.6-flash"];
   let lastError: any = null;
 
   for (const modelName of models) {

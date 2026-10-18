@@ -85,24 +85,27 @@ flowchart TD
 
 ### 3.1. Ingestion Layer — Data Intake
 
-**Guiding Principle: Frictionless Input (Zero Friction Entry)**
+**Guiding Principle: Frictionless Input & Canonical Primary Source**
+
+* **Canonical Primary Source:** **Apple Health / Apple Fitness** is the primary source of truth for all activity, workouts, sleep, and physiological telemetry. The Apple Watch passively records continuous biometric telemetry with zero user effort. Strava is an optional, secondary export channel.
+* **Lifestyle & NEAT Tracking:** Non-exercise household activity (walking, errands, daily movement) is captured via HealthKit step counts and active energy, populating `daily_metrics`.
 
 | Source | Data Collected | Method | Status |
 |---|---|---|---|
 | Telegram Bot | Food photos/text, morning weight (`/w`) | Webhook → Edge Function | ✅ Production |
-| iOS Shortcuts | Sleep stages, HRV, RHR, workouts | POST → `ingest-health` | 🔜 Phase 2 |
-| Python Sync | Strava CSV + Apple Health XML | Direct Supabase batch insert | 🔜 Phase 2 |
+| iOS Shortcuts (Apple Health) | Sleep stages, HRV, RHR, workouts, daily steps & active kcal | POST → `ingest-health` | 🔜 Phase 2 |
+| Python Sync | Strava CSV + Apple Health XML archive | Supabase batch insert with deduplication | ✅ Implemented |
 | Bluetooth Scale | Weight + Bioimpedance (BIA) | CoreBluetooth (future) | 📅 Future |
 
 **Critical Rule — 4-Hour Day Shift:**
-The dietary day resets at **04:00 AM**, not at midnight. Meals consumed after midnight and before 04:00 AM are attributed to the previous calendar day. This applies across all domain tables: `meals`, `workouts`, and `sleep_logs`.
+The dietary day resets at **04:00 AM**, not at midnight. Meals consumed after midnight and before 04:00 AM are attributed to the previous calendar day. This applies across all domain tables: `meals`, `workouts`, `sleep_logs`, and `daily_metrics`.
 
 ---
 
 ### 3.2. Processing & AI Layer
 
 **Gemini Vision (Meal Recognition):**
-- **Model:** `gemini-2.5-flash` (primary) → `gemini-3.6-flash` (fallback on HTTP 503)
+- **Model:** `gemini-3.8-flash` (primary — state-of-the-art vision reasoning) → `gemini-2.5-flash` (fast fallback) → `gemini-3.6-flash`
 - **Response Format:** `responseMimeType: "application/json"` — enforced on all requests
 - **Deficit Buffer:** Calories multiplied by ×1.125 (+12.5% buffer), while protein, fat, and carbs remain exact
 - **Quality Taxonomy:** `whole_food` | `ultra_processed` | `solid` | `liquid` | `fast_absorbing` | `slow_absorbing` | `high_sodium`
@@ -110,7 +113,8 @@ The dietary day resets at **04:00 AM**, not at midnight. Meals consumed after mi
 - **Amino Acids (for high-protein meals):** `bcaa_g`, `leucine_g`
 
 **Gemini Coach (Recovery & Readiness Analysis):**
-- Receives pre-aggregated context from PostgreSQL: 3-day history of workouts, sleep metrics, and nutrition
+- **Model:** `gemini-3.8-flash` (primary — high-order contextual synthesis) → `gemini-3.6-flash` (fallback)
+- Receives pre-aggregated context from PostgreSQL: 3-day history of workouts, daily activity (steps/active kcal), sleep architecture, and nutrition
 - Never receives raw unindexed dumps — operates on structured, pre-computed JSON
 - Returns: `SYSTEM STATE: 🟢/🟡/🔴` with causal recovery insights
 
