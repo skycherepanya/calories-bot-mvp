@@ -1,263 +1,241 @@
-# Project Master Context: Lifecore (Quantified Self Health Data Warehouse)
+# Project Master Context: Lifecore 2.0 (Native iOS-First & Athletic Performance Platform)
 
-> **File Purpose:** Single Source of Truth for AI agents and developers. Contains the full project description, domain mathematics, architecture, current code status, AI prompts rules, and development roadmap. **Do not search other files redundantly — all critical information is here.**
+> **File Purpose:** Single Source of Truth for AI agents and developers. Contains the full project description, physiological mathematics, on-device Swift telemetry rules, AI coach prompt engineering, database schema, and roadmap. **Do not search other files redundantly — all critical information is consolidated here.**
 
 ---
 
-## 1. High-Level Vision
+## 1. High-Level Vision & Architecture
 
-* **Project Name:** Lifecore (Quantified Self Health & Nutrition Data Warehouse)
-* **Repository:** `calories-bot-mvp` (rename to `lifecore` is planned)
-* **Main Goal:** Modular, scalable ecosystem for collecting, aggregating, and correlating nutrition, body composition, training, and sleep data — owned entirely by the user.
+* **Project Name:** Lifecore (Native iOS-First Quantified Self & Athletic Performance Platform)
+* **Repository:** `calories-bot-mvp` (planned rename to `lifecore`)
+* **Core Philosophy:** Personal on-device health and athletic intelligence platform. Lifecore combines continuous physiological telemetry from Apple Watch (Apple HealthKit), frictionless vision-based nutrition tracking, deterministic Swift telemetry math, and an elite AI Athletic Performance Analyst.
 
-**Core Principles:**
-1. **Frictionless Input:** Photo or short text description, not manual weighing. Maximum 5 seconds per meal entry.
-2. **Data Ownership:** All data in private PostgreSQL (Supabase). No vendor lock-in.
-3. **Modularity:** Each layer (Ingestion, Storage, Processing, AI, Presentation) is independent.
-4. **AI Precision:** Strict prompt engineering, structured JSON output, cooking-weight correction, deficit buffer.
-5. **Evidence-based Insights:** AI receives pre-computed statistical facts from the math engine, not raw tables.
+### Core Architectural Principles:
+1. **iOS-First, On-Device Architecture:** The primary user interface and processing engine is a native iOS application (`ios/Lifecore/`) built with Swift 6, SwiftUI, Swift Charts, HealthKit, and SwiftData.
+2. **Deterministic Math Engine vs AI Reasoning:** All mathematical calculations (1km splits, pace, cardiac drift, aerobic decoupling %, NEAT isolation, rolling averages, caloric buffers) are executed deterministically in Swift. The LLM (Gemini) is reserved strictly for qualitative synthesis, athletic pattern recognition, and causal explanation.
+3. **HealthKit as Canonical Local Source of Truth:** Apple Health is the ground truth for all passive telemetry (continuous heart rate, sleep architecture, HRV SDNN, resting heart rate, steps, and workout sessions). All split-level workout data is parsed directly from HealthKit on-device without third-party API dependencies.
+4. **Cloud Backup & Long-Term Storage (Supabase):** PostgreSQL in Supabase serves as a cloud persistence, backup, and historical synchronization warehouse.
+5. **Frictionless Nutrition Logging:** 5-second food capture via camera/photo, automated portion and macronutrient estimation with a guaranteed deficit buffer (+12.5% kcal).
+6. **Athletic Coach (70 / 15 / 15):** The AI Coach is an elite endurance coach and athletic performance analyst, NOT a generic medical wellness bot. It focuses on how workouts were executed and uses biometric recovery only to explain performance deltas.
 
 ---
 
 ## 2. Domain Core & Physiological Math
 
 ### 2.1. Daily Weight "Water Noise" vs Real Trend
-
-Raw daily weight reflects water balance, not real fat/muscle change:
-- **Glycogen water binding:** 1g glycogen holds ~3g water → carb spike = next-day weight spike, not fat.
-- **Muscle micro-inflammation:** Intense cardio/lifting → muscles accumulate fluid for 24–72h recovery.
-- **Cortisol & stress:** Extreme deficit or sleep debt raises cortisol → kidney water retention.
-- **BIA scale limitations:** Smart scales measure lower-body current resistance; upper body is algorithmically approximated.
-
-> **Solution:** 7–14 day rolling average to filter water noise and detect real long-term trend.
+Raw daily weight reflects water balance fluctuations, not acute fat/muscle changes:
+- **Glycogen Water Binding:** 1g of stored glycogen holds ~3–4g of water. A carbohydrate-dense day immediately causes a 1–2 kg weight spike on the scale, representing water, not adipose tissue.
+- **Muscle Micro-Inflammation:** Intense endurance running or resistance training triggers local muscle micro-tears, causing fluid retention for 24–72 hours during repair.
+- **Cortisol & Stress Response:** Caloric restriction, poor sleep, or high training load elevates cortisol, triggering antidiuretic fluid retention in kidneys.
+- **Deterministic Solution:** Calculate a **7-day and 14-day rolling average** in the Swift engine to smooth water noise and track genuine body composition trends.
 
 ---
 
 ### 2.2. Macronutrient Quality & Absorption Kinetics
-
-A calorie is not just a calorie:
-- **Thermic Effect of Food (TEF):** Protein 20–30%, Carbs 5–10%, Fats 0–3%. Whole meat has higher TEF than processed sausages.
-- **Absorption kinetics:** Liquid/ultra-processed → rapid glucose spike, hunger returns quickly. Solid/whole foods → slow digestion, sustained satiety.
-- **Food matrix & sodium:** Ultra-processed food contains hidden sodium → water retention 24–48h.
-
-#### Mandatory Food Tagging Taxonomy
-Every meal must be tagged:
-- `whole_food` — natural, minimally processed (eggs, potatoes, chicken fillet, vegetables)
-- `ultra_processed` — industrial fast food, chips, candy, sausages
-- `solid` — solid food form
-- `liquid` — soup, smoothie, shake, drink
-- `fast_absorbing` — sweets, refined carbs, liquid whey isolate
-- `slow_absorbing` — whole meat, legumes, whole grains, eggs
-- `high_sodium` — salty sauces, cured meats, fast food, pickles
+A calorie is not a homogeneous unit of energy:
+- **Thermic Effect of Food (TEF):** Protein 20–30%, Carbohydrates 5–10%, Fats 0–3%. High-protein whole foods consume significant energy simply during digestive breakdown.
+- **Absorption Kinetics:** Ultra-processed and liquid foods trigger sharp glycemic excursions and premature rebound hunger. Whole, solid foods sustain steady gastric emptying and long-term satiety.
+- **Food Quality Taxonomy:**
+  - `whole_food` — minimally processed, nutrient-dense (eggs, potatoes, lean meat, vegetables)
+  - `ultra_processed` — industrial snacks, refined sweets, cured sausages, fast food
+  - `solid` / `liquid` — physical structure affecting satiety kinetics
+  - `fast_absorbing` / `slow_absorbing` — glycemic speed
+  - `high_sodium` — induces osmotic water retention for 24–48 hours
 
 ---
 
-### 2.3. Recovery Biomarkers (HRV, RHR, VO2Max)
+### 2.3. Athletic Telemetry Math (Running & Workouts)
 
-Key metrics from Apple Watch used by the Coach:
+All running metrics are computed deterministically in the on-device Swift engine before being surfaced to UI charts or AI prompts:
 
-| Metric | What it means | How it changes |
+1. **Kilometer Splits:**
+   - Every workout is segmented into 1-kilometer increments:
+     - `pace_min_km`: decimal minutes per km (e.g. $5.75 = 5:45\text{ min/km}$).
+     - `avg_heart_rate`: average bpm within that kilometer window.
+     - `elevation_diff_m`: elevation delta ($\Delta h = h_{\text{end}} - h_{\text{start}}$) capturing climbs and descents.
+2. **Aerobic Decoupling & Cardiac Drift:**
+   - Evaluates cardiovascular efficiency over time:
+     $$\text{Efficiency Factor } (EF) = \frac{\text{Speed (m/min)}}{\text{Average Heart Rate (bpm)}}$$
+   - **Cardiac Drift Percentage:**
+     $$\text{Drift } (\%) = \left(\frac{EF_{\text{first half}} - EF_{\text{second half}}}{EF_{\text{first half}}}\right) \times 100\%$$
+   - **Interpretation:**
+     - $<5\%$: Superior aerobic conditioning, stable cardiac output.
+     - $>5\text{--}8\%$: Aerobic decoupling (indicates dehydration, glycogen depletion, overheating, or autonomic fatigue).
+3. **Lifestyle Activity & NEAT Isolation:**
+   - Apple Health `active_kcal` is aggregate for the entire day and **already includes** formal workout calories.
+   - Pure NEAT (lifestyle movement) is mathematically isolated:
+     $$\text{NEAT}_{\text{kcal}} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_kcal})$$
+
+---
+
+### 2.4. Recovery Biomarkers (Autonomic Regulation)
+
+Key autonomic telemetry captured by Apple Watch:
+
+| Biomarker | Physiological Role | Athletic Significance |
 |---|---|---|
-| **HRV SDNN (ms)** | Autonomic nervous system resilience | ↑ = well recovered. ↓ = fatigue/stress/overtraining |
-| **RHR (bpm)** | Resting Heart Rate | ↓ = better fitness. ↑ = infection/overtraining |
-| **VO2 Max** | Aerobic capacity ceiling | Improves with consistent cardio volume |
+| **HRV SDNN (ms)** | Autonomic nervous system variability | Higher = parasympathetic readiness. Acute drops = systemic fatigue or immune stress |
+| **RHR (bpm)** | Sleeping Resting Heart Rate | Athletic baseline: ~49 bpm. Sustained elevations (>4–5 bpm) signal incomplete recovery |
+| **Sleep Architecture** | Deep (cellular/tissue repair) & REM (neural recovery) | $\ge 1.2\text{h}$ Deep and $\ge 1.5\text{h}$ REM required for heavy training volume |
 
-**Sasha's baseline (Oct 2026):**
-- HRV avg: ~102 ms (excellent for age 24)
-- RHR: ~49 bpm (athletic bradycardia)
-- VO2 Max: ~44.35 (improved from 37.73 in Feb 2026 = +17.5%)
-
-**Coach alert thresholds:**
-- HRV drops >15% below personal baseline → 🔴 STOP / RECOVERY
-- RHR >3 bpm above baseline → 🟡 Reduce intensity
-- Sleep <6h + HRV↓ simultaneously → 🔴 No hard workout
+> **Athletic Guardrail Policy:** Normal day-to-day RHR variations ($\pm 2\text{--}4\text{ bpm}$) are standard athletic adaptations, NOT medical emergencies. The AI Coach must NEVER panic or issue premature "STOP / CANCEL TRAINING" alarms unless multiple severe biomarkers converge (e.g. HRV down >25% + acute fever/infection symptoms).
 
 ---
 
-### 2.4. Lifestyle Activity & NEAT (Non-Exercise Activity Thermogenesis)
-
-Physical activity is not limited to structured workouts:
-- **NEAT Impact:** Daily errands, shopping mall walking, or active city commutes often accumulate 8,000–14,000 steps and burn 300–600 active kcal without a formal workout.
-- **Coach Intelligence:** If the Coach only evaluates formal workouts, it risks misinterpreting a high-NEAT day as a sedentary day, falsely projecting a smaller caloric deficit and misdiagnosing recovery fatigue.
-- **Source of Truth:** **Apple Health / Apple Fitness is the Canonical Primary Source of Truth** for all activity and workouts because Apple Watch passively and automatically logs every heartbeat, step, and exercise session directly to HealthKit. Strava is strictly a secondary export/social channel.
-- **Storage:** Daily total steps, active energy burned, and distance are stored in `daily_metrics`.
-- **Double-Counting Prevention Rule:** 
-  - `daily_metrics.active_kcal` and `daily_metrics.steps` are **aggregate whole-day metrics** reported by Apple Health, meaning they **already incorporate** formal workout calories and steps.
-  - Pure NEAT (lifestyle movement) is mathematically isolated:  
-    $\text{NEAT}_{\text{kcal}} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_active\_kcal})$.
-  - AI Coach prompt explicitly enforces: never add `workout.active_kcal` to `daily_metrics.active_kcal`, avoiding a ~500–1000 kcal artificial deficit calculation error.
+### 2.5. Dietary Date Convention
+* The dietary day shifts at **04:00 AM** (`shiftHours = 4`), not midnight.
+* Meals, post-midnight workouts, and sleep cycles occurring between 00:00 and 03:59 AM belong to the physiological cycle of the preceding calendar day.
 
 ---
 
-### 2.5. Time-Lag Correlations (planned Phase 3)
+## 3. Current Implementation (iOS-First)
 
-Nutrition and exercise events affect body metrics with delays:
-- **Lag T+1 / T+2:** Sodium/carb intake on day T → morning weight on T+1, T+2
-- **Lag T+1:** Calorie deficit on day T → HRV drop on morning T+1
-- **Lag T+1:** Running volume on day T → RHR on T+1 (overtraining signal)
+The architecture is centered on the native iOS application, backed by Supabase for cloud sync.
 
-Calculation: Pearson/Spearman correlation with lags $\Delta t \in \{1, 2, 3\}$, $p$-value $< 0.05$.
-
----
-
-## 3. Current Implementation
-
-Dual Architecture — all logic changes must be applied to **both** implementations simultaneously.
-
-### 3.1. Node.js Process (Long Polling) — Development
-**Entry Point:** [`index.js`](./index.js)
-**Stack:** `node-telegram-bot-api`, `@google/generative-ai`, `@supabase/supabase-js`, `dotenv`, `exifreader`
-
-**Handlers (`handlers/`):**
-- [`photoHandler.js`](./handlers/photoHandler.js) — photo + document (EXIF date extraction), calls `generateMealJSON`, saves to `meals` with tags/micronutrients/amino_acids, returns macro card
-- [`textHandler.js`](./handlers/textHandler.js) — routes `/stats`, `/w` (→ weightHandler), `/y`, or food text → `generateMealJSON`
-- [`weightHandler.js`](./handlers/weightHandler.js) — `/w <weight>`, calculates delta from last measurement, saves to `body_measurements`
-- [`callbackHandler.js`](./handlers/callbackHandler.js) — inline pagination buttons for stats (`stats_YYYY-MM-DD`)
-- `coachHandler.js` 🔜 — `/coach`, `/workout`, `/sleep` commands
-
-**Utils (`utils/`):**
-**Utils (`utils/`):**
-- [`gemini.js`](./utils/gemini.js) — `generateMealJSON(genAI, promptData)` with cascade fallback (`gemini-3.8-flash` → `gemini-2.5-flash` → `gemini-3.6-flash`)
-- [`keyboard.js`](./utils/keyboard.js) — `MAIN_KEYBOARD` persistent bottom menu (will add 🏃 button in Phase 2)
-- [`dateUtils.js`](./utils/dateUtils.js) — `getDietaryDate(date, offsetDays)` with `shiftHours = 4`; `getStatsMessage()` with aggregation
-- [`prompt.js`](./utils/prompt.js) — system prompt for food recognition (tags, micronutrients, amino acids, ×1.125 buffer)
-- `coachPrompt.js` 🔜 — `buildCoachContext(userId)` + `buildCoachPrompt(context)` for /coach
+### 3.1. Native iOS Application (`ios/Lifecore/`) — Primary
+* **Framework:** SwiftUI, Swift 6 concurrency, Swift Charts, HealthKit, SwiftData.
+* **Core Components:**
+  - [`HealthKitManager.swift`](./ios/Lifecore/Lifecore/Lifecore/HealthKitManager.swift): Direct interface to HealthStore (`HKStatisticsQuery`, `HKSampleQuery`, `HKWorkoutRouteQuery`). Pulls sleep stages, HRV, RHR, steps, and workouts.
+  - `WorkoutTelemetryEngine.swift`: Parses raw HealthKit samples into kilometer splits, computes $EF$, cardiac drift %, and hill impact.
+  - [`HealthPayload.swift`](./ios/Lifecore/Lifecore/Lifecore/HealthPayload.swift): Strongly typed `Codable` structs for local persistence and cloud sync.
+  - [`LifecoreAPIService.swift`](./ios/Lifecore/Lifecore/Lifecore/LifecoreAPIService.swift): URLSession networking service syncing payloads with Supabase.
+  - [`LifecoreSyncIntent.swift`](./ios/Lifecore/Lifecore/Lifecore/LifecoreSyncIntent.swift): AppIntent exposing 1-tap and automated background synchronization to iOS.
+  - **SwiftUI Views (Bevel-Style Dashboard):**
+    - `TodayView`: Rings for Readiness, Strain, and Nutrition balance.
+    - `WorkoutDetailView`: Split-by-split interactive table, pace/HR charts, hill elevation profile.
+    - `FoodLogView`: On-device photo capture, optimistic UI, nutrition macro breakdown.
+    - `TrendsView`: 7-day and 14-day rolling body weight trends.
 
 ---
 
-### 3.2. Supabase Edge Function (Webhook) — Production
-**Path:** [`supabase/functions/telegram-bot/index.ts`](./supabase/functions/telegram-bot/index.ts)
-**Stack:** Deno runtime, `@supabase/supabase-js@2`, `@google/generative-ai@0.1.1`, `exifreader@4.23.1`
-
-**Features (full parity with Node.js):**
-- Photo/document recognition with EXIF date extraction
-- Commands: `/w`, `/y`, `/stats`, `/start`, `/coach` ✅
-- Persistent `MAIN_KEYBOARD` (including `🏃 Аналіз тренування` button)
-- Automatic weight recognizer (30–350 number range)
-- "Yesterday mode" via force_reply
-- Gemini fallback chain (`gemini-2.5-flash` / `gemini-3.8-flash` / `gemini-3.6-flash` with timeout race)
-- Fault-tolerant `sendTg` with Markdown fallback to plain text
-- `await handleUpdate(update)` before HTTP 200 OK (prevents Deno isolate freeze)
-
-**`ingest-health` Edge Function** ✅ *(Deployed)* — webhook for iOS Ingestion:
-- Path: `supabase/functions/ingest-health/index.ts`
-- Client Implementations:
-  - **Native Swift AppIntent:** [`ios/Lifecore/`](./ios/Lifecore/) (`HealthKitManager.swift`, `LifecoreSyncIntent.swift`) — recommended, type-safe, <5ms execution.
-  - **iOS Shortcuts:** [`shortcuts/ingest_health_shortcut.md`](./shortcuts/ingest_health_shortcut.md) — visual shortcut fallback.
-- Auth: `INGEST_SECRET` from Supabase Secrets (not JWT)
-- Writes to `daily_metrics` (steps, active kcal, NEAT), `sleep_logs`, and `workouts` (deduplicated by `(user_id, started_at)`)
+### 3.2. Cloud Storage & Synchronization (Supabase PostgreSQL)
+* **Purpose:** Multi-device synchronization, long-term historical warehouse, and AI prompt context preparation.
+* **Active Edge Functions (`supabase/functions/`):**
+  - `ingest-health`: Webhook for ingesting encrypted payloads from `LifecoreSyncIntent` / Apple Shortcuts.
+* **Database Tables (Active):**
+  - `meals`: individual food logs with micronutrients and tags.
+  - `body_measurements`: morning weigh-ins and BIA metrics.
+  - `daily_metrics`: daily steps, active energy, isolated NEAT, rolling averages.
+  - `sleep_logs`: sleep phases, nightly HRV SDNN, and sleeping RHR.
+  - `workouts`: sessions with cached `splits JSONB`, total elevation gain, and primary training flags.
 
 ---
 
-### 3.3. Analytics Module (`Lifecore/`)
-**Stack:** Python 3, `xml.etree.ElementTree`, `pandas`, `supabase-py`, `python-dotenv`
-
-**Scripts:**
-- `deep_health_analysis.py` — streams Apple Health XML (1.97 GB) → `daily_health_summary.json`
-- `analyze_health.py` — HRV/RHR/Steps monthly trends
-- `analyze_steps.py` — step double-counting check (iPhone vs Watch sources)
-- `analyze_strava.py` — pace, distance, HR correlations from Strava CSV
-- `sync_to_supabase.py` ✅ — bulk-upload `daily_health_summary.json` + `activities.csv` → Supabase with cross-source deduplication
-
-**Reference prompts (`Lifecore/prompts/`):**
-- `antigravity_health_assistant_prompt_sasha.md` — Sasha's personal AI coach profile (age 24, 175cm/76kg, running + calisthenics, goals: recomposition)
-- `antigravity_health_assistant_prompt_vika.md` — Vika's profile (age 24, 170cm/68kg, beginner, fat loss)
+### 3.3. Legacy Systems (Deprecated)
+The following components belong to Version 1.0 (Telegram MVP) and are maintained in a **Legacy / Deprecated** status:
+* **Node.js Long-Polling:** `index.js`, `handlers/`, `utils/`.
+* **Deno Telegram Bot Webhook:** `supabase/functions/telegram-bot/index.ts`.
+* *Note:* Agents are NOT required to maintain feature parity with these legacy components.
 
 ---
 
-## 4. Database Schema
+## 4. Database Schema (Supabase PostgreSQL)
 
-### Currently in DB (✅ Applied)
-
-**`meals`** — individual meals
 ```sql
-id, user_id, meal_name, kcal, protein, fat, carbs, weight_g, confidence,
-tags TEXT[], micronutrients JSONB, amino_acids JSONB,
-dietary_date DATE, telegram_file_id TEXT, created_at TIMESTAMPTZ
-```
+-- 1. Meals & Nutrition
+CREATE TABLE meals (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    meal_name TEXT NOT NULL,
+    kcal NUMERIC(6, 1) NOT NULL,        -- Includes +12.5% deficit buffer
+    protein NUMERIC(5, 1) NOT NULL,
+    fat NUMERIC(5, 1) NOT NULL,
+    carbs NUMERIC(5, 1) NOT NULL,
+    weight_g NUMERIC(6, 1),
+    confidence NUMERIC(3, 2),
+    tags TEXT[],                        -- Taxonomy tags
+    micronutrients JSONB DEFAULT '{}',  -- Fiber, sodium, potassium, etc.
+    amino_acids JSONB DEFAULT '{}',     -- BCAA, leucine
+    dietary_date DATE NOT NULL,         -- 4-hour day shift
+    telegram_file_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**`body_measurements`** — weight measurements
-```sql
-id, user_id, weight_kg, dietary_date, measured_at,
-impedance_ohms, impedance_frequency_khz, body_fat_pct, water_pct,
-muscle_mass_kg, bone_mass_kg, visceral_fat,
-source TEXT DEFAULT 'telegram_w', created_at
-```
+-- 2. Daily Summary & Rolling Metrics
+CREATE TABLE daily_metrics (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    metric_date DATE NOT NULL UNIQUE,
+    steps INTEGER,
+    active_kcal NUMERIC(6, 1),          -- Total daily active kcal from HealthKit
+    neat_kcal NUMERIC(6, 1),            -- Isolated NEAT (active_kcal - workout_kcal)
+    distance_km NUMERIC(5, 2),
+    morning_weight_kg NUMERIC(5, 2),
+    rolling_avg_weight_7d NUMERIC(5, 2),
+    rolling_avg_weight_14d NUMERIC(5, 2),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**`workouts`** — physical activity (Migration 002)
-```sql
-id, user_id, workout_type TEXT, source TEXT,
-started_at TIMESTAMPTZ, duration_min, distance_km, avg_heart_rate,
-max_heart_rate, active_kcal, avg_pace_min_km, elevation_m,
-notes TEXT, raw_data JSONB, dietary_date DATE, created_at
-```
+-- 3. Sleep & Autonomic Telemetry
+CREATE TABLE sleep_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    sleep_date DATE NOT NULL UNIQUE,
+    total_hours NUMERIC(4, 2) NOT NULL,
+    deep_hours NUMERIC(4, 2),
+    rem_hours NUMERIC(4, 2),
+    core_hours NUMERIC(4, 2),
+    awake_hours NUMERIC(4, 2),
+    hrv_avg_ms NUMERIC(5, 1),           -- Nightly HRV SDNN
+    rhr_bpm NUMERIC(4, 1),              -- Resting Heart Rate
+    vo2max NUMERIC(4, 1),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**`sleep_logs`** — nightly sleep + biomarkers (Migrations 003 & 004)
-```sql
-id, user_id, source TEXT, sleep_date DATE UNIQUE(user_id, sleep_date),
-total_hours, deep_hours, rem_hours, core_hours, awake_hours,
-hrv_avg_ms, rhr_bpm, vo2max, created_at
-```
-
-**`daily_metrics`** — lifestyle activity, steps, active energy & rolling metrics (Migrations 20260904160000 & 005)
-```sql
-id, user_id, metric_date DATE UNIQUE(user_id, metric_date),
-steps INTEGER, active_kcal NUMERIC, distance_km NUMERIC,
-morning_weight_kg NUMERIC, body_fat_pct NUMERIC, water_pct NUMERIC,
-sleep_hours NUMERIC, deep_sleep_hours NUMERIC, rem_sleep_hours NUMERIC,
-resting_hr NUMERIC, hrv_ms NUMERIC, rolling_avg_weight_7d NUMERIC,
-rolling_avg_weight_14d NUMERIC, source TEXT DEFAULT 'apple_health', created_at
-```
-
-Full DDL: see [`docs/DATABASE.md`](./docs/DATABASE.md) and [`supabase/migrations/`](./supabase/migrations/).
-
----
-
-## 5. AI Prompts Rules (Critical)
-
-### Food Recognition Prompt Rules
-1. **Scale calibration:** Don't assume massive restaurant portions. Analyze plate size.
-2. **Cooked vs Raw:** Rice, pasta, buckwheat, oats — always calculate on COOKED weight.
-3. **Deficit Buffer:** `kcal_final = kcal_exact * 1.125`. Protein/fat/carbs stay exact.
-4. **Tags:** Always return 2–4 tags from the taxonomy.
-5. **Micronutrients:** Always estimate: `fiber_g`, `sodium_mg`, `potassium_mg`, `vitamin_c_mg`, `iron_mg`, `calcium_mg`.
-6. **Amino acids:** For protein meals, estimate `bcaa_g` and `leucine_g`.
-7. **Response format:** ONLY valid JSON, no markdown wrappers.
-
-### Coach Prompt Rules (Phase 2)
-1. Analyze ONLY from the provided data — no generic internet advice.
-2. Start every response with: `СТАН СИСТЕМИ: 🟢/🟡/🔴`.
-3. Max 4 insights — each: fact → physiological reason → specific recommendation.
-4. If HRV < personal baseline by >15% OR RHR > baseline by >3 bpm → mandatory `СТОП / ВІДНОВЛЕННЯ`.
-5. Always cite exact numbers from the context in each insight.
-6. Response language: Ukrainian, no motivational fluff.
-
----
-
-## 6. Environment Variables
-
-Required for local and Supabase execution:
-```env
-TELEGRAM_BOT_TOKEN="BotFather token"
-ALLOWED_USER_ID="numeric Telegram ID of authorized user"
-GEMINI_API_KEY="Google AI Studio key"
-SUPABASE_URL="https://xxxxxxxxxxxx.supabase.co"
-SUPABASE_KEY="anon or service_role Supabase key"
-```
-
-Additional for `ingest-health` Edge Function (set via `supabase secrets set`):
-```
-INGEST_SECRET="random secret for iOS Shortcut auth"
+-- 4. Workouts & Splits Cache
+CREATE TABLE workouts (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    workout_type TEXT NOT NULL,         -- 'running', 'strength', 'cycling', etc.
+    source TEXT DEFAULT 'apple_health',
+    started_at TIMESTAMPTZ NOT NULL,
+    duration_min NUMERIC(5, 1) NOT NULL,
+    distance_km NUMERIC(6, 2),
+    active_kcal NUMERIC(6, 1),
+    avg_pace_min_km NUMERIC(5, 2),
+    avg_heart_rate NUMERIC(4, 1),
+    max_heart_rate NUMERIC(4, 1),
+    elevation_gain_m NUMERIC(6, 1),
+    is_primary_training BOOLEAN DEFAULT FALSE,
+    has_splits BOOLEAN DEFAULT FALSE,
+    splits JSONB DEFAULT '[]',          -- Cached 1km split telemetry array
+    raw_data JSONB DEFAULT '{}',
+    dietary_date DATE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 ---
 
-## 7. Operational Directives (AI Agent Rules)
+## 5. AI Prompt Engineering Specifications
 
-1. **Context Economy:** All information is in this file and `docs/`. Don't search other files redundantly.
-2. **Dual Sync:** Any logic change in Node.js `handlers/` MUST be mirrored in Edge Function `index.ts`.
-3. **Deficit Discipline:** Keep ×1.125 buffer unless user explicitly asks to change.
-4. **JSON Format:** Never change the food prompt output format — it will break DB inserts.
-5. **Tag Completeness:** Whenever updating the AI prompt, always retrieve the full `tags` array.
-6. **Self-Updating Docs:** No change is complete without updating: `CHANGELOG.md`, `docs/ROADMAP.md`, and relevant docs.
-7. **Test → Commit → Deploy:** After changes: verify locally, `git commit + push`, deploy Edge Function.
+### 5.1. Food Recognition Prompt Rules
+1. **Deficit Buffer (+12.5%):** Automatically apply `kcal = raw_kcal * 1.125`. Keep protein, fat, and carbs exact.
+2. **Portion Calibration:** Base estimates on standard plate diameters (24–26 cm).
+3. **Cooked vs Raw Weight:** Always output calculated values based on COOKED weights for starches (pasta, rice, grains).
+4. **Taxonomy & Micronutrients:** Always output 2–4 mandatory quality tags, along with estimations for fiber, sodium, potassium, and leucine (for protein sources).
+5. **Format:** Output STRICT, valid JSON adhering to the target schema.
+
+---
+
+### 5.2. AI Coach Prompt Rules — Athletic Performance Analyst (70 / 15 / 15)
+
+The AI Coach is configured with the persona of an **Elite Endurance & Strength Performance Analyst**:
+
+```
+Role: Elite Athletic Performance Coach & Sports Physiologist.
+Audience: Experienced endurance runner & calisthenics athlete.
+Tone: Concise, objective, analytical, authoritative. No fluff, no wellness platitudes.
+```
+
+#### Output Structure:
+1. **🏃 АНАЛІЗ ТРЕНУВАННЯ (70% обсягу):**
+   - Розбір кілометрових сплітів: стабільність темпу, пульсова вартість швидкості.
+   - Реакція на профіль рельєфу: як серце реагувало на підйоми ($\Delta h$) і чи відновлювався пульс на спусках.
+   - Аеробне розщеплення (Cardiac Drift %): чи поплив пульс у другій половині дистанції при збереженні темпу.
+2. **⚖️ ПОРІВНЯННЯ З БЕНЧМАРКОМ (15% обсягу):**
+   - Порівняння з нещодавніми аналогічними тренуваннями (темп при тому ж пульсі, динаміка пульсових зон).
+3. **🧬 ФІЗІОЛОГІЧНИЙ КОНТЕКСТ (15% обсягу):**
+   - Пояснення причин просадки або успіху на дистанції через метрики відновлення (RHR, HRV, фази сну) та баланс глікогену (вуглеводи напередодні).
+4. **🎯 ДІЯ НА НАСТУПНІ 24 ГОДИНИ:**
+   - Рівно 1 чітка, тактична спортивна рекомендація (наприклад, тип наступного бігу, відновлювальний протокол або цільовий прийом вуглеводів).

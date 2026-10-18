@@ -4,6 +4,21 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Architectural Pivot: Lifecore 2.0 Native iOS-First & Athletic Performance Platform
+
+### 🚀 Strategic & Architectural Transformation:
+- **Deprecated Dual-Backend Telegram Architecture:** Officially deprecated the legacy Node.js long-polling (`index.js`, `handlers/`, `utils/`) and Deno edge webhook (`telegram-bot`) architecture. Eliminated the dual-sync requirement across backends.
+- **Adopted Native iOS-First Architecture:** Declared the native Swift 6 / SwiftUI application (`ios/Lifecore/`) as the primary application engine, leveraging HealthKit as the canonical on-device source of truth for telemetry, Swift Charts for visual dashboards, and SwiftData for offline-first persistence.
+- **Deterministic Math Engine Mandate:** Replaced LLM arithmetic with deterministic on-device Swift calculation for 1km splits, pace, heart rate decoupling ($EF$), cardiac drift %, pure NEAT isolation, and 7d/14d rolling weight averages.
+- **AI Coach Persona Overhaul (70 / 15 / 15):** Transformed the coach from an anxious medical advisor into an elite Athletic Performance Analyst (70% workout split execution, 15% benchmark comparison, 15% physiological root causes + 1 directive). Removed alarmist alerts on normal RHR variations.
+- **Database Simplification:** Adopted structured `JSONB` split telemetry caching in `workouts` table, eliminating the need for a complex separate relational `workout_splits` table.
+- **Rewrote Core Documentation:** Completely refreshed `PROJECT_KNOWLEDGE.md`, `README.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, and `docs/ROADMAP.md`.
+
+### Affected Files
+`PROJECT_KNOWLEDGE.md`, `README.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Architectural RFC: Workout Granularity, Splits & Athletic Coach Refactor
 
 ### 📐 Architecture & LLM Engineering:

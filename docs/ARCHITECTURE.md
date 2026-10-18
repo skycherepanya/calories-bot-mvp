@@ -1,188 +1,131 @@
-# Lifecore System Architecture
-*(Quantified Self Health & Nutrition Data Warehouse)*
+# Lifecore 2.0 System Architecture: Native iOS-First & Athletic Intelligence
 
-> Consolidated architectural vision: merged from `docs/ARCHITECTURE.md`, `Lifecore/docs/architecture_vision.md`, and `Lifecore/docs/Персональний AI-тренер у Telegram.md`.
-
----
-
-## 1. Context and Problem Statement
-
-Commercial health trackers (Cronometer, MyFitnessPal) suffer from severe **vendor lock-in**: they alter monetization models, gate features behind subscriptions, and block raw data exports. Fitness platforms like Strava and Apple Health remain isolated silos — Strava has no visibility into meal sodium levels before an endurance run, and Apple Health lacks food quality context.
-
-**The Primary Goal of Lifecore:** Consolidate nutrition, physical training, sleep architecture, and body composition into a **single relational PostgreSQL database** to identify non-obvious causal links using AI and longitudinal statistical analysis.
+> **Document Status:** Master Architecture Reference  
+> **Target Platform:** Native iOS (Swift 6, SwiftUI, Swift Charts, HealthKit, SwiftData) + Cloud Synchronization (Supabase PostgreSQL, Gemini API)
 
 ---
 
-## 2. Architecture Diagram (5-Layer System)
+## 1. Executive Architectural Summary
+
+**Lifecore 2.0** represents an architectural shift from a multi-backend Telegram bot (Version 1.0) to a **native, on-device iOS-first platform**. 
+
+Commercial health platforms (Whoop, Oura, Strava, MyFitnessPal) enforce vendor lock-in, fragment metrics across disparate apps, and fail to provide unified physiological intelligence. Lifecore consolidates continuous autonomic telemetry (Apple Watch), granular running split dynamics (HealthKit), and vision-based nutrition tracking into a cohesive, private, on-device ecosystem.
+
+### Architectural Core Principles:
+1. **Local-First & HealthKit as Canonical Truth:** Apple Health on iOS is the primary source of truth for all biological and physical telemetry. Telemetry is parsed directly on-device without third-party API dependencies.
+2. **Deterministic Computation Precedes AI Synthesis:** All numerical calculations (1km splits, pace, heart rate decoupling, cardiac drift %, isolated NEAT, rolling averages) are calculated deterministically in Swift. The LLM is never tasked with raw arithmetic.
+3. **Athletic Focus (70 / 15 / 15):** The AI Coach operates as an elite endurance performance analyst, focusing on workout execution and utilizing recovery metrics strictly to explain performance deltas.
+4. **Cloud Backup Without Coupling:** Supabase PostgreSQL serves as a cloud synchronization warehouse and historical cold storage, allowing the iOS app to function seamlessly offline.
+
+---
+
+## 2. 4-Layer On-Device Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Ingestion ["1️⃣ Ingestion Layer — Data Intake"]
-        TG["📱 Telegram Bot\n(Photo / Text / Commands)"]
-        NativeApp["🍏 Native iOS / AppIntents (Swift)\n(HealthKit: Sleep, HRV, RHR, Steps, Workouts)"]
-        Shortcuts["🍎 iOS Shortcuts Automation\n(Calls LifecoreSyncIntent in 1 action)"]
-        BLE["⚖️ Bluetooth Smart Scale\n(CoreBluetooth)"]
-        Strava["🏃 Strava / Apple Health Archive\n(CSV / XML — one-time bulk import)"]
+    subgraph Layer1 ["1️⃣ Layer 1: Canonical Source of Truth (Apple HealthKit)"]
+        Watch["⌚️ Apple Watch Ultra\n(Continuous HR, GPS, Accelerometer)"]
+        HKStore[("🍏 Apple HealthStore\n(Sleep Stages, HRV SDNN, RHR, Steps, Workouts)")]
+        Camera["📸 In-App Food Camera\n(High-resolution meal captures)"]
+        Watch --> HKStore
     end
 
-    subgraph Processing ["2️⃣ Processing & AI Layer"]
-        Edge["☁️ Supabase Edge Functions (Deno)\ntelegram-bot | ingest-health"]
-        Gemini["🤖 Google Gemini API\n2.5-flash → 3.6-flash (fallback)"]
-        TagEngine["🏷️ Taxonomy Tagging Engine\nwhole_food | TEF | Sodium | Absorption"]
+    subgraph Layer2 ["2️⃣ Layer 2: Swift Deterministic Math & Telemetry Engine"]
+        SplitEngine["⏱ Splits Parser\n(1km Pace, HR per split, Δh Elevation)"]
+        DriftEngine["💓 Cardiac Drift & Aerobic Decoupling\n(Efficiency Factor = Speed / HR, Drift %)"]
+        NEATEngine["🚶 Pure NEAT Isolation\n(daily_active_kcal - workout_kcal)"]
+        RollingEngine["📈 Rolling Averages Engine\n(7d / 14d Water Noise Filter)"]
+        MacroEngine["🥗 Macro & Deficit Buffer Engine\n(kcal * 1.125, TEF Calculation)"]
     end
 
-    subgraph Storage ["3️⃣ Data Warehouse Layer (Supabase PostgreSQL)"]
-        Meals[("🍽 meals\nKcal, Macros, Tags, Micronutrients")]
-        Body[("⚖️ body_measurements\nWeight, Body Fat %, BIA")]
-        Workouts[("🏃 workouts\nType, Heart Rate, Pace, Kcal")]
-        Sleep[("💤 sleep_logs\nPhases, HRV, RHR")]
-        Daily[("📅 daily_metrics\nRolling avg, Steps, TDEE")]
+    subgraph Layer3 ["3️⃣ Layer 3: Persistence & Synchronization"]
+        SwiftData[("💾 SwiftData (On-Device)\nLocal-first, encrypted, instant access")]
+        SyncService["🔄 LifecoreAPIService / AppIntent\n(URLSession background sync)"]
+        SupaDB[("☁️ Supabase PostgreSQL\nmeals, workouts, daily_metrics, sleep_logs")]
     end
 
-    subgraph Analytics ["4️⃣ Analytics & Math Engine"]
-        Python["🐍 Python Scripts\n(Pandas, SciPy, Statsmodels)"]
-        Rolling["📈 Rolling Average 7/14d\n(Water weight noise filtering)"]
-        Lags["⏱ Time-Lagged Correlation\nT+1, T+2 analysis"]
+    subgraph Layer4 ["4️⃣ Layer 4: Presentation & AI Athletic Intelligence"]
+        Dashboard["📱 SwiftUI Dashboard (Bevel-Style)\nReadiness, Strain, Nutrition, Splits"]
+        Charts["📊 Swift Charts\nPace vs HR curves, Elevation profile, Trends"]
+        GeminiProxy["🤖 Gemini AI Athletic Coach (70/15/15)\nDeep split analysis, benchmark comparison, root causes"]
     end
 
-    subgraph Presentation ["5️⃣ Presentation & Insights Layer"]
-        TG_Coach["💬 Telegram /coach\nAI Coach: System State 🟢/🟡/🔴"]
-        TG_Stats["📊 /stats and /w\nDaily analytics"]
-        Morning["🌅 Morning Digest\n(Scheduled cron at 08:00 AM)"]
-        BI["📊 BI Dashboard (future)\nMetabase / Superset"]
-    end
+    HKStore --> SplitEngine
+    HKStore --> DriftEngine
+    HKStore --> NEATEngine
+    HKStore --> RollingEngine
+    Camera --> MacroEngine
 
-    TG --> Edge
-    Shortcuts --> Edge
-    BLE --> Edge
-    Strava --> Python
+    SplitEngine --> SwiftData
+    DriftEngine --> SwiftData
+    NEATEngine --> SwiftData
+    RollingEngine --> SwiftData
+    MacroEngine --> SwiftData
 
-    Edge --> Gemini
-    Gemini --> TagEngine
-    TagEngine --> Meals
-    Edge --> Body
-    Edge --> Workouts
-    Edge --> Sleep
+    SwiftData <--> SyncService
+    SyncService <--> SupaDB
 
-    Meals --> Python
-    Body --> Python
-    Workouts --> Python
-    Sleep --> Python
-
-    Python --> Rolling
-    Python --> Lags
-    Rolling --> Daily
-    Lags --> Gemini
-
-    Gemini --> TG_Coach
-    Daily --> TG_Stats
-    Daily --> Morning
-    Storage --> BI
+    SwiftData --> Dashboard
+    SwiftData --> Charts
+    SwiftData --> GeminiProxy
+    GeminiProxy --> Dashboard
 ```
 
 ---
 
-## 3. Detailed Layer Breakdown
+## 3. Detailed Layer Specifications
 
-### 3.1. Ingestion Layer — Data Intake
+### 3.1. Layer 1: Ingestion & Canonical Telemetry
+* **Technology:** Apple HealthKit framework (`HKHealthStore`), AVFoundation (camera).
+* **Guiding Rule:** The Apple Watch passively records high-frequency physiological telemetry with zero user friction.
+* **Telemetry Collected:**
+  - **Sleep Architecture:** Categorized durations in `asleepDeep`, `asleepREM`, `asleepCore`, and `awake`.
+  - **Autonomic Readiness:** Morning HRV (SDNN) and resting heart rate (RHR).
+  - **Workouts:** `HKWorkout` sessions, route coordinate samples (`HKWorkoutRoute`), and instant heart rate samples (`HKQuantityTypeIdentifierHeartRate`).
+  - **Daily Activity:** Cumulative step count and active energy burned.
 
-**Guiding Principle: Frictionless Input & Canonical Primary Source**
+---
 
-* **Canonical Primary Source:** **Apple Health / Apple Fitness** is the primary source of truth for all activity, workouts, sleep, and physiological telemetry. The Apple Watch passively records continuous biometric telemetry with zero user effort. Strava is an optional, secondary export channel.
-* **Lifestyle & NEAT Tracking:** Non-exercise household activity (walking, errands, daily movement) is captured via HealthKit step counts and active energy, populating `daily_metrics`.
+### 3.2. Layer 2: Swift Deterministic Math & Telemetry Engine
+* **Technology:** Swift 6 concurrency, SIMD / native vector algorithms.
+* **Separation of Concerns:** Zero arithmetic is delegated to the LLM. Swift executes all formulas:
+  1. **Kilometer Splits:** Extracts raw distance and timestamp samples into discrete 1000m windows, computing exact pace, average HR, and elevation delta ($\Delta h$).
+  2. **Cardiac Drift & Decoupling:**
+     $$\text{Efficiency Factor } (EF) = \frac{\text{Speed (m/min)}}{\text{Average Heart Rate (bpm)}}$$
+     $$\text{Cardiac Drift } (\%) = \left(\frac{EF_{\text{1st half}} - EF_{\text{2nd half}}}{EF_{\text{1st half}}}\right) \times 100\%$$
+  3. **Pure NEAT Isolation:**
+     $$\text{NEAT}_{\text{kcal}} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_kcal})$$
+  4. **Deficit Buffer Discipline:** Multiplies raw food calories by $\times 1.125$ to compensate for unlogged cooking oils and portion variance.
 
-| Source | Data Collected | Method | Status |
+---
+
+### 3.3. Layer 3: Persistence & Synchronization Layer
+* **Local Persistence:** **SwiftData** manages on-device caching, ensuring the application launches instantly and functions completely offline.
+* **Cloud Persistence (Supabase):**
+  - PostgreSQL database in Supabase holds the longitudinal history (10+ years).
+  - Background synchronization executed via `LifecoreAPIService` and `LifecoreSyncIntent` upon workout completion and morning wake-up.
+  - Endpoints: `ingest-health` Edge Function.
+
+---
+
+### 3.4. Layer 4: Presentation & AI Athletic Intelligence
+* **UI/UX:** Dark-mode SwiftUI design system inspired by Whoop and Bevel:
+  - **Readiness Ring:** Weighted score derived from HRV SDNN deviation, RHR stability, and deep/REM sleep duration.
+  - **Strain Ring:** Cardiovascular load calculated from workout heart rate zones and NEAT.
+  - **Splits Detail View:** Interactive kilometer table with synchronized Swift Charts displaying pacing against elevation and heart rate.
+* **AI Athletic Coach (Gemini API):**
+  - Evaluates the pre-calculated telemetry payload.
+  - Strictly adheres to the **70 / 15 / 15** ratio:
+    - **70%:** Granular execution breakdown of the workout.
+    - **15%:** Historical benchmark comparison.
+    - **15%:** Biometric root causes (sleep, nutrition) + 1 actionable directive.
+
+---
+
+## 4. Status of Legacy Components (Version 1.0)
+
+| Component | Path | Status | Notes |
 |---|---|---|---|
-| Telegram Bot | Food photos/text, morning weight (`/w`) | Webhook → Edge Function | ✅ Production |
-| iOS Shortcuts (Apple Health) | Sleep stages, HRV, RHR, workouts, daily steps & active kcal | POST → `ingest-health` | 🔜 Phase 2 |
-| Python Sync | Strava CSV + Apple Health XML archive | Supabase batch insert with deduplication | ✅ Implemented |
-| Bluetooth Scale | Weight + Bioimpedance (BIA) | CoreBluetooth (future) | 📅 Future |
-
-**Critical Rule — 4-Hour Day Shift:**
-The dietary day resets at **04:00 AM**, not at midnight. Meals consumed after midnight and before 04:00 AM are attributed to the previous calendar day. This applies across all domain tables: `meals`, `workouts`, `sleep_logs`, and `daily_metrics`.
-
----
-
-### 3.2. Processing & AI Layer
-
-**Gemini Vision (Meal Recognition):**
-- **Model:** `gemini-3.8-flash` (primary — state-of-the-art vision reasoning) → `gemini-2.5-flash` (fast fallback) → `gemini-3.6-flash`
-- **Response Format:** `responseMimeType: "application/json"` — enforced on all requests
-- **Deficit Buffer:** Calories multiplied by ×1.125 (+12.5% buffer), while protein, fat, and carbs remain exact
-- **Quality Taxonomy:** `whole_food` | `ultra_processed` | `solid` | `liquid` | `fast_absorbing` | `slow_absorbing` | `high_sodium`
-- **Micronutrients:** `fiber_g`, `sodium_mg`, `potassium_mg`, `vitamin_c_mg`, `iron_mg`, `calcium_mg`
-- **Amino Acids (for high-protein meals):** `bcaa_g`, `leucine_g`
-
-**Gemini Coach (Recovery & Readiness Analysis):**
-- **Model:** `gemini-3.8-flash` (primary — high-order contextual synthesis) → `gemini-3.6-flash` (fallback)
-- Receives pre-aggregated context from PostgreSQL: 3-day history of workouts, daily activity (steps/active kcal), sleep architecture, and nutrition
-- Never receives raw unindexed dumps — operates on structured, pre-computed JSON
-- Returns: `SYSTEM STATE: 🟢/🟡/🔴` with causal recovery insights
-
----
-
-### 3.3. Data Warehouse Layer
-
-Built on **PostgreSQL managed via Supabase**:
-- Strict relational schema with foreign key relationships (`user_id` on all tables)
-- Security: `ALLOWED_USER_ID` verified in application logic (Edge Function + Node.js)
-- Composite indexes on `(user_id, dietary_date)` for fast aggregation
-- Detailed schema reference: [DATABASE.md](./DATABASE.md)
-
----
-
-### 3.4. Analytics & Math Engine
-
-**Offline Python Scripts** (`Lifecore/scripts/`):
-
-| Script | Purpose |
-|---|---|
-| `deep_health_analysis.py` | Streams Apple Health XML (1.97 GB) → `daily_health_summary.json` |
-| `analyze_health.py` | Analyzes monthly HRV, RHR, and step trends |
-| `analyze_steps.py` | Detects and corrects step double-counting (iPhone vs. Apple Watch) |
-| `analyze_strava.py` | Computes pace, distance, and HR correlations from Strava activities |
-| `sync_to_supabase.py` | Bulk-uploads historical archives into Supabase |
-
-**Mathematical Foundations:**
-- **Rolling Average:** $W_{7d}(t) = \frac{1}{7} \sum_{i=0}^{6} W(t-i)$ (filters out daily water retention noise)
-- **Time-Lagged Correlation:** $Corr(X_t, Y_{t+\Delta t}), \Delta t \in \{1, 2, 3\}$ (e.g., sodium intake vs. next-day weight fluctuations)
-- **Statistical Significance:** Enforces $p$-value $< 0.05$
-
----
-
-### 3.5. Presentation & Insights Layer
-
-| Interface | Implementation | Status |
-|---|---|---|
-| `/stats` — Daily Summary | Telegram Bot + inline date pagination buttons | ✅ Production |
-| `/coach` — AI Recovery Coach | Telegram Bot + Gemini Context Engine | 🔜 Phase 2 |
-| Morning Digest (08:00 AM) | Supabase Scheduled Cron Edge Function | 📅 Phase 3 |
-| BI Analytics Dashboard | Metabase / Apache Superset → Supabase PostgreSQL | 📅 Phase 4 |
-
----
-
-## 4. Edge Functions Map
-
-| Function | Trigger | Action |
-|---|---|---|
-| `telegram-bot` | Telegram Webhook | Meal logging, stats aggregation, coach advice, weight tracking |
-| `ingest-health` | iOS Shortcuts POST | Ingests sleep stages, HRV, RHR, and workout metrics |
-
----
-
-## 5. Non-Negotiable Core Principles
-
-1. **Data Ownership:** All data resides in a private PostgreSQL database with zero vendor lock-in.
-2. **Frictionless Input:** Photo or short text — maximum 5 seconds per meal entry.
-3. **Modularity:** Every layer is decoupled — swapping Gemini for Claude/GPT requires zero database schema changes.
-4. **Evidence-Based AI:** The LLM receives pre-computed statistical facts and aggregated figures, never raw unparsed data.
-5. **Deficit Discipline:** The +12.5% calorie buffer is non-negotiable unless explicitly altered by user directive.
-
----
-
-## 6. Open Architecture Questions (Room for Thoughts)
-
-* **Apple Health ↔ DB Parity:** Data conflict resolution — is Apple Health the absolute source of truth or simply one client?
-* **Confidence Validation:** When `confidence < 60`, should an interactive UI trigger for manual portion adjustment?
-* **Multi-User Scaling:** How to cleanly scale to secondary user profiles (e.g., Vika profile) — single bot with `user_id` routing vs. separate instances?
-* **Bluetooth Scale Integration:** Automated CoreBluetooth weight capture without foreground app launch via SwiftUI background tasks.
+| Node.js Long Polling | `index.js`, `handlers/`, `utils/` | ⚠️ **Legacy / Deprecated** | Retained for reference; no new features |
+| Deno Telegram Bot | `supabase/functions/telegram-bot/` | ⚠️ **Legacy / Deprecated** | Secondary Telegram interface only |
+| Offline Python Analytics | `Lifecore/scripts/` | ✅ **Archival Reference** | Historical XML parser and data migration |
