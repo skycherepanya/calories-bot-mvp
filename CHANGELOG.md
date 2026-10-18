@@ -4,6 +4,21 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - iOS 27 Shortcut Setup Guide & Apple Watch Ultra Integration
+
+### 📱 iOS 27 Shortcuts Engineering:
+- **Comprehensive iOS 27 Setup Guide in `shortcuts/ingest_health_shortcut.md`:** Rewrote the entire setup guide with concrete, step-by-step instructions specifically optimized for **iOS 27**, **iPhone 16 Pro** (A18 Pro), and **Apple Watch Ultra**.
+- **Leveraged iOS 27 Features:**
+  - Added native **Otherwise If** logic for clean sleep stage triage (`Deep` $\rightarrow$ `REM` $\rightarrow$ `Core`) inside a single lightweight loop.
+  - Added Apple Intelligence prompt for instant action scaffolding via Natural Language in iOS 27 Shortcuts.
+  - Implemented the single-action **Text JSON Template** pattern to bypass slow and tedious nested dictionary configuration on iOS.
+- **Embedded Production Credentials:** Embedded exact target URL (`https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health`), `INGEST_SECRET`, and `ALLOWED_USER_ID` for frictionless copy-paste setup.
+
+### Affected Files
+`shortcuts/ingest_health_shortcut.md`, `shortcuts/README.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Phase 2 Complete: AI Coach Engine & Ingest-Health Webhook Deployed
 
 ### 🏃 AI Coach & Biometric Analysis:

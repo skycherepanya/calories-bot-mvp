@@ -8,7 +8,7 @@ This directory contains specifications and setup guides for iOS Shortcuts that a
 
 | File | Purpose |
 |---|---|
-| [ingest_health_shortcut.md](./ingest_health_shortcut.md) | Primary sync: sleep stages + workouts → Supabase `ingest-health` |
+| [ingest_health_shortcut.md](./ingest_health_shortcut.md) | Primary sync: sleep stages + recovery HRV/RHR + workouts → Supabase `ingest-health` (Optimized for iOS 27, iPhone 16 Pro, Apple Watch Ultra) |
 
 ---
 
