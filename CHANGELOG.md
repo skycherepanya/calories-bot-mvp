@@ -4,6 +4,17 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Architectural RFC: Workout Granularity, Splits & Athletic Coach Refactor
+
+### 📐 Architecture & LLM Engineering:
+- **Created Comprehensive RFC Document:** Authored [docs/RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md) consolidating full project context, baseline tech stack, user pain points, proposed `workout_splits` data model, Strava API selective ingestion, and a re-engineered 70/15/15 athletic coach prompt format.
+- **Formulated Critical Architectural Discussion Questions:** Prepared formal questions covering relational vs JSONB split storage, Strava/Apple Health deduplication, backend vs LLM cardiac drift math, and coach persona guidelines for external LLM evaluation.
+
+### Affected Files
+`docs/RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Workout Deduplication in Ingest-Health & Database Cleanup
 
 ### 🔄 Ingestion & Data Integrity:
