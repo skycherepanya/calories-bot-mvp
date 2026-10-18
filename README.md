@@ -16,11 +16,15 @@
 * **📊 Daily Analysis (`/stats`):** Whole vs. ultra-processed food ratio, sodium warnings, and actionable tips.
 * **🏷️ Quality Taxonomy:** `whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`.
 * **🔄 Inline Date Navigation:** ⬅️/➡️ buttons for browsing `/stats` history.
+* **🏃 AI Coach Engine (`/coach` & `🏃 Аналіз тренування` button):** Contextual 3-day recovery analysis (workouts + sleep + nutrition + NEAT) via Gemini with strict causal reasoning and 🟢/🟡/🔴 state assessment.
+* **🍏 Native iOS App & AppIntents (`ios/`):** Native SwiftUI app on iPhone 16 Pro + Apple Watch Ultra for <5ms HealthKit sync (steps, calories, sleep phases, HRV, RHR, workouts) via `LifecoreSyncIntent`.
+* **⚡ Ingestion Webhook (`ingest-health`):** Supabase Edge Function ingesting telemetry from iOS with secret token authentication.
+* **🧠 Double-Counting Prevention:** Mathematical isolation of pure NEAT (`daily_active_kcal - workout_kcal`) preventing duplicate calorie counting.
 
-### 🔜 In Progress (Phase 2)
-* **🏃 AI Coach (`/coach`):** Contextual 3-day recovery analysis (workouts + sleep + nutrition) via Gemini.
-* **💤 Sleep Tracking:** Automatic ingestion from Apple Health (sleep phases, HRV, RHR).
-* **🏃 Workout Tracking:** Apple Health + Strava sync and manual workout logging.
+### 🔜 In Progress (Phase 3)
+* **📈 Rolling Averages for Body Weight:** 7-day and 14-day trend lines filtering water weight noise.
+* **⏱️ Time-Lagged Correlations:** Multi-day lag impact (T+1/T+2) of sodium, carb load, deficit, and running on HRV and weight.
+* **🌅 Automated Morning Digest:** Daily 08:00 AM readiness briefing in Telegram.
 
 ---
 
@@ -44,30 +48,44 @@ lifecore/
 ├── PROJECT_KNOWLEDGE.md   # Single Source of Truth (master context)
 ├── CHANGELOG.md           # Project changelog & release history
 │
+├── ios/                   🍏 Native iOS App (SwiftUI & HealthKit)
+│   ├── README.md          Setup instructions & capabilities guide
+│   └── Lifecore/
+│       ├── Lifecore.xcodeproj
+│       └── Lifecore/
+│           ├── LifecoreApp.swift         Main SwiftUI entry point
+│           ├── ContentView.swift         Dark-mode Quantified Self dashboard
+│           ├── HealthKitManager.swift    Async HealthKit queries (sleep, NEAT, HRV)
+│           ├── HealthPayload.swift       Codable models matching Supabase schema
+│           ├── LifecoreAPIService.swift  URLSession client for ingest-health
+│           └── LifecoreSyncIntent.swift  AppIntent for Shortcuts, Action Button, Siri
+│
 ├── handlers/              # Telegram handlers (Node.js)
 │   ├── photoHandler.js    ✅ Food photo recognition via Gemini
 │   ├── textHandler.js     ✅ Commands and text meal descriptions
 │   ├── weightHandler.js   ✅ Weight tracking command (/w)
 │   ├── callbackHandler.js ✅ Inline date pagination for /stats
-│   └── coachHandler.js    🔜 /coach — AI recovery & workout analysis
+│   └── coachHandler.js    ✅ /coach — AI recovery & workout analysis
 │
 ├── utils/
-│   ├── gemini.js          ✅ Fallback chain: 2.5-flash → 3.6-flash
-│   ├── keyboard.js        ✅ MAIN_KEYBOARD (persistent bottom menu)
+│   ├── gemini.js          ✅ Cascade: 3.8-flash → 2.5-flash → 3.6-flash
+│   ├── keyboard.js        ✅ MAIN_KEYBOARD (including 🏃 Coach button)
 │   ├── dateUtils.js       ✅ 4-hour day shift, stats aggregation
 │   ├── prompt.js          ✅ System prompt for food recognition
-│   └── coachPrompt.js     🔜 Contextual prompt builder for /coach
+│   └── coachPrompt.js     ✅ Contextual prompt builder for /coach
 │
 ├── supabase/
 │   ├── functions/
 │   │   ├── telegram-bot/  ✅ Production webhook (Deno)
-│   │   └── ingest-health/ 🔜 iOS Shortcuts ingestion endpoint
+│   │   └── ingest-health/ ✅ HealthKit telemetry ingestion webhook
 │   └── migrations/
-│       ├── 001_initial.sql    ✅ meals + body_measurements (applied in DB)
-│       ├── 002_workouts.sql   🔜 PENDING — workouts table DDL
-│       └── 003_sleep_logs.sql 🔜 PENDING — sleep_logs table DDL
+│       ├── 001_initial.sql                   ✅ meals + body_measurements
+│       ├── 002_workouts.sql                  ✅ workouts table
+│       ├── 003_sleep_logs.sql                ✅ sleep_logs table
+│       ├── 004_fix_sleep_logs_nullable.sql   ✅ nullable metrics fix
+│       └── 005_daily_metrics_enhancements.sql ✅ steps, active kcal, NEAT
 │
-├── shortcuts/             🔜 iOS Shortcuts documentation
+├── shortcuts/             # iOS Shortcuts documentation & fallback
 │   ├── README.md
 │   └── ingest_health_shortcut.md
 │
@@ -80,10 +98,7 @@ lifecore/
 │   │   ├── analyze_health.py        ✅ HRV/RHR/Steps trends
 │   │   ├── analyze_steps.py         ✅ Step double-counting check
 │   │   ├── analyze_strava.py        ✅ Pace/distance/HR correlations
-│   │   └── sync_to_supabase.py      🔜 Historical data sync to DB
-│   ├── prompts/           Reference system prompts
-│   │   ├── antigravity_health_assistant_prompt_sasha.md
-│   │   └── antigravity_health_assistant_prompt_vika.md
+│   │   └── sync_to_supabase.py      ✅ Historical data sync to DB
 │   └── reports/           Archival analytics reports
 │
 └── docs/
@@ -92,6 +107,7 @@ lifecore/
     ├── IMPLEMENTATION_PLAN_PHASE2.md  Phase 2 step-by-step plan
     └── ROADMAP.md         Project development roadmap
 ```
+
 
 ---
 
