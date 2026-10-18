@@ -186,7 +186,7 @@ Nightly sleep phases + recovery biomarkers from Apple Watch.
 | `rhr_bpm` | `NUMERIC` | Resting Heart Rate at wake-up |
 | `vo2max` | `NUMERIC` | VO2Max estimate if updated |
 
-**Constraint:** `UNIQUE (user_id, sleep_date)` — одна запис на ніч.
+**Constraint:** `UNIQUE (user_id, sleep_date)` — one record per night per user.
 
 ---
 

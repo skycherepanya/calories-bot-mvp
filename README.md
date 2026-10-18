@@ -1,130 +1,133 @@
 # Lifecore: AI Health Coach & Nutrition Data Warehouse
 
-**Lifecore** — особистий модульний трекер здоров'я, побудований на принципі *Quantified Self*. Система збирає дані про харчування (фото через Telegram), тренування та відновлення (Apple Health / Strava) в єдину реляційну базу даних і використовує Gemini AI для пошуку причинно-наслідкових зв'язків між твоїми звичками та фізичним станом.
+**Lifecore** is a personal, modular health tracking platform built on *Quantified Self* principles. The system gathers nutrition data (meal photos via Telegram), workouts, and recovery metrics (Apple Health / Strava) into a unified relational database, leveraging Gemini AI to uncover causal relationships between daily habits and physical performance.
 
 ---
 
-## ⚡ Ключові функції (поточний стан)
+## ⚡ Key Features (Current State)
 
-### ✅ Реалізовано
-* **📸 Фото-трекінг їжі:** Надіслав фото — Gemini розпізнає порцію, розраховує Ккал/Б/Ж/В + якісні теги
-* **🛡️ Deficit Buffer (+12.5% Ккал):** Автоматично множить калорії ×1.125 для гарантованого дефіциту
-* **🌙 4-годинний зсув:** День змінюється о 04:00, нічна їжа зараховується до попереднього дня
-* **📅 Запис за вчора (`/y`):** Ретроспективне логування прийому їжі
-* **⚖️ Вага (`/w <вага>`):** Запис ранкової ваги з динамікою змін
-* **🌾 Мікронутрієнти & амінокислоти:** Клітковина, натрій, калій, BCAA, лейцин
-* **📊 Аналіз дня (`/stats`):** Співвідношення цільних/ультраоброблених продуктів, натрій, рекомендації
-* **🏷️ Таксономія якості:** `whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`
-* **🔄 Inline-навігація по датах:** Кнопки ⬅️/➡️ у `/stats`
+### ✅ Implemented
+* **📸 Food Photo Tracking:** Send a meal photo — Gemini estimates portion size, calculates Kcal/P/F/C + quality tags.
+* **🛡️ Deficit Buffer (+12.5% Kcal):** Automatically multiplies calories by ×1.125 to guarantee a calorie deficit.
+* **🌙 4-Hour Day Shift:** The dietary day resets at 04:00 AM; late-night meals count toward the previous day.
+* **📅 Log for Yesterday (`/y`):** Retrospective meal logging for late entries.
+* **⚖️ Weight Tracking (`/w <weight>`):** Morning weight logging with trend change deltas.
+* **🌾 Micronutrients & Amino Acids:** Tracks fiber, sodium, potassium, BCAA, and leucine.
+* **📊 Daily Analysis (`/stats`):** Whole vs. ultra-processed food ratio, sodium warnings, and actionable tips.
+* **🏷️ Quality Taxonomy:** `whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`.
+* **🔄 Inline Date Navigation:** ⬅️/➡️ buttons for browsing `/stats` history.
 
-### 🔜 В розробці (Фаза 2)
-* **🏃 AI-тренер (`/coach`):** Аналіз тренування + сну + харчування за 3 дні через Gemini
-* **💤 Трекінг сну:** Автоматична синхронізація з Apple Health (фази сну, HRV, ЧСС)
-* **🏃 Трекінг тренувань:** Синхронізація Strava + Apple Health + ручне логування
+### 🔜 In Progress (Phase 2)
+* **🏃 AI Coach (`/coach`):** Contextual 3-day recovery analysis (workouts + sleep + nutrition) via Gemini.
+* **💤 Sleep Tracking:** Automatic ingestion from Apple Health (sleep phases, HRV, RHR).
+* **🏃 Workout Tracking:** Apple Health + Strava sync and manual workout logging.
 
 ---
 
-## 🏗️ Архітектура
+## 🏗️ Architecture
 
-Проект використовує **дуальну реалізацію**:
+The project maintains a **dual implementation**:
 
 | | Node.js (Dev) | Supabase Edge (Prod) |
 |---|---|---|
-| Файли | `index.js`, `handlers/`, `utils/` | `supabase/functions/telegram-bot/index.ts` |
-| Режим | Long Polling | Webhook (Deno) |
-| Призначення | Локальна розробка | Production |
+| Files | `index.js`, `handlers/`, `utils/` | `supabase/functions/telegram-bot/index.ts` |
+| Mode | Long Polling | Webhook (Deno) |
+| Purpose | Rapid local development & debugging | Production serverless deployment |
 
 ---
 
-## 📁 Структура проєкту
+## 📁 Repository Structure
 
 ```
 lifecore/
-├── AGENTS.md              # Правила для AI-агентів
-├── PROJECT_KNOWLEDGE.md   # Єдине джерело правди (master context)
-├── CHANGELOG.md           # Лог змін
+├── AGENTS.md              # AI agent guidelines & operational rules
+├── PROJECT_KNOWLEDGE.md   # Single Source of Truth (master context)
+├── CHANGELOG.md           # Project changelog & release history
 │
 ├── handlers/              # Telegram handlers (Node.js)
-│   ├── photoHandler.js    ✅ Розпізнавання фото через Gemini
-│   ├── textHandler.js     ✅ Команди та текстові описи їжі
-│   ├── weightHandler.js   ✅ Команда /w
-│   ├── callbackHandler.js ✅ Inline-кнопки пагінації stats
-│   └── coachHandler.js    🔜 /coach — AI-аналіз відновлення
+│   ├── photoHandler.js    ✅ Food photo recognition via Gemini
+│   ├── textHandler.js     ✅ Commands and text meal descriptions
+│   ├── weightHandler.js   ✅ Weight tracking command (/w)
+│   ├── callbackHandler.js ✅ Inline date pagination for /stats
+│   └── coachHandler.js    🔜 /coach — AI recovery & workout analysis
 │
 ├── utils/
 │   ├── gemini.js          ✅ Fallback chain: 2.5-flash → 3.6-flash
-│   ├── keyboard.js        ✅ MAIN_KEYBOARD (постійне меню)
-│   ├── dateUtils.js       ✅ 4-годинний зсув, агрегація stats
-│   ├── prompt.js          ✅ Системний промпт розпізнавання їжі
-│   └── coachPrompt.js     🔜 Контекстний промпт для /coach
+│   ├── keyboard.js        ✅ MAIN_KEYBOARD (persistent bottom menu)
+│   ├── dateUtils.js       ✅ 4-hour day shift, stats aggregation
+│   ├── prompt.js          ✅ System prompt for food recognition
+│   └── coachPrompt.js     🔜 Contextual prompt builder for /coach
 │
 ├── supabase/
 │   ├── functions/
 │   │   ├── telegram-bot/  ✅ Production webhook (Deno)
-│   │   └── ingest-health/ 🔜 iOS Shortcut endpoint
+│   │   └── ingest-health/ 🔜 iOS Shortcuts ingestion endpoint
 │   └── migrations/
-│       ├── 001_initial.sql    ✅ meals + body_measurements (є в БД)
-│       ├── 002_workouts.sql   🔜 PENDING — застосувати
-│       └── 003_sleep_logs.sql 🔜 PENDING — застосувати
+│       ├── 001_initial.sql    ✅ meals + body_measurements (applied in DB)
+│       ├── 002_workouts.sql   🔜 PENDING — workouts table DDL
+│       └── 003_sleep_logs.sql 🔜 PENDING — sleep_logs table DDL
 │
-├── shortcuts/             🔜 iOS Shortcuts документація
+├── shortcuts/             🔜 iOS Shortcuts documentation
 │   ├── README.md
 │   └── ingest_health_shortcut.md
 │
-├── Lifecore/              📊 Офлайн-аналітика (Python)
+├── Lifecore/              📊 Offline analytics & data warehouse (Python)
 │   ├── data/
 │   │   ├── health/        Apple Health XML export (1.97 GB)
 │   │   └── strava/        Strava activities.csv
 │   ├── scripts/
 │   │   ├── deep_health_analysis.py  ✅ XML → daily_health_summary.json
 │   │   ├── analyze_health.py        ✅ HRV/RHR/Steps trends
-│   │   ├── analyze_steps.py         ✅ Steps double-counting check
+│   │   ├── analyze_steps.py         ✅ Step double-counting check
 │   │   ├── analyze_strava.py        ✅ Pace/distance/HR correlations
-│   │   └── sync_to_supabase.py      🔜 Завантаження архіву в БД
-│   ├── prompts/           Системні промпти (reference)
+│   │   └── sync_to_supabase.py      🔜 Historical data sync to DB
+│   ├── prompts/           Reference system prompts
 │   │   ├── antigravity_health_assistant_prompt_sasha.md
 │   │   └── antigravity_health_assistant_prompt_vika.md
-│   └── reports/           Архівні аналітичні звіти
+│   └── reports/           Archival analytics reports
 │
 └── docs/
-    ├── ARCHITECTURE.md    Системна архітектура
-    ├── DATABASE.md        Схема БД + ERD + SQL DDL
-    └── ROADMAP.md         Дорожня карта розробки
+    ├── ARCHITECTURE.md    System architecture & 5-layer model
+    ├── DATABASE.md        Database schema, ERD, and SQL DDL
+    ├── IMPLEMENTATION_PLAN_PHASE2.md  Phase 2 step-by-step plan
+    └── ROADMAP.md         Project development roadmap
 ```
 
 ---
 
-## 📚 Документація
+## 📚 Project Documentation
 
-| Файл | Зміст |
+| File | Description |
 |---|---|
-| [PROJECT_KNOWLEDGE.md](./PROJECT_KNOWLEDGE.md) | Master context: фізіологічна математика, промпти, правила |
-| [AGENTS.md](./AGENTS.md) | Правила для AI-агентів |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 5-рівнева архітектура системи |
-| [docs/DATABASE.md](./docs/DATABASE.md) | Схема БД, ERD, SQL DDL для всіх таблиць |
-| [docs/ROADMAP.md](./docs/ROADMAP.md) | Дорожня карта та статус завдань |
-| [CHANGELOG.md](./CHANGELOG.md) | Хронологія всіх змін |
-| [shortcuts/ingest_health_shortcut.md](./shortcuts/ingest_health_shortcut.md) | Специфікація iOS Shortcut |
+| [PROJECT_KNOWLEDGE.md](./PROJECT_KNOWLEDGE.md) | Master context: physiological formulas, prompts, architectural rules |
+| [AGENTS.md](./AGENTS.md) | Operational guidelines and constraints for AI agents |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 5-layer system architecture & data flows |
+| [docs/DATABASE.md](./docs/DATABASE.md) | Database schema, ERD, and SQL DDL for all tables |
+| [docs/ROADMAP.md](./docs/ROADMAP.md) | Milestone roadmap and task statuses |
+| [docs/IMPLEMENTATION_PLAN_PHASE2.md](./docs/IMPLEMENTATION_PLAN_PHASE2.md) | Detailed Phase 2 implementation plan |
+| [CHANGELOG.md](./CHANGELOG.md) | Chronological release and change log |
+| [shortcuts/ingest_health_shortcut.md](./shortcuts/ingest_health_shortcut.md) | iOS Shortcut configuration guide |
 
 ---
 
-## 🚀 Швидкий старт (локальна розробка)
+## 🚀 Quick Start (Local Development)
 
-### 1. Встановити залежності
+### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Налаштувати `.env`
+### 2. Configure Environment Variables
+Create a `.env` file in the project root:
 ```env
-TELEGRAM_BOT_TOKEN="токен від BotFather"
-ALLOWED_USER_ID="числовий Telegram ID"
-GEMINI_API_KEY="ключ Google AI Studio"
+TELEGRAM_BOT_TOKEN="your_botfather_token"
+ALLOWED_USER_ID="your_numeric_telegram_id"
+GEMINI_API_KEY="your_google_ai_studio_api_key"
 SUPABASE_URL="https://xxxxxxxxxxxx.supabase.co"
-SUPABASE_KEY="anon або service_role ключ Supabase"
+SUPABASE_KEY="your_supabase_anon_or_service_role_key"
 ```
 
-### 3. Запустити бота локально
+### 3. Run Local Bot (Node.js)
 ```bash
 node index.js
 ```
@@ -134,7 +137,7 @@ node index.js
 supabase functions deploy telegram-bot --no-verify-jwt --use-api
 ```
 
-### 5. Встановити Webhook
+### 5. Set Webhook
 ```bash
 curl -F "url=https://<PROJECT-REF>.supabase.co/functions/v1/telegram-bot" \
      https://api.telegram.org/bot<TOKEN>/setWebhook
@@ -142,31 +145,31 @@ curl -F "url=https://<PROJECT-REF>.supabase.co/functions/v1/telegram-bot" \
 
 ---
 
-## 🐍 Офлайн-аналітика (Python)
+## 🐍 Offline Analytics (Python)
 
 ```bash
 cd Lifecore/
-# 1. Спершу запарси Apple Health XML (потрібен export.xml в data/health/)
+# 1. Parse Apple Health XML (requires export.xml in data/health/apple_health_export/)
 python scripts/deep_health_analysis.py
-# → генерує reports/daily_health_summary.json
+# → Generates reports/daily_health_summary.json
 
-# 2. Завантаж архів у Supabase (після застосування міграцій 002 та 003)
+# 2. Upload archive to Supabase (after applying migrations 002 and 003)
 python scripts/sync_to_supabase.py
 
-# 3. Аналіз бігових показників Strava
+# 3. Analyze running performance from Strava
 python scripts/analyze_strava.py
 ```
 
 ---
 
-## 🌍 Ключові константи
+## 🌍 Key Constants
 
-| Параметр | Значення |
+| Parameter | Value |
 |---|---|
-| Deficit Buffer | ×1.125 (+12.5% до Ккал) |
-| Dietary day shift | 04:00 AM |
-| Primary AI model | `gemini-2.5-flash` |
-| Fallback AI model | `gemini-3.6-flash` |
-| DB | PostgreSQL via Supabase |
-| Backend (prod) | Deno Edge Functions |
-| Backend (dev) | Node.js Long Polling |
+| Deficit Buffer | ×1.125 (+12.5% to Kcal) |
+| Dietary Day Shift | 04:00 AM |
+| Primary AI Model | `gemini-2.5-flash` |
+| Fallback AI Model | `gemini-3.6-flash` |
+| Database | PostgreSQL via Supabase |
+| Backend (Prod) | Deno Edge Functions |
+| Backend (Dev) | Node.js Long Polling |

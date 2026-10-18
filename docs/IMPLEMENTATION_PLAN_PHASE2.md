@@ -1,65 +1,65 @@
 # Lifecore: Implementation Plan (Phase 2)
 *AI Coach — Workouts, Sleep & Recovery Analysis*
 
-> Цей документ є покроковим планом реалізації Фази 2. Кожна задача незалежна і може виконуватись у окремій сесії. Починай кожну сесію з читання [`PROJECT_KNOWLEDGE.md`](./PROJECT_KNOWLEDGE.md) та цього файлу.
+> This document is the step-by-step implementation plan for Phase 2. Each task is self-contained and can be executed in an isolated session. Begin every session by reading [`PROJECT_KNOWLEDGE.md`](./PROJECT_KNOWLEDGE.md) and this file.
 
 ---
 
-## Стан перед початком
+## Pre-Implementation State
 
-### ✅ Вже зроблено (не чіпати)
-- Telegram bot: photo/text food logging, `/stats`, `/w`, `/y`, EXIF extraction
-- Supabase Edge Function `telegram-bot` (Deno) — prod webhook
-- DB tables in Supabase: `meals`, `body_measurements`
-- Migration files written: `supabase/migrations/002_workouts.sql`, `003_sleep_logs.sql`
-- `Lifecore/scripts/sync_to_supabase.py` — готовий до запуску
-- `shortcuts/ingest_health_shortcut.md` — специфікація iOS Shortcut
+### ✅ Completed & Stable (Do Not Modify)
+- Telegram bot: photo and text food logging, `/stats`, `/w`, `/y`, EXIF date extraction
+- Supabase Edge Function `telegram-bot` (Deno) — production webhook
+- Database tables in Supabase: `meals`, `body_measurements`
+- Migration files drafted: `supabase/migrations/002_workouts.sql`, `003_sleep_logs.sql`
+- `Lifecore/scripts/sync_to_supabase.py` — ready for execution
+- `shortcuts/ingest_health_shortcut.md` — iOS Shortcut specification
 
-### ⚠️ Передумови перед стартом
-1. **Відновити Supabase проект** → [Dashboard](https://supabase.com/dashboard/project/khmviccwbuktnvdxhnwg) → кнопка «Restore»
-2. Дочекатись повного відновлення (1–2 хвилини)
-3. Перевірити: `node scratch/ping-check.js` — Supabase має відповідати ✅
+### ⚠️ Prerequisites Before Starting
+1. **Restore Supabase Project:** Visit the [Supabase Dashboard](https://supabase.com/dashboard/project/khmviccwbuktnvdxhnwg) and click "Restore".
+2. Wait for full database reactivation (1–2 minutes).
+3. Verify connection: run `node scratch/ping-check.js` — Supabase must report healthy (`status: 200/204`).
 
 ---
 
-## Задача 1: DB Міграції (30 хв)
+## Task 1: Database Migrations (Estimated time: 30 min)
 
-**Файли:** [`supabase/migrations/002_workouts.sql`](./supabase/migrations/002_workouts.sql), [`supabase/migrations/003_sleep_logs.sql`](./supabase/migrations/003_sleep_logs.sql)
+**Files:** [`supabase/migrations/002_workouts.sql`](../supabase/migrations/002_workouts.sql), [`supabase/migrations/003_sleep_logs.sql`](../supabase/migrations/003_sleep_logs.sql)
 
-### Кроки
-1. Відкрити [Supabase SQL Editor](https://supabase.com/dashboard/project/khmviccwbuktnvdxhnwg/sql/new)
-2. Скопіювати та виконати вміст `002_workouts.sql`
-3. Скопіювати та виконати вміст `003_sleep_logs.sql`
-4. Перевірити в Table Editor: таблиці `workouts` та `sleep_logs` з'явились
+### Steps
+1. Navigate to the [Supabase SQL Editor](https://supabase.com/dashboard/project/khmviccwbuktnvdxhnwg/sql/new).
+2. Paste and run the contents of `002_workouts.sql`.
+3. Paste and run the contents of `003_sleep_logs.sql`.
+4. Confirm tables exist in the Supabase Table Editor: `workouts` and `sleep_logs`.
 
-### Критерій успіху
+### Success Criteria
 ```sql
 SELECT table_name FROM information_schema.tables 
 WHERE table_schema = 'public' AND table_name IN ('workouts', 'sleep_logs');
--- Має повернути 2 рядки
+-- Must return 2 rows
 ```
 
 ---
 
-## Задача 2: Завантаження Архіву в БД (1–2 год)
+## Task 2: Bulk Historical Archive Ingestion (Estimated time: 1–2 hours)
 
-**Файли:** [`Lifecore/scripts/deep_health_analysis.py`](./Lifecore/scripts/deep_health_analysis.py), [`Lifecore/scripts/sync_to_supabase.py`](./Lifecore/scripts/sync_to_supabase.py)
+**Files:** [`Lifecore/scripts/deep_health_analysis.py`](../Lifecore/scripts/deep_health_analysis.py), [`Lifecore/scripts/sync_to_supabase.py`](../Lifecore/scripts/sync_to_supabase.py)
 
-### Кроки
+### Steps
 ```bash
-# 1. Встановити залежності (якщо ще не встановлено)
+# 1. Install dependencies (if not already installed)
 pip install supabase pandas python-dotenv
 
-# 2. Запустити парсер Apple Health (займає 2-5 хв, файл 1.97 GB)
+# 2. Run Apple Health XML streaming parser (takes 2-5 min for 1.97 GB file)
 cd Lifecore/
 python scripts/deep_health_analysis.py
-# → Генерує reports/daily_health_summary.json
+# → Generates reports/daily_health_summary.json
 
-# 3. Завантажити архів в Supabase
+# 3. Ingest archive into Supabase PostgreSQL
 python scripts/sync_to_supabase.py
 ```
 
-### Очікуваний вивід
+### Expected Output
 ```
 [OK]   sleep_logs: ~XXX records processed.
 [OK]   workouts (Apple Health): ~XXX records processed.
@@ -67,29 +67,29 @@ python scripts/sync_to_supabase.py
 ✅ Sync complete.
 ```
 
-### Критерій успіху
-Перевірити в Supabase Table Editor: `workouts` та `sleep_logs` мають записи
+### Success Criteria
+Inspect Supabase Table Editor: verify `workouts` and `sleep_logs` contain historical rows.
 
 ---
 
-## Задача 3: Edge Function `ingest-health` (1–2 год)
+## Task 3: Edge Function `ingest-health` (Estimated time: 1–2 hours)
 
-**Нові файли:**
-- `supabase/functions/ingest-health/index.ts` — **створити**
+**New File to Create:**
+- `supabase/functions/ingest-health/index.ts`
 
-### Логіка функції
+### Function Overview
 ```typescript
 // POST /functions/v1/ingest-health
-// Auth: "secret" field in body (not JWT)
+// Auth: "secret" field in JSON body (bypasses JWT headers for iOS Shortcuts)
 
-// 1. Validate secret
-// 2. Parse body: { user_id, sleep?, workout? }
-// 3. If sleep: INSERT INTO sleep_logs (upsert on user_id + sleep_date)
-// 4. If workout: INSERT INTO workouts
-// 5. Return { ok: true, inserted: { sleep: bool, workout: bool } }
+// 1. Validate incoming secret against INGEST_SECRET
+// 2. Parse request body: { user_id, sleep?, workout? }
+// 3. If sleep: UPSERT into sleep_logs (onConflict: 'user_id,sleep_date')
+// 4. If workout: INSERT into workouts
+// 5. Return JSON: { ok: true, inserted: { sleep: boolean, workout: boolean } }
 ```
 
-### Повна реалізація `index.ts`
+### Complete Implementation (`supabase/functions/ingest-health/index.ts`)
 
 ```typescript
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -121,7 +121,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  // Auth
+  // Authentication via body secret
   if (body.secret !== INGEST_SECRET) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
@@ -133,7 +133,7 @@ serve(async (req) => {
 
   const inserted = { sleep: false, workout: false };
 
-  // Insert sleep
+  // Insert or update sleep log
   if (body.sleep) {
     const s = body.sleep;
     const { error } = await supabase.from('sleep_logs').upsert({
@@ -153,7 +153,7 @@ serve(async (req) => {
     else inserted.sleep = true;
   }
 
-  // Insert workout
+  // Insert workout record
   if (body.workout) {
     const w = body.workout;
     const startedAt = w.started_at || new Date().toISOString();
@@ -183,16 +183,16 @@ serve(async (req) => {
 });
 ```
 
-### Deploy
+### Deployment and Verification
 ```bash
-# Встановити секрет
+# 1. Set secret in Supabase
 supabase secrets set INGEST_SECRET="your_random_secret_32chars"
 
-# Задеплоїти
+# 2. Deploy edge function
 supabase functions deploy ingest-health --no-verify-jwt --use-api
 
-# Тест (замінити значення)
-curl -X POST https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health \
+# 3. Test endpoint with curl
+curl -X POST https://<PROJECT-REF>.supabase.co/functions/v1/ingest-health \
   -H "Content-Type: application/json" \
   -d '{
     "secret": "your_random_secret_32chars",
@@ -204,24 +204,23 @@ curl -X POST https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health
       "rhr_bpm": 50.0
     }
   }'
-# Очікувана відповідь: {"ok":true,"inserted":{"sleep":true,"workout":false}}
+# Expected response: {"ok":true,"inserted":{"sleep":true,"workout":false}}
 ```
 
 ---
 
-## Задача 4: Coach Prompt (`utils/coachPrompt.js`) (1 год)
+## Task 4: Coach Prompt (`utils/coachPrompt.js`) (Estimated time: 1 hour)
 
-**Новий файл:** [`utils/coachPrompt.js`](./utils/coachPrompt.js)
+**New File to Create:** [`utils/coachPrompt.js`](./utils/coachPrompt.js)
 
 ```javascript
 // utils/coachPrompt.js
 const { getDietaryDate } = require('./dateUtils');
 
 /**
- * Fetches last 3 days of context from Supabase for the coach analysis.
+ * Fetches last 3 days of context from Supabase for coach recovery analysis.
  */
 async function buildCoachContext(supabase, userId) {
-  const today = getDietaryDate(new Date(), 0);
   const threeDaysAgo = getDietaryDate(new Date(), -3);
 
   const [mealsRes, sleepRes, workoutsRes] = await Promise.all([
@@ -247,7 +246,7 @@ async function buildCoachContext(supabase, userId) {
       .order('started_at'),
   ]);
 
-  // Aggregate meals by day
+  // Aggregate daily nutrition macros
   const mealsByDay = {};
   for (const meal of (mealsRes.data || [])) {
     const d = meal.dietary_date;
@@ -274,12 +273,12 @@ async function buildCoachContext(supabase, userId) {
 }
 
 /**
- * Builds the Gemini system prompt with context data embedded.
+ * Builds the Gemini prompt embedding 3-day recovery and nutrition context.
  */
 function buildCoachPrompt(context) {
   const hasData = context.nutrition.length > 0 || context.sleep.length > 0 || context.workouts.length > 0;
   if (!hasData) {
-    return null; // No data to analyze
+    return null; // Insufficient data
   }
 
   return `Ти — персональний спортивний аналітик і нутріціолог. Аналізуй ВИКЛЮЧНО на основі наданих даних.
@@ -313,14 +312,13 @@ module.exports = { buildCoachContext, buildCoachPrompt };
 
 ---
 
-## Задача 5: Coach Handler (`handlers/coachHandler.js`) (1–2 год)
+## Task 5: Coach Handler (`handlers/coachHandler.js`) (Estimated time: 1–2 hours)
 
-**Новий файл:** [`handlers/coachHandler.js`](./handlers/coachHandler.js)
+**New File to Create:** [`handlers/coachHandler.js`](./handlers/coachHandler.js)
 
 ```javascript
 // handlers/coachHandler.js
 const { buildCoachContext, buildCoachPrompt } = require('../utils/coachPrompt');
-const { generateMealJSON } = require('../utils/gemini');
 
 async function coachHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID) {
   const chatId = msg.chat.id;
@@ -340,7 +338,7 @@ async function coachHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID) {
       return;
     }
 
-    // Use Gemini with text prompt (not JSON mode — we want natural language)
+    // Call Gemini with cascade fallback (text mode)
     const models = ['gemini-2.5-flash', 'gemini-3.6-flash'];
     let response = null;
 
@@ -368,26 +366,26 @@ async function coachHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID) {
 module.exports = coachHandler;
 ```
 
-### Підключення в `index.js`
+### Integration in `index.js`
 ```javascript
-// Додати в index.js:
+// Import coach handler
 const coachHandler = require('./handlers/coachHandler');
 
-// Додати до обробників:
+// Register /coach command
 bot.onText(/\/coach/, (msg) => coachHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID));
 ```
 
-### Паралельна реалізація в Edge Function
-У `supabase/functions/telegram-bot/index.ts` додати обробку команди `/coach` та кнопки `🏃 Аналіз тренування` аналогічно Node.js логіці.
+### Parallel Edge Function Implementation
+In `supabase/functions/telegram-bot/index.ts`, add the `/coach` command and `🏃 Workout Analysis` button handler mirroring the Node.js implementation.
 
 ---
 
-## Задача 6: Нові Кнопки в MAIN_KEYBOARD (30 хв)
+## Task 6: New Buttons in MAIN_KEYBOARD (Estimated time: 30 min)
 
-**Файл:** [`utils/keyboard.js`](./utils/keyboard.js) + `supabase/functions/telegram-bot/index.ts`
+**Files:** [`utils/keyboard.js`](./utils/keyboard.js) & `supabase/functions/telegram-bot/index.ts`
 
 ```javascript
-// utils/keyboard.js — нова версія
+// utils/keyboard.js — updated layout
 const MAIN_KEYBOARD = {
   keyboard: [
     [{ text: '📊 Статистика' }, { text: '⚖️ Записати вагу' }],
@@ -398,7 +396,7 @@ const MAIN_KEYBOARD = {
 };
 ```
 
-У `textHandler.js` додати:
+In `handlers/textHandler.js`, route the button press:
 ```javascript
 if (text === '🏃 Аналіз тренування') {
   return coachHandler(msg, bot, supabase, genAI, ALLOWED_USER_ID);
@@ -407,56 +405,56 @@ if (text === '🏃 Аналіз тренування') {
 
 ---
 
-## Задача 7: iOS Shortcut (30 хв — після Задачі 3)
+## Task 7: iOS Shortcut Integration (Estimated time: 30 min)
 
-Дивись детальну специфікацію: [`shortcuts/ingest_health_shortcut.md`](./shortcuts/ingest_health_shortcut.md)
+Reference specification: [`shortcuts/ingest_health_shortcut.md`](./shortcuts/ingest_health_shortcut.md)
 
-### Швидкий старт
-1. Відкрити Apple Shortcuts на iPhone
-2. Створити новий Shortcut з назвою `Lifecore Morning Sync`
-3. Реалізувати логіку з `ingest_health_shortcut.md`
-4. Налаштувати Automation: «Щодня о 09:00» АБО «Після завершення тренування»
+### Quick Setup Steps
+1. Launch the Apple Shortcuts application on iOS.
+2. Create a new shortcut titled `Lifecore Morning Sync`.
+3. Replicate the action blocks detailed in `ingest_health_shortcut.md`.
+4. Configure an iOS Automation trigger: "Daily at 09:00 AM" OR "When workout ends".
 
 ---
 
-## Порядок виконання (рекомендований)
+## Recommended Execution Order
 
 ```
-Задача 1 → Задача 2 → Задача 3 → Задача 4 → Задача 5 → Задача 6 → Задача 7
-   30хв      1-2год      1-2год     1год        1-2год      30хв       30хв
+Task 1 → Task 2 → Task 3 → Task 4 → Task 5 → Task 6 → Task 7
+ 30m     1-2h     1-2h      1h      1-2h     30m      30m
 ```
 
-**Загальний час:** ~6–8 годин розробки (можна розбити на 3–4 сесії)
+**Total Estimated Duration:** ~6–8 hours of focused development (conveniently partitioned across 3–4 sessions).
 
 ---
 
-## Критерій завершення Фази 2
+## Phase 2 Definition of Done (DoD)
 
-- [ ] Taблиці `workouts` та `sleep_logs` є в Supabase і мають реальні дані
-- [ ] `ingest-health` Edge Function задеплоєна і відповідає на тестовий curl
-- [ ] iOS Shortcut відправляє дані і вони з'являються в БД
-- [ ] Команда `/coach` або кнопка `🏃 Аналіз тренування` в Telegram повертає аналіз з `СТАН СИСТЕМИ: 🟢/🟡/🔴`
-- [ ] Весь код задеплоєний: `git commit + push`, `supabase functions deploy telegram-bot --no-verify-jwt --use-api`
-- [ ] `CHANGELOG.md` оновлено з описом Фази 2
+- [ ] Tables `workouts` and `sleep_logs` exist in Supabase and contain valid rows.
+- [ ] `ingest-health` Edge Function is deployed and passes validation via `curl`.
+- [ ] iOS Shortcut sends biometric data and verifies row creation in PostgreSQL.
+- [ ] The `/coach` command or `🏃 Workout Analysis` keyboard button returns a diagnosis starting with `SYSTEM STATE: 🟢/🟡/🔴`.
+- [ ] All codebase updates committed, pushed to Git, and deployed via `supabase functions deploy telegram-bot --no-verify-jwt --use-api`.
+- [ ] `CHANGELOG.md` updated with the Phase 2 release details.
 
 ---
 
-## Корисні команди
+## Useful Operational Commands
 
 ```bash
-# Перевірка стану системи
+# Verify system connectivity and credentials
 node scratch/ping-check.js
 
-# Локальний запуск бота (тестування)
+# Run local Node.js bot for testing
 node index.js
 
-# Deploy Edge Functions
+# Deploy Supabase Edge Functions
 supabase functions deploy telegram-bot --no-verify-jwt --use-api
 supabase functions deploy ingest-health --no-verify-jwt --use-api
 
-# Встановити секрет
+# Set secrets in Supabase
 supabase secrets set INGEST_SECRET="..."
 
-# Git
+# Commit and push
 git add -A && git commit -m "feat: Phase 2 — AI Coach, workouts, sleep_logs" && git push
 ```

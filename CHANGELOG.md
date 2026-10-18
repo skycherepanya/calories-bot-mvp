@@ -4,6 +4,24 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Documentation Translation to English & Project Standardization
+
+### 🌍 Changed:
+- **Project Documentation Translation:** Fully translated all newly created and updated documents to English to comply with the project's language rule (`AGENTS.md`) and optimize LLM token usage:
+  - `README.md` — full English rewrite with updated project structure and feature matrix.
+  - `docs/ARCHITECTURE.md` — full English translation including 5-layer mermaid diagram.
+  - `docs/ROADMAP.md` — translated all phases, tasks, and immediate priorities.
+  - `docs/IMPLEMENTATION_PLAN_PHASE2.md` — translated plan steps, task descriptions, and DoD to English.
+  - `shortcuts/README.md` & `shortcuts/ingest_health_shortcut.md` — translated iOS Shortcut specifications.
+  - `Lifecore/README.md` — translated submodule overview and execution guide.
+  - `docs/DATABASE.md` — cleaned up remaining non-English notes.
+- **Code Consistency:** Removed unused imports in Phase 2 handler examples.
+
+### Affected Files
+`README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/IMPLEMENTATION_PLAN_PHASE2.md`, `shortcuts/README.md`, `shortcuts/ingest_health_shortcut.md`, `Lifecore/README.md`, `docs/DATABASE.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Lifecore Analytics Module Merge & Repository Restructure
 
 ### 🏗 Structural Changes
@@ -32,16 +50,17 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 - `docs/ARCHITECTURE.md` — merged with Lifecore docs, added 5-layer diagram with workouts/sleep data flows
 - `docs/DATABASE.md` — added `workouts`, `sleep_logs` table specs, ERD, Coach Context SQL query
 - `docs/ROADMAP.md` — Phase 1 completed, detailed Phase 2 (Coach) tasks, Phases 3–5 outlined
+- `docs/IMPLEMENTATION_PLAN_PHASE2.md` — detailed Phase 2 step-by-step plan
 - `PROJECT_KNOWLEDGE.md` — expanded: recovery biomarkers (HRV/RHR/VO2Max), Sasha's baseline, Coach prompt rules, `ingest-health` Edge Function spec, new env variable `INGEST_SECRET`
 - `Lifecore/README.md` — rewritten as module-level guide within the unified repo
 
 ### 🔜 Planned (Phase 2 — not yet implemented)
 - `supabase/functions/ingest-health/index.ts`
 - `handlers/coachHandler.js` + `utils/coachPrompt.js`
-- New keyboard buttons: `🏃 Аналіз тренування`, `📋 Звіт за тиждень`
+- New keyboard buttons: `🏃 Workout Analysis`, `📋 Weekly Report`
 
 ### Affected Files
-`README.md`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`, `Lifecore/README.md`, `supabase/migrations/001_initial.sql`, `supabase/migrations/002_workouts.sql`, `supabase/migrations/003_sleep_logs.sql`, `Lifecore/scripts/sync_to_supabase.py`, `shortcuts/README.md`, `shortcuts/ingest_health_shortcut.md`
+`README.md`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`, `docs/IMPLEMENTATION_PLAN_PHASE2.md`, `Lifecore/README.md`, `supabase/migrations/001_initial.sql`, `supabase/migrations/002_workouts.sql`, `supabase/migrations/003_sleep_logs.sql`, `Lifecore/scripts/sync_to_supabase.py`, `shortcuts/README.md`, `shortcuts/ingest_health_shortcut.md`
 
 ---
 

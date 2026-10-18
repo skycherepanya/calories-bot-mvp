@@ -1,23 +1,23 @@
 # iOS Shortcut: Lifecore Morning Sync
 
-Цей документ описує логіку та налаштування iOS Shortcut, який автоматично передає дані з Apple Health та Apple Watch у Lifecore кожного ранку.
+This document details the configuration and architecture of the iOS Shortcut responsible for automatically synchronizing Apple Health and Apple Watch biometric telemetry with the Lifecore warehouse.
 
 ---
 
-## Призначення
+## Purpose
 
-Щоразу після пробіджки або о 09:00 ранку Shortcut зчитує біометричні дані за вчорашній день і надсилає їх POST-запитом на Supabase Edge Function `ingest-health`. Ці дані потрапляють у таблиці `sleep_logs` та `workouts`, і стають доступні для `/coach` аналізу в Telegram.
-
----
-
-## Налаштування в Shortcuts
-
-**Назва:** `Lifecore Morning Sync`  
-**Automation trigger:** Щодня о 09:00 АБО «Після завершення тренування» (Workout ends)
+Every morning (or directly upon completing an exercise session), the Shortcut queries HealthKit for the previous night's sleep phases and the morning's autonomic recovery biomarkers (HRV and Resting Heart Rate), then dispatches them via an HTTP POST request to the Supabase `ingest-health` Edge Function. The data populates the `sleep_logs` and `workouts` tables, immediately empowering the `/coach` command in Telegram.
 
 ---
 
-## JSON-структура запиту
+## Shortcut Configuration
+
+* **Name:** `Lifecore Morning Sync`
+* **Automation Trigger:** Daily at 09:00 AM OR "When workout ends"
+
+---
+
+## Request Payload Structure
 
 ```json
 {
@@ -46,20 +46,20 @@
 }
 ```
 
-Поля `sleep` та `workout` є **опціональними** — можна відправляти одне або обидва.
+The `sleep` and `workout` objects are **optional** — the payload can transmit either one or both simultaneously.
 
 ---
 
-## Покрокова логіка Shortcut
+## Step-by-Step Shortcut Logic
 
-### Блок 1: Змінні середовища
+### Block 1: Environment Variables
 ```
-Set variable SUPABASE_URL = "https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health"
-Set variable SECRET = "ВАШ_СЕКРЕТНИЙ_КЛЮЧ"
-Set variable USER_ID = "ВАШ_TELEGRAM_ID"
+Set variable SUPABASE_URL = "https://<PROJECT-REF>.supabase.co/functions/v1/ingest-health"
+Set variable SECRET = "YOUR_INGEST_SECRET"
+Set variable USER_ID = "YOUR_TELEGRAM_ID"
 ```
 
-### Блок 2: Зчитування сну (за вчора)
+### Block 2: Sleep Sampling (Previous Night)
 ```
 Get health samples:
   - Type: Sleep Analysis
@@ -71,36 +71,36 @@ Aggregate:
   - core_hours  = AsleepCore / 3600
 ```
 
-### Блок 3: Зчитування HRV та RHR (за сьогодні вранці)
+### Block 3: Autonomic Biomarkers (Morning HRV & RHR)
 ```
 Get health samples:
-  - Type: Heart Rate Variability (SDNN) → last value
-  - Type: Resting Heart Rate → last value
+  - Type: Heart Rate Variability (SDNN) → latest value
+  - Type: Resting Heart Rate → latest value
 ```
 
-### Блок 4: Зчитування тренування (якщо є за сьогодні)
+### Block 4: Workout Sampling (Today's Activities)
 ```
 Get workouts:
   - Period: Today (since 00:00)
-  - Type: Running / Cycling / Other
+  - Type: Running / Cycling / Strength / Other
 If workouts found:
   - workout_type = Activity Type
   - duration_min = Duration / 60
   - avg_heart_rate = Average Heart Rate
-  - max_heart_rate = Max Heart Rate  
+  - max_heart_rate = Max Heart Rate
   - active_calories = Active Energy Burned
   - distance_km = Distance / 1000
   - elevation_m = Elevation Gain
-  - started_at = Start Date (ISO8601)
+  - started_at = Start Date (ISO 8601)
 ```
 
-### Блок 5: Збірка та відправка запиту
+### Block 5: Payload Construction & Transmission
 ```
 Construct JSON Dictionary:
   secret → SECRET
   user_id → USER_ID (as number)
   sleep → {sleep_date, total_hours, deep_hours, rem_hours, core_hours, hrv_avg_ms, rhr_bpm}
-  workout → {type, duration_min, avg_heart_rate, ...} (if workout found)
+  workout → {type, duration_min, avg_heart_rate, ...} (if workout detected)
 
 Get contents of URL:
   URL: SUPABASE_URL
@@ -109,10 +109,10 @@ Get contents of URL:
   Body: JSON Dictionary
 ```
 
-### Блок 6: Push-сповіщення
+### Block 6: User Feedback & Notification
 ```
-If result contains "ok":
-  Show notification: "✅ Lifecore synced: Sleep 6.8h | HRV 102 ms"
+If response contains "ok":
+  Show notification: "✅ Lifecore synced: Sleep recorded | HRV updated"
 Else:
   Show notification: "⚠️ Lifecore sync failed"
 ```
@@ -121,16 +121,14 @@ Else:
 
 ## Endpoint: `ingest-health` Edge Function
 
-**URL:** `POST https://[SUPABASE_PROJECT].supabase.co/functions/v1/ingest-health`
-
-**Авторизація:** через поле `secret` у тілі запиту (не через JWT), щоб iOS Shortcuts міг робити запити без авторизаційних заголовків.
-
-**Секрет:** зберігається у Supabase Secrets як `INGEST_SECRET` (додати через `supabase secrets set INGEST_SECRET=...`).
+* **URL:** `POST https://[SUPABASE_PROJECT].supabase.co/functions/v1/ingest-health`
+* **Authentication:** Validated via the `secret` field inside the JSON body (bypassing JWT header restrictions within iOS Shortcuts).
+* **Secret Storage:** Managed securely via Supabase Secrets (`INGEST_SECRET`).
 
 ---
 
-## Додаткові нотатки
+## Operational Notes
 
-- Apple Watch оновлює HRV та RHR зазвичай між 06:00 та 09:00, тому Shortcut краще запускати не раніше 09:00.
-- Якщо тренування проводяться зранку до 09:00, краще тригерити Shortcut «Після завершення тренування» (Workout Ends), а не по таймеру.
-- `sleep_date` = дата вечора, коли ти ліг спати (тобто якщо ліг о 23:30 15-го і встав о 07:00 16-го → `sleep_date = "2026-10-15"`).
+* Apple Watch updates HRV and Resting Heart Rate algorithms between 06:00 and 09:00 AM; running the sync at 09:00 AM ensures accurate recovery readings.
+* For morning workouts taking place prior to 09:00 AM, triggering the Shortcut via the iOS "When Workout Ends" automation provides instantaneous logging.
+* `sleep_date` denotes the date the user went to sleep (e.g. falling asleep at 23:30 on Oct 15 and waking at 07:00 on Oct 16 yields `sleep_date = "2026-10-15"`).
