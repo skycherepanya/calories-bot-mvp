@@ -1,177 +1,175 @@
 # iOS 27 Shortcut: Lifecore Health Sync
 
-> **Версія ОС:** iOS 27 (з оптимізаціями під Apple Intelligence та «Otherwise If»)  
-> **Цільові пристрої:** iPhone 16 Pro, Apple Watch Ultra  
+> **OS Target:** iOS 27 (Optimized for Apple Intelligence & native "Otherwise If")  
+> **Hardware:** iPhone 16 Pro, Apple Watch Ultra  
+> **UI Language:** English  
 > **Призначення:** Автоматичний збір телеметрії здоров'я, сну та тренувань з HealthKit і відправка в Deno Edge Function `ingest-health` (Supabase PostgreSQL).
 
 ---
 
-## 1. Конфігурація та змінні середовища
+## 1. Credentials & Environment Parameters
 
-Всі параметри вже налаштовані під твій проєкт:
+Всі параметри твого облікового запису та сервера:
 
-* **Назва команди (Shortcut Name):** `Lifecore Sync`
+* **Shortcut Name:** `Lifecore Sync`
 * **SUPABASE_URL:** `https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health`
 * **SECRET:** `3c021bc09943639b6e1abd58f90a6434208093169e70875f`
 * **USER_ID:** `472025574`
 
 ---
 
-## 2. Швидкий старт через Apple Intelligence в iOS 27 (Опціонально)
+## 2. English Prompt for iOS 27 AI Generator (Apple Intelligence)
 
-В iOS 27 у додатку **Команди (Shortcuts)** при натисканні на **`+`** доступний текстовий рядок генератора дій на базі Apple Intelligence. Ти можеш скопіювати цей промпт, щоб система автоматично розставила кістяк екшенів:
+В iOS 27 у додатку **Shortcuts** при натисканні на **`+`** введи цей промпт англійською мовою в поле генератора:
 
 ```text
-Створи шорткат Lifecore Sync:
-1. Знайти найновіший 1 зразок Heart Rate Variability (SDNN) і зберегти значення в hrv.
-2. Знайти найновіший 1 зразок Resting Heart Rate і зберегти значення в rhr.
-3. Знайти зразки Step Count за сьогодні, обчислити суму і зберегти в steps.
-4. Знайти зразки Active Energy Burned за сьогодні, обчислити суму і зберегти в active_kcal.
-5. Знайти зразки Walking + Running Distance за сьогодні, обчислити суму і зберегти в dist.
-6. Знайти зразки Sleep Analysis за останній 1 день. Для кожного зразка перевірити категорію: якщо Deep — додати тривалість до DeepDurations, інакше якщо REM — додати до REMDurations, інакше якщо Core — додати до CoreDurations.
-7. Обчислити суму тривалостей для Deep, REM, Core, поділити кожну на 3600 і округлити до 2 знаків.
-8. Знайти останнє тренування за сьогодні.
-9. Скласти JSON і відправити POST запитом на URL https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health.
+Create a shortcut named "Lifecore Sync":
+1. Find the 1 most recent sample of Heart Rate Variability (SDNN), get its Value, round to 1 decimal, and set variable hrv_val.
+2. Find the 1 most recent sample of Resting Heart Rate, get its Value, round to 1 decimal, and set variable rhr_val.
+3. Find Step Count samples where Start Date is Today, calculate Sum, round to 0 decimals, and set variable steps_val.
+4. Find Active Energy Burned samples where Start Date is Today, calculate Sum, round to 0 decimals, and set variable active_kcal_val.
+5. Find Walking + Running Distance samples where Start Date is Today, calculate Sum, round to 1 decimal, and set variable dist_val.
+6. Format Current Date as "yyyy-MM-dd" and set variable today_date. Adjust Current Date by subtracting 1 day, format as "yyyy-MM-dd", and set variable sleep_date.
+7. Find Sleep Analysis samples where Start Date is in the last 1 day. Repeat with each: if Value contains Deep, add Duration to DeepDurations; otherwise if Value contains REM, add Duration to REMDurations; otherwise if Value contains Core, add Duration to CoreDurations.
+8. Calculate Sum of DeepDurations / 3600 rounded to 2 decimals as deep_hours. Calculate Sum of REMDurations / 3600 rounded to 2 decimals as rem_hours. Calculate Sum of CoreDurations / 3600 rounded to 2 decimals as core_hours. Calculate total_hours as deep_hours + rem_hours + core_hours.
+9. Find Workouts where Start Date is Today, latest first, limit 1. If found, extract duration in minutes, avg heart rate, max heart rate, active calories, and distance.
+10. Build a JSON text payload with secret "3c021bc09943639b6e1abd58f90a6434208093169e70875f", user_id 472025574, daily_activity object, sleep object, and optional workout object.
+11. Send HTTP POST request to "https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health" with Content-Type application/json and the JSON text as body.
+12. If response contains '"ok":true', show notification "Lifecore synced successfully", otherwise show notification "Lifecore sync failed".
 ```
 
-Після генерації або для ручного складання звірся з точною покроковою інструкцією нижче.
+---
+
+## 3. Step-by-Step Manual Setup (English UI / Пояснення українською)
+
+Якщо складаєш вручну або перевіряєш згенеровані екшени, ось точні англійські назви дій та параметрів:
 
 ---
 
-## 3. Детальна покрокова інструкція складання шорткату
+### Step 1: Date Preparation
 
-Створюємо нову команду в додатку **Команди (Shortcuts)**. Нижче наведено назви дій українською та англійською (UK / EN).
+1. **Activity Date (`today_date`):**
+   * Action: **Current Date**
+   * Action: **Format Date** $\rightarrow$ Date Format: `Custom` $\rightarrow$ Format String: `yyyy-MM-dd`
+   * Action: **Set Variable** $\rightarrow$ Name: `today_date`
 
----
-
-### Блок 1: Підготовка дат
-
-1. **Дата активності (Today):**
-   * Екшен: **Поточна дата** (*Current Date*).
-   * Екшен: **Форматувати дату** (*Format Date*):
-     * Формат: `Кастомний` (*Custom*) $\rightarrow$ `yyyy-MM-dd`.
-   * Екшен: **Встановити змінну** (*Set Variable*) $\rightarrow$ назва: `today_date`.
-
-2. **Дата сну (Sleep Date):**
-   * Екшен: **Поточна дата** (*Current Date*).
-   * Екшен: **Налаштувати дату** (*Adjust Date*) $\rightarrow$ **Відняти** (*Subtract*) `1` день (*day*).
-   * Екшен: **Форматувати дату** (*Format Date*) $\rightarrow$ `yyyy-MM-dd`.
-   * Екшен: **Встановити змінну** (*Set Variable*) $\rightarrow$ назва: `sleep_date`.
+2. **Sleep Date (`sleep_date`):**
+   * Action: **Current Date**
+   * Action: **Adjust Date** $\rightarrow$ `Subtract` `1` `day`
+   * Action: **Format Date** $\rightarrow$ Date Format: `Custom` $\rightarrow$ Format String: `yyyy-MM-dd`
+   * Action: **Set Variable** $\rightarrow$ Name: `sleep_date`
 
 ---
 
-### Блок 2: Ранкові біомаркери відновлення (HRV та RHR)
+### Step 2: Autonomic Biomarkers (HRV & RHR)
 
-1. **Варіабельність серцевого ритму (HRV SDNN):**
-   * Екшен: **Знайти зразки здоров’я** (*Find Health Samples*):
-     * Тип (*Type*): **Вріабельність серцевого ритму** (*Heart Rate Variability*).
-     * Сортувати за (*Sort by*): **Дата початку** (*Start Date*).
-     * Порядок (*Order*): **Від найновіших** (*Latest First*).
-     * Ліміт (*Limit*): Увімкнено, значення `1`.
-   * Екшен: **Отримати деталі зразка здоров’я** (*Get Details of Health Sample*):
-     * Отримати: **Значення** (*Value*) зі знайденого зразка.
-   * Екшен: **Округлити число** (*Round Number*) $\rightarrow$ до `1` десяткового знака.
-   * Екшен: **Встановити змінну** (*Set Variable*) $\rightarrow$ назва: `hrv_val`.
+1. **Heart Rate Variability (SDNN):**
+   * Action: **Find Health Samples**:
+     * Type: `Heart Rate Variability`
+     * Sort by: `Start Date`
+     * Order: `Latest First`
+     * Limit: `1` sample
+   * Action: **Get Details of Health Sample**:
+     * Detail: `Value`
+   * Action: **Round Number** $\rightarrow$ to `1` decimal place
+   * Action: **Set Variable** $\rightarrow$ Name: `hrv_val`
 
-2. **Пульс у стані спокою (RHR):**
-   * Екшен: **Знайти зразки здоров’я** (*Find Health Samples*):
-     * Тип: **Пульс у стані спокою** (*Resting Heart Rate*).
-     * Сортувати за: **Дата початку**, **Latest First**, Ліміт: `1`.
-   * Екшен: **Отримати деталі зразка здоров’я**:
-     * Отримати: **Значення** (*Value*).
-   * Екшен: **Округлити число** $\rightarrow$ до `1` десяткового знака.
-   * Екшен: **Встановити змінну** $\rightarrow$ назва: `rhr_val`.
-
----
-
-### Блок 3: Денна рухова активність (NEAT)
-
-1. **Кроки (Steps):**
-   * Екшен: **Знайти зразки здоров’я** (*Find Health Samples*):
-     * Тип: **Кроки** (*Step Count*).
-     * Фільтр: **Дата початку** $\rightarrow$ **сьогодні** (*Start Date is Today*).
-   * Екшен: **Обчислити статистику** (*Calculate Statistics*):
-     * Операція: **Сума** (*Sum*) для знайдених зразків.
-   * Екшен: **Округлити число** $\rightarrow$ до `0` знаків.
-   * Екшен: **Встановити змінну** $\rightarrow$ назва: `steps_val`.
-
-2. **Активна енергія (Active Calories):**
-   * Екшен: **Знайти зразки здоров’я**:
-     * Тип: **Активна енергія** (*Active Energy*).
-     * Фільтр: **Дата початку** $\rightarrow$ **сьогодні**.
-   * Екшен: **Обчислити статистику** $\rightarrow$ **Сума**.
-   * Екшен: **Округлити число** $\rightarrow$ до `0` знаків.
-   * Екшен: **Встановити змінну** $\rightarrow$ назва: `active_kcal_val`.
-
-3. **Дистанція (Distance):**
-   * Екшен: **Знайти зразки здоров’я**:
-     * Тип: **Дистанція ходьби та бігу** (*Walking + Running Distance*).
-     * Фільтр: **Дата початку** $\rightarrow$ **сьогодні**.
-   * Екшен: **Обчислити статистику** $\rightarrow$ **Сума**.
-   * Екшен: **Округлити число** $\rightarrow$ до `1` десяткового знака.
-   * Екшен: **Встановити змінну** $\rightarrow$ назва: `dist_val`.
+2. **Resting Heart Rate (RHR):**
+   * Action: **Find Health Samples**:
+     * Type: `Resting Heart Rate`
+     * Sort by: `Start Date`, Order: `Latest First`, Limit: `1` sample
+   * Action: **Get Details of Health Sample**:
+     * Detail: `Value`
+   * Action: **Round Number** $\rightarrow$ to `1` decimal place
+   * Action: **Set Variable** $\rightarrow$ Name: `rhr_val`
 
 ---
 
-### Блок 4: Фази сну (Apple Watch Ultra + iOS 27 «Otherwise If»)
+### Step 3: Daily Activity & NEAT
 
-> ⚡ **Чому це працює швидко:** Фільтр обмежено `в межах останнього 1 дня`, тому обробляється лише ~30–50 зразків за одну ніч. На процесорі A18 Pro цей цикл виконується за 1–2 секунди.
+1. **Step Count:**
+   * Action: **Find Health Samples**:
+     * Type: `Step Count`
+     * Filter: `Start Date` `is Today`
+   * Action: **Calculate Statistics**:
+     * Operation: `Sum`
+   * Action: **Round Number** $\rightarrow$ to `0` decimal places
+   * Action: **Set Variable** $\rightarrow$ Name: `steps_val`
 
-1. **Пошук зразків сну:**
-   * Екшен: **Знайти зразки здоров’я** (*Find Health Samples*):
-     * Тип: **Аналіз сну** (*Sleep Analysis*).
-     * Фільтр: **Дата початку** $\rightarrow$ **в межах останнього 1 дня** (*Start Date is in the last 1 days*).
+2. **Active Energy Burned:**
+   * Action: **Find Health Samples**:
+     * Type: `Active Energy`
+     * Filter: `Start Date` `is Today`
+   * Action: **Calculate Statistics** $\rightarrow$ `Sum`
+   * Action: **Round Number** $\rightarrow$ to `0` decimal places
+   * Action: **Set Variable** $\rightarrow$ Name: `active_kcal_val`
 
-2. **Цикл класифікації фаз:**
-   * Екшен: **Повторювати для кожного** (*Repeat with Each*) для знайдених зразків:
-     * Всередині циклу:
-       * Екшен: **Отримати деталі зразка здоров’я** (*Get Details of Health Sample*):
-         * Властивість: **Значення** (*Value*) з `Повторюваного елемента` (*Repeat Item*).
-       * Екшен: **Отримати деталі зразка здоров’я**:
-         * Властивість: **Тривалість** (*Duration*) з `Повторюваного елемента`.
-       * Екшен: **Якщо** (*If*) `[Значення]` **містить** `Deep`:
-         * Екшен: **Додати до змінної** (*Add to Variable*) $\rightarrow$ Змінна: `DeepDurations` (додаємо Тривалість).
-       * Екшен в iOS 27: **Інакше якщо** (*Otherwise If*) `[Значення]` **містить** `REM`:
-         * Екшен: **Додати до змінної** $\rightarrow$ Змінна: `REMDurations`.
-       * Екшен в iOS 27: **Інакше якщо** (*Otherwise If*) `[Значення]` **містить** `Core`:
-         * Екшен: **Додати до змінної** $\rightarrow$ Змінна: `CoreDurations`.
-       * **Завершити Якщо** (*End If*).
-   * **Завершити повторення** (*End Repeat*).
-
-3. **Підсумовування та конвертація в години:**
-   * **Глибокий сон (Deep):**
-     * Екшен: **Обчислити статистику** $\rightarrow$ Сума для `DeepDurations`.
-     * Екшен: **Обчислити** (*Calculate*): `[Сума] / 3600`.
-     * Екшен: **Округлити число** $\rightarrow$ до `2` знаків $\rightarrow$ змінна `deep_hours`.
-   * **Швидкий сон (REM):**
-     * Екшен: **Обчислити статистику** $\rightarrow$ Сума для `REMDurations`.
-     * Екшен: **Обчислити**: `[Сума] / 3600`.
-     * Екшен: **Округлити число** $\rightarrow$ до `2` знаків $\rightarrow$ змінна `rem_hours`.
-   * **Базовий сон (Core):**
-     * Екшен: **Обчислити статистику** $\rightarrow$ Сума для `CoreDurations`.
-     * Екшен: **Обчислити**: `[Сума] / 3600`.
-     * Екшен: **Округлити число** $\rightarrow$ до `2` знаків $\rightarrow$ змінна `core_hours`.
-   * **Загальний час сну (Total Hours):**
-     * Екшен: **Обчислити** (*Calculate*): `deep_hours + rem_hours + core_hours`.
-     * Екшен: **Округлити число** $\rightarrow$ до `2` знаків $\rightarrow$ змінна `total_hours`.
+3. **Walking + Running Distance:**
+   * Action: **Find Health Samples**:
+     * Type: `Walking + Running Distance`
+     * Filter: `Start Date` `is Today`
+   * Action: **Calculate Statistics** $\rightarrow$ `Sum`
+   * Action: **Round Number** $\rightarrow$ to `1` decimal place
+   * Action: **Set Variable** $\rightarrow$ Name: `dist_val`
 
 ---
 
-### Блок 5: Тренування (Workout, якщо було)
+### Step 4: Sleep Stages Parsing (Apple Watch Ultra + iOS 27 "Otherwise If")
 
-1. Екшен: **Знайти тренування** (*Find Workouts*):
-   * Фільтр: **Дата початку** $\rightarrow$ **сьогодні** (*Start Date is Today*).
-   * Сортувати: **Дата початку**, **Latest First**, Ліміт: `1`.
-2. Екшен: **Якщо** (*If*) `[Тренування]` **має будь-яке значення** (*has any value*):
-   * Екшен: **Отримати деталі тренування** (*Get Details of Workout*):
-     * **Тривалість** (у хвилинах) $\rightarrow$ змінна `w_dur`
-     * **Середній пульс** $\rightarrow$ змінна `w_hr`
-     * **Максимальний пульс** $\rightarrow$ змінна `w_max_hr`
-     * **Активна енергія** (ккал) $\rightarrow$ змінна `w_kcal`
-     * **Дистанція** (км) $\rightarrow$ змінна `w_dist`
-     * **Тип активності** $\rightarrow$ змінна `w_type`
-     * **Дата початку** (формат: `yyyy-MM-dd'T'HH:mm:ssZZZZZ`) $\rightarrow$ змінна `w_start`
-   * Екшен: **Текст** (*Text*) з назвою `workout_json_fragment`:
+> ⚡ **Чому це працює блискавично:** Фільтр `Start Date is in the last 1 day` повертає лише ~30–50 семплів за минулу ніч. На A18 Pro цей цикл займає лише 1 секунду.
+
+1. **Find Sleep Samples:**
+   * Action: **Find Health Samples**:
+     * Type: `Sleep Analysis`
+     * Filter: `Start Date` `is in the last 1 days`
+
+2. **Loop with iOS 27 "Otherwise If":**
+   * Action: **Repeat with Each** (input: Health Samples):
+     * Action: **Get Details of Health Sample** $\rightarrow$ Detail: `Value` (from Repeat Item)
+     * Action: **Get Details of Health Sample** $\rightarrow$ Detail: `Duration` (from Repeat Item)
+     * Action: **If** `[Value]` **contains** `Deep`:
+       * Action: **Add to Variable** $\rightarrow$ Variable: `DeepDurations` (add Duration)
+     * Action (iOS 27): **Otherwise If** `[Value]` **contains** `REM`:
+       * Action: **Add to Variable** $\rightarrow$ Variable: `REMDurations`
+     * Action (iOS 27): **Otherwise If** `[Value]` **contains** `Core`:
+       * Action: **Add to Variable** $\rightarrow$ Variable: `CoreDurations`
+     * Action: **End If**
+   * Action: **End Repeat**
+
+3. **Calculate Stage Hours:**
+   * **Deep Sleep:**
+     * Action: **Calculate Statistics** $\rightarrow$ `Sum` of `DeepDurations`
+     * Action: **Calculate** $\rightarrow$ `[Sum] / 3600`
+     * Action: **Round Number** $\rightarrow$ to `2` decimal places $\rightarrow$ Variable: `deep_hours`
+   * **REM Sleep:**
+     * Action: **Calculate Statistics** $\rightarrow$ `Sum` of `REMDurations`
+     * Action: **Calculate** $\rightarrow$ `[Sum] / 3600`
+     * Action: **Round Number** $\rightarrow$ to `2` decimal places $\rightarrow$ Variable: `rem_hours`
+   * **Core Sleep:**
+     * Action: **Calculate Statistics** $\rightarrow$ `Sum` of `CoreDurations`
+     * Action: **Calculate** $\rightarrow$ `[Sum] / 3600`
+     * Action: **Round Number** $\rightarrow$ to `2` decimal places $\rightarrow$ Variable: `core_hours`
+   * **Total Sleep:**
+     * Action: **Calculate** $\rightarrow$ `deep_hours + rem_hours + core_hours`
+     * Action: **Round Number** $\rightarrow$ to `2` decimal places $\rightarrow$ Variable: `total_hours`
+
+---
+
+### Step 5: Workouts (Conditional)
+
+1. Action: **Find Workouts**:
+   * Filter: `Start Date` `is Today`
+   * Sort by: `Start Date`, Order: `Latest First`, Limit: `1`
+2. Action: **If** `[Workouts]` **has any value**:
+   * Action: **Get Details of Workout**:
+     * `Duration` (minutes) $\rightarrow$ `w_dur`
+     * `Average Heart Rate` $\rightarrow$ `w_hr`
+     * `Maximum Heart Rate` $\rightarrow$ `w_max_hr`
+     * `Active Energy Burned` $\rightarrow$ `w_kcal`
+     * `Distance` (km) $\rightarrow$ `w_dist`
+     * `Workout Type` $\rightarrow$ `w_type`
+     * `Start Date` (Format: ISO 8601: `yyyy-MM-dd'T'HH:mm:ssZZZZZ`) $\rightarrow$ `w_start`
+   * Action: **Text** (named `workout_json_fragment`):
      ```json
      ,
        "workout": {
@@ -184,16 +182,15 @@
          "started_at": "[w_start]"
        }
      ```
-3. **Інакше** (*Otherwise*):
-   * Екшен: **Текст** (залиш абсолютно порожнім) $\rightarrow$ `workout_json_fragment`.
-4. **Завершити Якщо** (*End If*).
+3. Action: **Otherwise**:
+   * Action: **Text** (leave completely blank) $\rightarrow$ `workout_json_fragment`
+4. Action: **End If**
 
 ---
 
-### Блок 6: Складання фінального JSON через один текстовий блок
+### Step 6: Single Text Action JSON Payload
 
-Замість болючих вкладених словників, додай один екшен **Текст** (*Text*) і встав цей шаблон.  
-Заміни вирази у квадратних дужках на відповідні **Magic Variables** (через контекстне меню клавіатури):
+Додай екшен **Text** і встав цей шаблон. Заміни змінні у квадратних дужках на відповідні **Magic Variables**:
 
 ```json
 {
@@ -217,52 +214,49 @@
 }
 ```
 
-*Примітка: зверни увагу на позицію `[workout_json_fragment]` — якщо тренування є, воно автоматично підставить кому і блок тренування; якщо тренування немає, змінна порожня і JSON залишається валідним.*
-
 ---
 
-### Блок 7: Відправка HTTP POST у Supabase
+### Step 7: HTTP POST Request to Supabase
 
-1. Екшен: **Отримати вміст з URL** (*Get Contents of URL*):
+1. Action: **Get Contents of URL**:
    * URL: `https://khmviccwbuktnvdxhnwg.supabase.co/functions/v1/ingest-health`
-   * Спосіб (*Method*): **POST**
-   * Заголовки (*Headers*):
-     * `Content-Type`: `application/json`
-   * Тіло запиту (*Request Body*):
-     * Обери: **Файл** (*File*) або **Текст** (*Text*).
-     * Як значення вкажи змінну з **Блоку 6** (текстовий JSON).
-2. Екшен: **Якщо** (*If*) `[Вміст URL]` **містить** `"ok":true`:
-   * Екшен: **Показати сповіщення** (*Show Notification*):
-     * Текст: `✅ Lifecore: Дані успішно синхронізовано! (HRV: [hrv_val] ms | Сон: [total_hours] год)`
-3. **Інакше** (*Otherwise*):
-   * Екшен: **Показати сповіщення**:
-     * Текст: `⚠️ Lifecore Sync Failed: [Вміст URL]`
-4. **Завершити Якщо** (*End If*).
+   * Method: **POST**
+   * Headers:
+     * Key: `Content-Type`, Value: `application/json`
+   * Request Body: **File** (або **Text**) $\rightarrow$ вибери змінну з **Step 6** (Text).
+2. Action: **If** `[Contents of URL]` **contains** `"ok":true`:
+   * Action: **Show Notification**:
+     * Text: `✅ Lifecore synced: HRV [hrv_val] ms | Sleep [total_hours]h`
+3. Action: **Otherwise**:
+   * Action: **Show Notification**:
+     * Text: `⚠️ Lifecore sync failed: [Contents of URL]`
+4. Action: **End If**
 
 ---
 
-## 4. Налаштування автоматизацій в iOS 27
+## 4. Automations Setup (iOS 27 English UI)
 
-Перейди у вкладку **Автоматизація** (*Automations*) у додатку Команди:
+В додатку **Shortcuts** перейди у вкладку **Automation**:
 
-### Автоматизація 1: Ранкова синхронізація (Сон + Біомаркери)
-* **Тригер:** **Час доби** (*Time of Day*) $\rightarrow$ `09:00`.
-* **Повторення:** **Щодня**.
-* **Режим виконання:** **Запускати негайно** (*Run Immediately*).
-* **Повідомляти про запуск:** **Вимкнено** (*Notify When Run: Off*).
-* **Дія:** Запустити команду $\rightarrow$ `Lifecore Sync`.
+### Automation 1: Daily Morning Sync
+* Tap **`+`** (New Automation)
+* Select **Time of Day** $\rightarrow$ `09:00 AM`
+* Repeat: **Daily**
+* Execution Mode: Select **Run Immediately** (toggle off *Ask Before Running* & *Notify When Run*)
+* Action: **Run Shortcut** $\rightarrow$ choose `Lifecore Sync`
 
-### Автоматизація 2: Завершення тренування
-* **Тригер:** **Тренування Apple Watch** (*Apple Watch Workout*).
-* **Подія:** **Завершується** (*Ends*).
-* **Режим виконання:** **Запускати негайно** (*Run Immediately*).
-* **Дія:** Запустити команду $\rightarrow$ `Lifecore Sync`.
+### Automation 2: Post-Workout Instant Sync
+* Tap **`+`**
+* Select **Apple Watch Workout**
+* Trigger: **Ends**
+* Execution Mode: **Run Immediately**
+* Action: **Run Shortcut** $\rightarrow$ choose `Lifecore Sync`
 
 ---
 
-## 5. Перевірка та верифікація
+## 5. Verification & Testing
 
-1. Натисни кнопку **Play (Запуск)** у правому нижньому кутку редактора шортката.
-2. iOS запитає доступ до HealthKit (Аналіз сну, Пульс, HRV, Кроки, Тренування) $\rightarrow$ Натисни **«Дозволити всі»** (*Turn On All*).
-3. Після відпрацювання з'явиться банер: `✅ Lifecore: Дані успішно синхронізовано!`.
-4. Відкрий Telegram-бота і введи `/stats` або `/coach` — останні дані про сон, вегетативний статус і активність будуть миттєво підтягнуті.
+1. Натисни кнопку **Run (Play)** у правому нижньому кутку редактора шорткату.
+2. При першому запиті доступу до HealthKit обери **Turn On All** (Sleep, HRV, Heart Rate, Steps, Workouts).
+3. Має з'явитися сповіщення: `✅ Lifecore synced: HRV ... ms | Sleep ... h`.
+4. Перевір результат у Telegram: введи `/stats` або `/coach` — дані миттєво підтягнуться.
