@@ -4,6 +4,26 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-18] - Database Migrations Applied & Historical Data Ingested
+
+### 🗄 Database & Migrations:
+- **Applied Database Migrations:** Successfully applied migrations to remote Supabase database:
+  - `001_initial.sql` — base schema (`meals`, `body_measurements`).
+  - `002_workouts.sql` — new `workouts` table with indexes.
+  - `003_sleep_logs.sql` — new `sleep_logs` table with recovery biomarkers.
+  - `004_fix_sleep_logs_nullable.sql` — relaxed `total_hours` constraint to allow importing HRV/RHR biomarkers when sleep stage duration is absent.
+
+### 🐍 Scripts & Data Ingestion:
+- **Fixed Strava Parsing Bug:** Resolved date parsing failures in `Lifecore/scripts/sync_to_supabase.py` caused by premature string slicing on AM/PM datetime formats.
+- **Added Workout Deduplication:** Implemented cross-source deduplication in `sync_to_supabase.py` (filtered out 131 duplicate Apple Health activities already captured with rich telemetry by Strava).
+- **Populated Data Warehouse:** Bulk-uploaded **1,044 sleep log records** and **410 unique workout records** into remote Supabase PostgreSQL.
+- **Documentation Parity:** Updated `PROJECT_KNOWLEDGE.md`, `docs/DATABASE.md`, and `docs/ROADMAP.md` reflecting live database state.
+
+### Affected Files
+`supabase/migrations/003_sleep_logs.sql`, `supabase/migrations/004_fix_sleep_logs_nullable.sql`, `Lifecore/scripts/sync_to_supabase.py`, `PROJECT_KNOWLEDGE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Documentation Translation to English & Project Standardization
 
 ### 🌍 Changed:

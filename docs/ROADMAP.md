@@ -26,12 +26,13 @@ Development roadmap transitioning from MVP (`calories-bot-mvp`) to the full **Li
 ## 🔜 Phase 2 — AI Coach: Workouts, Sleep & Recovery Analysis (Next)
 
 ### 2.1. Database
-- [ ] Apply migration `002_workouts.sql` in Supabase.
-- [ ] Apply migration `003_sleep_logs.sql` in Supabase.
+- [x] Apply migration `002_workouts.sql` in Supabase.
+- [x] Apply migration `003_sleep_logs.sql` in Supabase.
+- [x] Apply migration `004_fix_sleep_logs_nullable.sql` in Supabase.
 
 ### 2.2. Historical Data Archive Ingestion
-- [ ] Run `Lifecore/scripts/deep_health_analysis.py` → generate `daily_health_summary.json`.
-- [ ] Run `Lifecore/scripts/sync_to_supabase.py` → bulk-upload Apple Health & Strava history to Supabase.
+- [x] Run `Lifecore/scripts/deep_health_analysis.py` → generate `daily_health_summary.json`.
+- [x] Run `Lifecore/scripts/sync_to_supabase.py` → bulk-upload Apple Health & Strava history to Supabase (410 workouts, 1044 sleep logs, with deduplication).
 
 ### 2.3. Edge Function `ingest-health`
 - [ ] Create `supabase/functions/ingest-health/index.ts`.

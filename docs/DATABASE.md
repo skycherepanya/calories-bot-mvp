@@ -145,7 +145,7 @@ Weight measurements from `/w` command or smart scale.
 
 ---
 
-### 2.3. `workouts` 🔜 *Pending migration 002*
+### 2.3. `workouts` ✅ *Implemented*
 Physical activity: running, strength, cycling — from Telegram, Apple Health, or Strava.
 
 | Column | Type | Description |
@@ -168,7 +168,7 @@ Physical activity: running, strength, cycling — from Telegram, Apple Health, o
 
 ---
 
-### 2.4. `sleep_logs` 🔜 *Pending migration 003*
+### 2.4. `sleep_logs` ✅ *Implemented*
 Nightly sleep phases + recovery biomarkers from Apple Watch.
 
 | Column | Type | Description |
@@ -177,7 +177,7 @@ Nightly sleep phases + recovery biomarkers from Apple Watch.
 | `user_id` | `BIGINT NOT NULL` | |
 | `source` | `TEXT` | `apple_health` \| `manual` |
 | `sleep_date` | `DATE NOT NULL` | Date of the night (evening date) |
-| `total_hours` | `NUMERIC NOT NULL` | Total sleep time |
+| `total_hours` | `NUMERIC` | Total sleep time |
 | `deep_hours` | `NUMERIC` | Deep sleep phase |
 | `rem_hours` | `NUMERIC` | REM phase |
 | `core_hours` | `NUMERIC` | Core/light sleep |

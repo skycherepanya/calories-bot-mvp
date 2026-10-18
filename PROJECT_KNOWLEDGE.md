@@ -165,7 +165,7 @@ muscle_mass_kg, bone_mass_kg, visceral_fat,
 source TEXT DEFAULT 'telegram_w', created_at
 ```
 
-### Pending (🔜 Apply migrations in Supabase)
+### In DB (✅ Applied)
 
 **`workouts`** — physical activity (Migration 002)
 ```sql
@@ -175,7 +175,7 @@ max_heart_rate, active_kcal, avg_pace_min_km, elevation_m,
 notes TEXT, raw_data JSONB, dietary_date DATE, created_at
 ```
 
-**`sleep_logs`** — nightly sleep + biomarkers (Migration 003)
+**`sleep_logs`** — nightly sleep + biomarkers (Migrations 003 & 004)
 ```sql
 id, user_id, source TEXT, sleep_date DATE UNIQUE(user_id, sleep_date),
 total_hours, deep_hours, rem_hours, core_hours, awake_hours,

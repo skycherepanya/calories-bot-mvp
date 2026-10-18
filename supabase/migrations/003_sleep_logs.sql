@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
     sleep_date      DATE NOT NULL,          -- date of the NIGHT (e.g., night of Oct 16th = '2026-10-16')
 
     -- Duration metrics (from Apple Health sleep phases)
-    total_hours     NUMERIC NOT NULL,       -- total time in bed or asleep
+    total_hours     NUMERIC,                -- total time in bed or asleep
     deep_hours      NUMERIC,               -- deep sleep (HKCategoryValueSleepAnalysisAsleepDeep)
     rem_hours       NUMERIC,               -- REM phase
     core_hours      NUMERIC,               -- light/core sleep
