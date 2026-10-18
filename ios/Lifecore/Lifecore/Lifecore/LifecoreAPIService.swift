@@ -1,6 +1,6 @@
 import Foundation
 
-public final class LifecoreAPIService {
+public final class LifecoreAPIService: @unchecked Sendable {
     public static let shared = LifecoreAPIService()
 
     // Configured with production Supabase Edge Function endpoint

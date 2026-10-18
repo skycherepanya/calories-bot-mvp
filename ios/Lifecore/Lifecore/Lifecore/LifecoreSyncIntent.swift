@@ -10,6 +10,7 @@ public struct LifecoreSyncIntent: AppIntent {
 
     public init() {}
 
+    @MainActor
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         let health = HealthKitManager.shared
         let api = LifecoreAPIService.shared

@@ -1,7 +1,7 @@
 import Foundation
 import HealthKit
 
-public final class HealthKitManager {
+public final class HealthKitManager: @unchecked Sendable {
     public static let shared = HealthKitManager()
     private let healthStore = HKHealthStore()
 
