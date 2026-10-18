@@ -70,8 +70,8 @@ public struct LifecoreShortcutsProvider: AppShortcutsProvider {
             intent: LifecoreSyncIntent(),
             phrases: [
                 "Sync \(.applicationName)",
-                "Sync Lifecore",
-                "Log my health in \(.applicationName)"
+                "Sync with \(.applicationName)",
+                "Log health in \(.applicationName)"
             ],
             shortTitle: "Sync Health",
             systemImageName: "heart.text.square.fill"
