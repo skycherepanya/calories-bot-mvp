@@ -4,6 +4,36 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-19] - Phase 2.2: MainTabView & Bevel-Style TodayView with Live HealthKit Wiring
+
+### 🍏 Native iOS UI & Real HealthKit Telemetry:
+- **`App/MainTabView.swift`:** Implemented 4-tab native navigation (`Today`, `Workouts`, `Nutrition`, `Trends`) with custom tint and dark mode styling.
+- **`Features/Today/TodayView.swift`:** Designed high-density Bevel aesthetic dark-mode dashboard:
+  - Top 3 Interactive Rings: Recovery / Readiness score (0–100%), Day Strain (0–21 WHOOP scale & 0–100%), and Caloric Burn / Balance.
+  - Autonomic Biomarkers Card: Morning HRV (SDNN) & Resting HR (RHR) with live $\Delta$ comparisons against personal 30-day baseline.
+  - Sleep Architecture Card: Total sleep duration with percentage splits for Deep, REM, Core, and Awake stages.
+  - Movement & Pure NEAT Card: Isolated lifestyle NEAT ($\text{active\_kcal} - \sum \text{workout\_kcal}$) separated from workout energy expenditure, plus steps and distance.
+  - Today's Workouts Card: Chronological listing of completed workouts with type, duration, distance, active burn, and avg HR.
+  - Direct Cloud Sync: One-tap telemetry sync to Supabase with tactile haptic feedback and live sync state indicators.
+- **`HealthKitManager.swift` Extensions:**
+  - `fetchHistoricalBaseline(days: 30)`: Queries 30-day historical HRV and sleeping RHR samples to calculate dynamic rolling mean and standard deviation (with graceful fallback to Sasha's baseline: HRV 102ms, RHR 49bpm).
+  - `fetchAllWorkoutsToday()`: Queries all workouts recorded today with statistics for active calories, distance, and heart rate.
+  - `fetchTodaySnapshot()`: Asynchronously orchestrates parallel queries and passes live data to `ReadinessCalculator.swift` to derive Recovery, Strain, and Pure NEAT in pure Swift.
+- **Placeholder Views Created:** Created clean minimal views for `Features/Workouts/WorkoutsView.swift`, `Features/Nutrition/NutritionView.swift`, and `Features/Trends/TrendsView.swift`.
+- **Legacy Cleanup:** Removed deprecated `ContentView.swift`.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/App/LifecoreApp.swift`,
+`ios/Lifecore/Lifecore/Lifecore/App/MainTabView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`,
+`docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-19] - Phase 2.1: HealthKit Reader & Deterministic Math Engine Implementation
 
 ### 🍏 Native iOS & Swift Math Engine:

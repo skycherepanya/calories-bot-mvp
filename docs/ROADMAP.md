@@ -34,13 +34,14 @@
 - [x] Standalone deterministic math verification suite (`MathEngineVerification.swift`, 6/6 tests passing).
 
 ### 2.2. View 1: Today View (Readiness, Strain & Caloric Balance)
-- [x] Initial single-page dashboard scaffold in `ContentView.swift`.
-- [ ] Refactor into dedicated `Features/Today/TodayView.swift` within `MainTabView`.
-- [ ] Interactive Bevel-style rings:
+- [x] Initial single-page dashboard scaffold.
+- [x] Refactor into dedicated `Features/Today/TodayView.swift` within `MainTabView.swift`.
+- [x] Interactive Bevel-style rings:
   - **Readiness Ring:** 0-100% composite score from HRV z-score, RHR delta, and deep/REM sleep duration.
-  - **Strain Ring:** Cardiovascular load computed from HR zones + isolated NEAT.
-  - **Nutrition Ring:** Macro progress vs daily targets with deficit buffer applied.
-- [ ] Metric cards: Sleep stages breakdown, morning autonomic summary, latest activity.
+  - **Strain Ring:** Cardiovascular load computed from HR zones + isolated NEAT (0-21 WHOOP scale & 0-100%).
+  - **Nutrition Ring:** Caloric balance progress vs daily targets with deficit buffer applied.
+- [x] Metric cards: Sleep stages breakdown (Deep, REM, Core, Awake), Autonomic Biomarkers (HRV & RHR with $\Delta$ vs 30-day baseline), Movement & Pure NEAT vs Workout breakdown, and Today's Workouts list.
+- [x] Live HealthKit data pipeline: `fetchTodaySnapshot()` with 30-day dynamic baseline calculation (fallback to Sasha's baseline: HRV 102ms, RHR 49bpm).
 
 ### 2.3. View 2: Workouts View (Splits, Telemetry & 70/15/15 AI Coach)
 - [ ] Dedicated `Features/Workouts/WorkoutsListView.swift`:

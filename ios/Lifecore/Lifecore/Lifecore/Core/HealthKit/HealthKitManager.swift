@@ -147,8 +147,13 @@ public final class HealthKitManager: @unchecked Sendable {
         )
     }
 
-    // MARK: - 3. Workouts (Today's Most Recent)
+    // MARK: - 3. Workouts (Today)
     public func fetchLatestWorkoutToday() async throws -> WorkoutLog? {
+        let all = try await fetchAllWorkoutsToday()
+        return all.first
+    }
+
+    public func fetchAllWorkoutsToday() async throws -> [WorkoutLog] {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
         let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: Date(), options: .strictStartDate)
@@ -158,7 +163,7 @@ public final class HealthKitManager: @unchecked Sendable {
             let query = HKSampleQuery(
                 sampleType: .workoutType(),
                 predicate: predicate,
-                limit: 1,
+                limit: HKObjectQueryNoLimit,
                 sortDescriptors: [sortDescriptor]
             ) { _, results, error in
                 if let error = error {
@@ -166,47 +171,172 @@ public final class HealthKitManager: @unchecked Sendable {
                     return
                 }
 
-                guard let workout = (results as? [HKWorkout])?.first else {
-                    continuation.resume(returning: nil)
+                guard let workouts = results as? [HKWorkout] else {
+                    continuation.resume(returning: [])
                     return
                 }
-
-                let durationMin = round((workout.duration / 60.0) * 10) / 10
-                let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
-                let distance = workout.totalDistance?.doubleValue(for: .meter())
-                let distanceKm = distance != nil ? round((distance! / 1000.0) * 100) / 100 : nil
 
                 let isoFormatter = ISO8601DateFormatter()
                 isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
-                var workoutTypeName = "other"
-                switch workout.workoutActivityType {
-                case .running: workoutTypeName = "running"
-                case .cycling: workoutTypeName = "cycling"
-                case .walking: workoutTypeName = "walking"
-                case .traditionalStrengthTraining, .functionalStrengthTraining: workoutTypeName = "strength"
-                case .highIntensityIntervalTraining: workoutTypeName = "hiit"
-                case .swimming: workoutTypeName = "swimming"
-                default: workoutTypeName = "other"
+                let logs: [WorkoutLog] = workouts.map { workout in
+                    let durationMin = round((workout.duration / 60.0) * 10) / 10
+                    let calories = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie())
+                        ?? workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+                    let distance = workout.totalDistance?.doubleValue(for: .meter())
+                    let distanceKm = distance != nil ? round((distance! / 1000.0) * 100) / 100 : nil
+
+                    let avgHr = workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                    let maxHr = workout.statistics(for: HKQuantityType(.heartRate))?.maximumQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+
+                    var workoutTypeName = "other"
+                    switch workout.workoutActivityType {
+                    case .running: workoutTypeName = "running"
+                    case .cycling: workoutTypeName = "cycling"
+                    case .walking: workoutTypeName = "walking"
+                    case .traditionalStrengthTraining, .functionalStrengthTraining: workoutTypeName = "strength"
+                    case .highIntensityIntervalTraining: workoutTypeName = "hiit"
+                    case .swimming: workoutTypeName = "swimming"
+                    default: workoutTypeName = "other"
+                    }
+
+                    return WorkoutLog(
+                        type: workoutTypeName,
+                        durationMin: durationMin,
+                        avgHeartRate: avgHr != nil ? round(avgHr! * 10) / 10 : nil,
+                        maxHeartRate: maxHr != nil ? round(maxHr! * 10) / 10 : nil,
+                        activeCalories: calories != nil ? round(calories!) : nil,
+                        distanceKm: distanceKm,
+                        startedAt: isoFormatter.string(from: workout.startDate)
+                    )
                 }
 
-                let log = WorkoutLog(
-                    type: workoutTypeName,
-                    durationMin: durationMin,
-                    avgHeartRate: nil, // Can be augmented via HKStatisticsCollection
-                    maxHeartRate: nil,
-                    activeCalories: calories != nil ? round(calories!) : nil,
-                    distanceKm: distanceKm,
-                    startedAt: isoFormatter.string(from: workout.startDate)
-                )
-
-                continuation.resume(returning: log)
+                continuation.resume(returning: logs)
             }
             self.healthStore.execute(query)
         }
     }
 
+    // MARK: - 4. 30-Day Historical Baselines
+    public func fetchHistoricalBaseline(days: Int = 30) async -> ReadinessCalculator.Baseline {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let pastDate = calendar.date(byAdding: .day, value: -days, to: now) else {
+            return .sasha
+        }
+
+        let predicate = HKQuery.predicateForSamples(withStart: pastDate, end: now, options: [])
+
+        async let hrvTask = fetchQuantityValues(for: HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli), predicate: predicate)
+        async let rhrTask = fetchQuantityValues(for: HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()), predicate: predicate)
+
+        let hrvValues = (try? await hrvTask) ?? []
+        let rhrValues = (try? await rhrTask) ?? []
+
+        // Compute mean and standard deviation for HRV
+        let avgHrv: Double
+        let stdDevHrv: Double
+        if hrvValues.count >= 3 {
+            let mean = hrvValues.reduce(0.0, +) / Double(hrvValues.count)
+            let variance = hrvValues.map { pow($0 - mean, 2.0) }.reduce(0.0, +) / Double(hrvValues.count)
+            avgHrv = round(mean * 10) / 10
+            stdDevHrv = max(5.0, round(sqrt(variance) * 10) / 10)
+        } else {
+            avgHrv = ReadinessCalculator.Baseline.sasha.avgHrvSDNN
+            stdDevHrv = ReadinessCalculator.Baseline.sasha.stdDevHrv
+        }
+
+        // Compute mean for Resting HR
+        let avgRhr: Double
+        if rhrValues.count >= 3 {
+            let mean = rhrValues.reduce(0.0, +) / Double(rhrValues.count)
+            avgRhr = round(mean * 10) / 10
+        } else {
+            avgRhr = ReadinessCalculator.Baseline.sasha.avgRHR
+        }
+
+        return ReadinessCalculator.Baseline(
+            avgHrvSDNN: avgHrv,
+            stdDevHrv: stdDevHrv,
+            avgRHR: avgRhr,
+            targetSleepHours: 7.5,
+            targetDeepHours: 1.2,
+            targetRemHours: 1.5
+        )
+    }
+
+    // MARK: - 5. Complete Today Snapshot
+    public func fetchTodaySnapshot() async throws -> TodaySnapshot {
+        async let actTask = fetchDailyActivity()
+        async let sleepTask = fetchLastNightSleep()
+        async let workoutsTask = fetchAllWorkoutsToday()
+        async let baselineTask = fetchHistoricalBaseline(days: 30)
+
+        let act = try await actTask
+        let sleep = try await sleepTask
+        let workouts = (try? await workoutsTask) ?? []
+        let baseline = await baselineTask
+
+        // Compute Recovery Score
+        let recovery = ReadinessCalculator.computeRecovery(
+            morningHrv: sleep.hrvAvgMs,
+            morningRhr: sleep.rhrBpm,
+            totalSleepHours: sleep.totalHours,
+            deepSleepHours: sleep.deepHours,
+            remSleepHours: sleep.remHours,
+            baseline: baseline
+        )
+
+        // Compute Strain & Pure NEAT
+        let workoutTuples = workouts.map {
+            (durationMin: $0.durationMin, avgHr: $0.avgHeartRate, activeKcal: $0.activeCalories ?? 0.0)
+        }
+        let strain = ReadinessCalculator.computeStrain(
+            dailyActiveKcal: act.activeKcal,
+            workouts: workoutTuples
+        )
+
+        let neatKcal = ReadinessCalculator.isolatePureNEAT(
+            dailyActiveKcal: act.activeKcal,
+            workoutActiveKcals: workouts.compactMap { $0.activeCalories }
+        )
+
+        return TodaySnapshot(
+            dailyActivity: act,
+            sleepLog: sleep,
+            workouts: workouts,
+            baseline: baseline,
+            recovery: recovery,
+            strain: strain,
+            pureNEATKcal: neatKcal
+        )
+    }
+
     // MARK: - Private Helpers
+    private func fetchQuantityValues(for quantityType: HKQuantityType, unit: HKUnit, predicate: NSPredicate) async throws -> [Double] {
+        try await withCheckedThrowingContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: quantityType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sortDescriptor]
+            ) { _, results, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let samples = results as? [HKQuantitySample] else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let values = samples.map { $0.quantity.doubleValue(for: unit) }
+                continuation.resume(returning: values)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     private func fetchSum(for quantityType: HKQuantityType, unit: HKUnit, predicate: NSPredicate) async throws -> Double {
         try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsQuery(
@@ -247,6 +377,36 @@ public final class HealthKitManager: @unchecked Sendable {
             }
             healthStore.execute(query)
         }
+    }
+}
+
+// MARK: - Today Snapshot Model
+
+public struct TodaySnapshot: Sendable {
+    public let dailyActivity: DailyActivity
+    public let sleepLog: SleepLog
+    public let workouts: [WorkoutLog]
+    public let baseline: ReadinessCalculator.Baseline
+    public let recovery: RecoveryEvaluation
+    public let strain: StrainEvaluation
+    public let pureNEATKcal: Double
+
+    public init(
+        dailyActivity: DailyActivity,
+        sleepLog: SleepLog,
+        workouts: [WorkoutLog],
+        baseline: ReadinessCalculator.Baseline,
+        recovery: RecoveryEvaluation,
+        strain: StrainEvaluation,
+        pureNEATKcal: Double
+    ) {
+        self.dailyActivity = dailyActivity
+        self.sleepLog = sleepLog
+        self.workouts = workouts
+        self.baseline = baseline
+        self.recovery = recovery
+        self.strain = strain
+        self.pureNEATKcal = pureNEATKcal
     }
 }
 

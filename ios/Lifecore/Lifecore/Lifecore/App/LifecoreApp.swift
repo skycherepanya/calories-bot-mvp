@@ -4,7 +4,7 @@ import SwiftUI
 struct LifecoreApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
                 .preferredColorScheme(.dark)
         }
     }
