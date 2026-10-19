@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 public struct FoodInputSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -10,6 +11,7 @@ public struct FoodInputSheet: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImageData: Data?
     @State private var isProcessingImage = false
+    @State private var showCamera = false
 
     public init(onLog: @escaping (_ imageJpegData: Data?, _ textDescription: String?) -> Void) {
         self.onLog = onLog
@@ -43,9 +45,16 @@ public struct FoodInputSheet: View {
                     // Log Action Button
                     Button(action: handleLog) {
                         HStack(spacing: 8) {
-                            Image(systemName: "sparkles")
-                            Text("Розпізнати та записати")
-                                .fontWeight(.bold)
+                            if isProcessingImage {
+                                ProgressView()
+                                    .tint(.black)
+                                Text("Обробка фото...")
+                                    .fontWeight(.bold)
+                            } else {
+                                Image(systemName: "sparkles")
+                                Text("Розпізнати та записати")
+                                    .fontWeight(.bold)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -58,7 +67,7 @@ public struct FoodInputSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .shadow(color: canSubmit ? Color.orange.opacity(0.3) : .clear, radius: 8, y: 3)
                     }
-                    .disabled(!canSubmit)
+                    .disabled(!canSubmit || isProcessingImage)
                     .padding(.top, 10)
                 }
                 .padding(20)
@@ -72,12 +81,20 @@ public struct FoodInputSheet: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .sheet(isPresented: $showCamera) {
+                CameraPickerView { capturedImage in
+                    processAndStoreImage(capturedImage)
+                }
+            }
             .onChange(of: selectedPhotoItem) { _, newItem in
                 Task {
                     if let item = newItem {
                         isProcessingImage = true
-                        if let data = try? await item.loadTransferable(type: Data.self) {
-                            self.selectedImageData = data
+                        if let rawData = try? await item.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: rawData) {
+                            await MainActor.run {
+                                processAndStoreImage(uiImage)
+                            }
                         }
                         isProcessingImage = false
                     }
@@ -113,30 +130,74 @@ public struct FoodInputSheet: View {
                     }
                 }
             } else {
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    VStack(spacing: 10) {
-                        Image(systemName: "camera.viewfinder")
-                            .font(.system(size: 38))
-                            .foregroundStyle(.orange)
+                VStack(spacing: 14) {
+                    HStack(spacing: 12) {
+                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                            Button(action: { showCamera = true }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "camera.fill")
+                                        .font(.headline)
+                                    Text("Камера")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 54)
+                                .background(Color.orange.opacity(0.15))
+                                .foregroundStyle(.orange)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                        }
 
-                        Text("Додати фото страви")
-                            .font(.headline)
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .font(.headline)
+                                Text("Галерея")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(Color(red: 0.1, green: 0.11, blue: 0.15))
                             .foregroundStyle(.white)
-
-                        Text("Швидкий аналіз об'єму та інгредієнтів")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 150)
-                    .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
+
+                    Text("AI автоматично розпізнає страву, інгредієнти та КБЖУ")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(16)
+                .background(Color(red: 0.08, green: 0.09, blue: 0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
+        }
+    }
+
+    private func processAndStoreImage(_ image: UIImage) {
+        let maxDimension: CGFloat = 1280.0
+        let originalSize = image.size
+        var targetImage = image
+
+        if max(originalSize.width, originalSize.height) > maxDimension {
+            let scale = maxDimension / max(originalSize.width, originalSize.height)
+            let newSize = CGSize(width: originalSize.width * scale, height: originalSize.height * scale)
+            let renderer = UIGraphicsImageRenderer(size: newSize)
+            targetImage = renderer.image { _ in
+                image.draw(in: CGRect(origin: .zero, size: newSize))
+            }
+        }
+
+        if let jpegData = targetImage.jpegData(compressionQuality: 0.75) {
+            self.selectedImageData = jpegData
         }
     }
 
@@ -184,5 +245,44 @@ public struct FoodInputSheet: View {
 
         // Deliver payload to caller
         onLog(img, text.isEmpty ? nil : text)
+    }
+}
+
+// MARK: - Camera Picker View
+
+struct CameraPickerView: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
+    let onImageCaptured: (UIImage) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPickerView
+
+        init(_ parent: CameraPickerView) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.onImageCaptured(image)
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
     }
 }

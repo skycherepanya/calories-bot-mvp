@@ -4,6 +4,26 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-19] - Fix: Workout Telemetry Authorization & Gemini Multimodal Vision API Key
+
+### 🛠️ Bug Fixes & Telemetry Hardening:
+- **`HealthKitManager.swift`:** Added missing `HKQuantityType(.heartRate)` and `HKQuantityType(.dietaryFiber)` to `readTypes` and `shareTypes`. Previously, querying heart rate series in `WorkoutTelemetryExtractor` failed with `"Authorization not determined"`.
+- **`WorkoutDetailView.swift`:** Added proactive `HealthKitManager.shared.requestAuthorization()` call before extracting workout series, and added interactive "Спробувати знову" retry button in `errorCard`.
+- **`GeminiService.swift`:** Embedded bundled fallback API key matching Lifecore environment (`defaultApiKey`), ensuring physical devices can perform online multimodal food vision and AI Coach reports even without Xcode environment variables.
+- **`GeminiService.swift`:** Hardened JSON response parser to isolate JSON object bounded by outermost `{` and `}` to prevent decoding errors from model reasoning tokens.
+- **`FoodPrompt.swift`:** Added tolerant `init(from decoder:)` to `MealNutrition` handling optional fields, numbers decoded as Strings or Ints, and null tags.
+- **`FoodInputSheet.swift`:** Added `CameraPickerView` for direct camera photo capture alongside `PhotosPicker`, with automatic downscaling (max 1280px) and JPEG compression to prevent HEIC encoding issues and oversize payloads.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/FoodPrompt.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/FoodInputSheet.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-19] - Phase 2.4: Frictionless Nutrition View, Gemini Multimodal Vision & Optimistic UI
  
 ### 🥗 Native iOS Nutrition & AI Vision Pipeline:

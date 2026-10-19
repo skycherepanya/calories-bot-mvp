@@ -99,6 +99,57 @@ public struct MealNutrition: Codable, Sendable {
         case micronutrients
         case aminoAcids = "amino_acids"
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.mealName = (try? container.decode(String.self, forKey: .mealName)) ?? "Страва"
+
+        if let val = try? container.decode(Double.self, forKey: .kcal) {
+            self.kcal = val
+        } else if let val = try? container.decode(Int.self, forKey: .kcal) {
+            self.kcal = Double(val)
+        } else if let str = try? container.decode(String.self, forKey: .kcal), let val = Double(str) {
+            self.kcal = val
+        } else {
+            self.kcal = 0.0
+        }
+
+        if let val = try? container.decode(Double.self, forKey: .protein) {
+            self.protein = val
+        } else if let val = try? container.decode(Int.self, forKey: .protein) {
+            self.protein = Double(val)
+        } else if let str = try? container.decode(String.self, forKey: .protein), let val = Double(str) {
+            self.protein = val
+        } else {
+            self.protein = 0.0
+        }
+
+        if let val = try? container.decode(Double.self, forKey: .fat) {
+            self.fat = val
+        } else if let val = try? container.decode(Int.self, forKey: .fat) {
+            self.fat = Double(val)
+        } else if let str = try? container.decode(String.self, forKey: .fat), let val = Double(str) {
+            self.fat = val
+        } else {
+            self.fat = 0.0
+        }
+
+        if let val = try? container.decode(Double.self, forKey: .carbs) {
+            self.carbs = val
+        } else if let val = try? container.decode(Int.self, forKey: .carbs) {
+            self.carbs = Double(val)
+        } else if let str = try? container.decode(String.self, forKey: .carbs), let val = Double(str) {
+            self.carbs = val
+        } else {
+            self.carbs = 0.0
+        }
+
+        self.weightG = (try? container.decodeIfPresent(Double.self, forKey: .weightG)) ?? (try? container.decodeIfPresent(Int.self, forKey: .weightG)).map(Double.init)
+        self.confidence = (try? container.decodeIfPresent(Double.self, forKey: .confidence)) ?? (try? container.decodeIfPresent(Int.self, forKey: .confidence)).map(Double.init)
+        self.tags = (try? container.decodeIfPresent([String].self, forKey: .tags)) ?? []
+        self.micronutrients = try? container.decodeIfPresent(Micronutrients.self, forKey: .micronutrients)
+        self.aminoAcids = try? container.decodeIfPresent(AminoAcids.self, forKey: .aminoAcids)
+    }
 }
 
 public struct MealRecord: Codable, Sendable, Identifiable {

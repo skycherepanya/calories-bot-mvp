@@ -170,13 +170,33 @@ public struct WorkoutDetailView: View {
     }
 
     private func errorCard(_ message: String) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.title)
                 .foregroundStyle(.orange)
             Text(message)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+
+            Button(action: {
+                Task {
+                    await loadWorkoutTelemetry()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Спробувати знову")
+                }
+                .font(.footnote)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.12))
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
@@ -191,6 +211,9 @@ public struct WorkoutDetailView: View {
         errorMessage = nil
 
         do {
+            // 0. Ensure HealthKit permissions are determined
+            try await HealthKitManager.shared.requestAuthorization()
+
             // 1. Extract raw continuous series
             let series = try await WorkoutTelemetryExtractor.shared.extractTelemetry(for: workout)
             self.series = series

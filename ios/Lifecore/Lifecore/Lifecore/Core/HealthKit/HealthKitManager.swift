@@ -18,6 +18,7 @@ public final class HealthKitManager: @unchecked Sendable {
         }
 
         let readTypes: Set<HKObjectType> = [
+            HKQuantityType(.heartRate),
             HKQuantityType(.stepCount),
             HKQuantityType(.activeEnergyBurned),
             HKQuantityType(.distanceWalkingRunning),
@@ -28,6 +29,7 @@ public final class HealthKitManager: @unchecked Sendable {
             HKQuantityType(.dietaryFatTotal),
             HKQuantityType(.dietaryCarbohydrates),
             HKQuantityType(.dietarySodium),
+            HKQuantityType(.dietaryFiber),
             HKCategoryType(.sleepAnalysis),
             HKWorkoutType.workoutType()
         ]
@@ -37,7 +39,8 @@ public final class HealthKitManager: @unchecked Sendable {
             HKQuantityType(.dietaryProtein),
             HKQuantityType(.dietaryFatTotal),
             HKQuantityType(.dietaryCarbohydrates),
-            HKQuantityType(.dietarySodium)
+            HKQuantityType(.dietarySodium),
+            HKQuantityType(.dietaryFiber)
         ]
 
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
