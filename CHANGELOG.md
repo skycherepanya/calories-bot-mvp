@@ -18,9 +18,10 @@ All changes to the code, data structure, AI prompts, and documentation must be r
   - Implemented model cascade: primary `"gemini-3.8-flash"` -> fallback `"gemini-2.5-flash"` -> fallback `"gemini-3.6-flash"`.
   - Added `analyzeFood(imageJpegData:textDescription:)` with strict JSON decoding into `MealNutrition`.
   - Maintained high-fidelity deterministic offline nutrition fallback for simulation and tests.
-- **`Core/HealthKit/HealthKitManager.swift` Dietary Write-Back:**
+- **`Core/HealthKit/HealthKitManager.swift` Dietary Write-Back & Privacy Configuration:**
   - Expanded `requestAuthorization()` with read/write permissions for dietary energy, protein, fat, carbohydrates, and sodium.
   - Added `saveMealToHealthKit(name:kcal:proteinG:fatG:carbsG:sodiumMg:fiberG:date:)` saving synchronized `HKQuantitySample`s to Apple Health.
+  - Configured mandatory `INFOPLIST_KEY_NSHealthUpdateUsageDescription`, `INFOPLIST_KEY_NSCameraUsageDescription`, and `INFOPLIST_KEY_NSPhotoLibraryUsageDescription` in `project.pbxproj` to prevent `NSException` runtime crash on authorization request.
 - **`Core/Storage/MealStorageService.swift`:**
   - Local persistent storage for meals with instant optimistic insertion (<0.2s), resolution of analyzed meals, and deletion.
   - Auto-seeded realistic initial meals for Today and Yesterday.

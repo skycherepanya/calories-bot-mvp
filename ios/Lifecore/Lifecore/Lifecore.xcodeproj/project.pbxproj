@@ -247,7 +247,10 @@
 				DEVELOPMENT_TEAM = SPWLXZCMDF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Lifecore uses the camera to capture meal photos for AI nutritional analysis.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Lifecore reads sleep stages, HRV, steps, and workouts to provide AI recovery coaching";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Lifecore writes logged meal calories, macronutrients, and dietary sodium to Apple Health.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Lifecore accesses photos to analyze food nutrition from saved images.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -281,7 +284,10 @@
 				DEVELOPMENT_TEAM = SPWLXZCMDF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Lifecore uses the camera to capture meal photos for AI nutritional analysis.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Lifecore reads sleep stages, HRV, steps, and workouts to provide AI recovery coaching";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Lifecore writes logged meal calories, macronutrients, and dietary sodium to Apple Health.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Lifecore accesses photos to analyze food nutrition from saved images.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
