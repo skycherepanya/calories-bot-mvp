@@ -58,8 +58,7 @@ public final class HealthKitManager: @unchecked Sendable {
 
         var samples: [HKQuantitySample] = []
         let metadata: [String: Any] = [
-            HKMetadataKeyFoodType: name,
-            HKMetadataKeySyncVersion: 1
+            HKMetadataKeyFoodType: name
         ]
 
         let kcalType = HKQuantityType(.dietaryEnergyConsumed)
@@ -251,7 +250,6 @@ public final class HealthKitManager: @unchecked Sendable {
                 let logs: [WorkoutLog] = workouts.map { workout in
                     let durationMin = round((workout.duration / 60.0) * 10) / 10
                     let calories = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie())
-                        ?? workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
                     let distance = workout.totalDistance?.doubleValue(for: .meter())
                     let distanceKm = distance != nil ? round((distance! / 1000.0) * 100) / 100 : nil
 

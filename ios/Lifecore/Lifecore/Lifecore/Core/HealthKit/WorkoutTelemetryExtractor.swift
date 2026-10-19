@@ -173,7 +173,6 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
 
         let totalDist = workout.totalDistance?.doubleValue(for: .meter())
         let totalEnergy = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie())
-            ?? workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
 
         var typeString = "other"
         switch workout.workoutActivityType {

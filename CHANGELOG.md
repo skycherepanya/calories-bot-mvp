@@ -21,7 +21,9 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 - **`Core/HealthKit/HealthKitManager.swift` Dietary Write-Back & Privacy Configuration:**
   - Expanded `requestAuthorization()` with read/write permissions for dietary energy, protein, fat, carbohydrates, and sodium.
   - Added `saveMealToHealthKit(name:kcal:proteinG:fatG:carbsG:sodiumMg:fiberG:date:)` saving synchronized `HKQuantitySample`s to Apple Health.
-  - Configured mandatory `INFOPLIST_KEY_NSHealthUpdateUsageDescription`, `INFOPLIST_KEY_NSCameraUsageDescription`, and `INFOPLIST_KEY_NSPhotoLibraryUsageDescription` in `project.pbxproj` to prevent `NSException` runtime crash on authorization request.
+  - Fixed meal save crash by removing isolated `HKMetadataKeySyncVersion` without `HKMetadataKeySyncIdentifier`.
+  - Resolved iOS 18 deprecation warnings for `totalEnergyBurned` by switching exclusively to `workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()`.
+  - Configured mandatory `INFOPLIST_KEY_NSHealthUpdateUsageDescription`, `INFOPLIST_KEY_NSCameraUsageDescription`, and `INFOPLIST_KEY_NSPhotoLibraryUsageDescription` in `project.pbxproj`.
 - **`Core/Storage/MealStorageService.swift`:**
   - Local persistent storage for meals with instant optimistic insertion (<0.2s), resolution of analyzed meals, and deletion.
   - Auto-seeded realistic initial meals for Today and Yesterday.
