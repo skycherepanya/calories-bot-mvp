@@ -23,11 +23,80 @@ public final class HealthKitManager: @unchecked Sendable {
             HKQuantityType(.distanceWalkingRunning),
             HKQuantityType(.heartRateVariabilitySDNN),
             HKQuantityType(.restingHeartRate),
+            HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryProtein),
+            HKQuantityType(.dietaryFatTotal),
+            HKQuantityType(.dietaryCarbohydrates),
+            HKQuantityType(.dietarySodium),
             HKCategoryType(.sleepAnalysis),
             HKWorkoutType.workoutType()
         ]
 
-        try await healthStore.requestAuthorization(toShare: [], read: readTypes)
+        let shareTypes: Set<HKSampleType> = [
+            HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryProtein),
+            HKQuantityType(.dietaryFatTotal),
+            HKQuantityType(.dietaryCarbohydrates),
+            HKQuantityType(.dietarySodium)
+        ]
+
+        try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
+    }
+
+    // MARK: - Dietary Write-Back
+    public func saveMealToHealthKit(
+        name: String,
+        kcal: Double,
+        proteinG: Double,
+        fatG: Double,
+        carbsG: Double,
+        sodiumMg: Double? = nil,
+        fiberG: Double? = nil,
+        date: Date = Date()
+    ) async throws {
+        guard isAvailable else { throw HealthKitError.notAvailableOnDevice }
+
+        var samples: [HKQuantitySample] = []
+        let metadata: [String: Any] = [
+            HKMetadataKeyFoodType: name,
+            HKMetadataKeySyncVersion: 1
+        ]
+
+        let kcalType = HKQuantityType(.dietaryEnergyConsumed)
+        let kcalQuantity = HKQuantity(unit: .kilocalorie(), doubleValue: kcal)
+        samples.append(HKQuantitySample(type: kcalType, quantity: kcalQuantity, start: date, end: date, metadata: metadata))
+
+        if proteinG > 0 {
+            let pType = HKQuantityType(.dietaryProtein)
+            let pQuantity = HKQuantity(unit: .gram(), doubleValue: proteinG)
+            samples.append(HKQuantitySample(type: pType, quantity: pQuantity, start: date, end: date, metadata: metadata))
+        }
+
+        if fatG > 0 {
+            let fType = HKQuantityType(.dietaryFatTotal)
+            let fQuantity = HKQuantity(unit: .gram(), doubleValue: fatG)
+            samples.append(HKQuantitySample(type: fType, quantity: fQuantity, start: date, end: date, metadata: metadata))
+        }
+
+        if carbsG > 0 {
+            let cType = HKQuantityType(.dietaryCarbohydrates)
+            let cQuantity = HKQuantity(unit: .gram(), doubleValue: carbsG)
+            samples.append(HKQuantitySample(type: cType, quantity: cQuantity, start: date, end: date, metadata: metadata))
+        }
+
+        if let sodium = sodiumMg, sodium > 0 {
+            let sType = HKQuantityType(.dietarySodium)
+            let sQuantity = HKQuantity(unit: HKUnit.gramUnit(with: .milli), doubleValue: sodium)
+            samples.append(HKQuantitySample(type: sType, quantity: sQuantity, start: date, end: date, metadata: metadata))
+        }
+
+        if let fiber = fiberG, fiber > 0 {
+            let fibType = HKQuantityType(.dietaryFiber)
+            let fibQuantity = HKQuantity(unit: .gram(), doubleValue: fiber)
+            samples.append(HKQuantitySample(type: fibType, quantity: fibQuantity, start: date, end: date, metadata: metadata))
+        }
+
+        try await healthStore.save(samples)
     }
 
     // MARK: - 1. Daily NEAT Activity

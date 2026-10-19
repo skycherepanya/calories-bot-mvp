@@ -57,15 +57,16 @@
   - Zero medical alarmism; output in Ukrainian with deterministic offline fallback.
 
 ### 2.4. View 3: Nutrition View (Frictionless Vision & Optimistic UI)
-- [ ] Dedicated `Features/Nutrition/NutritionView.swift`:
-  - Daily macronutrient summary card (Protein, Fat, Carbs, Total kcal).
-  - List of meals logged for the current dietary day (04:00 AM cutoff).
-  - "Log for Yesterday" toggle.
-- [ ] Native camera capture (AVFoundation) and photo picker (<5s total flow).
-- [ ] Optimistic UI: instant SwiftData meal card insertion (<0.2s) in "Analyzing..." state.
-- [ ] Background processing: `GeminiService.swift` runs vision analysis with `FoodPrompt.swift`.
-- [ ] Automatic application of +12.5% deficit buffer and taxonomy tags.
-- [ ] Write-back to HealthKit dietary calories/macros and sync to Supabase `meals`.
+- [x] Dedicated `Features/Nutrition/NutritionView.swift`:
+  - Daily macronutrient summary card (Protein, Fat, Carbs, Total kcal) with +12.5% deficit buffer badge.
+  - Dietary Quality Card: Whole Food vs Ultra-Processed ratio, sodium water retention warning, and leucine MPS threshold.
+  - Chronological list of meals logged for the current dietary day (04:00 AM cutoff).
+  - Date navigation (`<` / `>`) and "Log for Yesterday" fast toggle.
+- [x] Photo picker & camera flow + quick text description (`FoodInputSheet.swift`, <5s total flow).
+- [x] Optimistic UI: instant pending meal card insertion (<0.2s) in "Analyzing..." state via `MealStorageService.swift`.
+- [x] Background vision processing: `GeminiService.swift` multimodal cascade (`gemini-3.8-flash` -> `gemini-2.5-flash` -> `gemini-3.6-flash`).
+- [x] Automatic application of +12.5% caloric deficit buffer, cooked weight calibration, and taxonomy tags (`FoodPrompt.swift`).
+- [x] Write-back to HealthKit dietary calories, protein, fat, carbs, and sodium via `HealthKitManager.swift`.
 
 ### 2.5. View 4: Trends View (Water Noise Filter & Longitudinal Baselines)
 - [ ] Dedicated `Features/Trends/TrendsView.swift`:

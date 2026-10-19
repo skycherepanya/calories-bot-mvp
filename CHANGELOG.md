@@ -4,6 +4,45 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-19] - Phase 2.4: Frictionless Nutrition View, Gemini Multimodal Vision & Optimistic UI
+ 
+### 🥗 Native iOS Nutrition & AI Vision Pipeline:
+- **`Core/AI/FoodPrompt.swift`:** Ported clinical nutritionist rules from legacy `utils/prompt.js` and `utils/dateUtils.js`:
+  - Enforced cooked weight calibration for grains, pasta, buckwheat, oats, and meats.
+  - Applied mandatory +12.5% caloric deficit safety buffer: `kcal_final = round(kcal_exact * 1.125)` while keeping protein, fat, and carbs exact.
+  - Quality taxonomy selection (2 to 4 mandatory tags from `whole_food`, `ultra_processed`, `solid`, `liquid`, `fast_absorbing`, `slow_absorbing`, `high_sodium`).
+  - Estimated micronutrients (`fiber_g`, `sodium_mg`, `potassium_mg`, `vitamin_c_mg`, `iron_mg`, `calcium_mg`) and amino acids (`bcaa_g`, `leucine_g`).
+  - Implemented 04:00 AM dietary day shift utility (`FoodPrompt.dietaryDate(for:offsetDays:)`).
+- **`Core/AI/GeminiService.swift` Upgrade:**
+  - Added multimodal image payload support (`inline_data` Base64 JPEG) alongside structured text descriptions.
+  - Implemented model cascade: primary `"gemini-3.8-flash"` -> fallback `"gemini-2.5-flash"` -> fallback `"gemini-3.6-flash"`.
+  - Added `analyzeFood(imageJpegData:textDescription:)` with strict JSON decoding into `MealNutrition`.
+  - Maintained high-fidelity deterministic offline nutrition fallback for simulation and tests.
+- **`Core/HealthKit/HealthKitManager.swift` Dietary Write-Back:**
+  - Expanded `requestAuthorization()` with read/write permissions for dietary energy, protein, fat, carbohydrates, and sodium.
+  - Added `saveMealToHealthKit(name:kcal:proteinG:fatG:carbsG:sodiumMg:fiberG:date:)` saving synchronized `HKQuantitySample`s to Apple Health.
+- **`Core/Storage/MealStorageService.swift`:**
+  - Local persistent storage for meals with instant optimistic insertion (<0.2s), resolution of analyzed meals, and deletion.
+  - Auto-seeded realistic initial meals for Today and Yesterday.
+- **`Features/Nutrition/NutritionView.swift` & UI Components:**
+  - `MacroSummaryCard`: Progress meter against daily target with +12.5% buffer indicator and P/F/C breakdown.
+  - `DietaryQualityCard`: Whole food vs ultra-processed ratio, sodium water retention alert, and leucine MPS threshold indicator.
+  - `FoodInputSheet.swift`: Native `PhotosPicker` image selection + text field (<5s total flow).
+  - `OptimisticAnalyzingCard`: Shimmering instant pending state transitioning seamlessly to completed `MealItemCard`.
+  - Day switcher with 04:00 AM cutoff and "Log for Yesterday" fast toggle.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/FoodPrompt.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionComponents.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/FoodInputSheet.swift`,
+`docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-19] - Phase 2.3: Workouts View, Swift Charts Telemetry & 70/15/15 AI Coach
  
 ### 🏃 Athletic Workout Telemetry & AI Performance Analyst:
