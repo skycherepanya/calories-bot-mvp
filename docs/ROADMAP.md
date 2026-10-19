@@ -4,7 +4,7 @@
 
 ---
 
-## 🏛️ Phase 1 — Telegram Bot MVP & Data Foundations (Completed / Legacy)
+## 🏛️ Phase 1 — Telegram Bot MVP & Data Foundations (Completed / Deprecated)
 
 - [x] **1.1. Food Photo Recognition:** Gemini Vision food parsing with macronutrient extraction.
 - [x] **1.2. Food Taxonomy:** Quality tags (`whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`).
@@ -18,57 +18,72 @@
 
 ---
 
-## 🚀 Phase 2 — Native iOS-First Platform & Athletic Engine (Active / Current Focus)
+## 🚀 Phase 2 — Native iOS-First Platform & Four Feature Views (Active / Current Focus)
 
-### 2.1. HealthKit Deep Telemetry Reader (Swift 6)
-- [x] Implement async HealthKit statistics queries for sleep stages (`asleepDeep`, `asleepREM`, `asleepCore`, `awake`).
-- [x] Implement morning autonomic biomarker queries (HRV SDNN, resting heart rate RHR).
-- [ ] Implement `WorkoutSplitReader`: query continuous `HKQuantityTypeIdentifierDistanceWalkingRunning` and `HKQuantityTypeIdentifierHeartRate` samples to slice workouts into exact 1km splits.
-- [ ] Implement elevation gain/loss per kilometer ($\Delta h$) via HealthKit route / workout metadata.
-- [ ] Filter out non-athletic incidental sessions (5-min bike rides, 40-min casual walks) from deep athletic analysis while preserving them in daily NEAT energy.
-
-### 2.2. Deterministic Swift Math Engine
+### 2.1. Foundation: HealthKit Reader & Deterministic Math Engine
+- [x] HealthKit async statistics queries for sleep architecture (`asleepDeep`, `asleepREM`, `asleepCore`, `awake`).
+- [x] HealthKit morning autonomic biomarker queries (HRV SDNN, resting heart rate RHR).
 - [x] Pure NEAT isolation formula: $\text{NEAT} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_kcal})$.
-- [ ] Implement on-device **Efficiency Factor ($EF$)**:
-  $$EF = \frac{\text{Speed (m/min)}}{\text{Average Heart Rate (bpm)}}$$
-- [ ] Implement on-device **Aerobic Decoupling & Cardiac Drift %**:
-  $$\text{Cardiac Drift } (\%) = \left(\frac{EF_{\text{1st half}} - EF_{\text{2nd half}}}{EF_{\text{1st half}}}\right) \times 100\%$$
-- [ ] Implement **7-day & 14-day Rolling Weight Averages** in Swift to filter acute water/glycogen noise.
+- [x] `WorkoutTelemetryExtractor.swift`: query raw `HKQuantitySeriesSample` for continuous distance, HR, altitude, cadence.
+- [x] `WorkoutMathEngine.swift`:
+  - 1km auto-splits (duration, pace, average HR, max HR, $\Delta h$ elevation, cadence).
+  - Structured interval laps from `HKWorkoutActivity` (work pace, rest HR recovery drop).
+  - Efficiency Factor ($EF = \text{Speed} / \text{Avg HR}$) and Aerobic Decoupling / Cardiac Drift %.
+  - Historical benchmark comparison against last 3 similar sessions.
+- [x] `ReadinessCalculator.swift`: Recovery score (0-100%), Cardiovascular Strain, and 7d/14d rolling weight averages.
+- [x] Standalone deterministic math verification suite (`MathEngineVerification.swift`, 6/6 tests passing).
 
-### 2.3. SwiftUI Dashboard & Athletic UX (Bevel-Style)
-- [x] Scaffold native SwiftUI application in `ios/Lifecore/`.
-- [ ] **Today / Readiness View:**
-  - Dynamic readiness score derived from HRV SDNN, RHR stability, and deep/REM sleep duration.
-  - Interactive cardiovascular strain ring and nutrition balance ring.
-- [ ] **Workout & Splits View:**
-  - Interactive kilometer splits table (Pace, HR, Elevation, Cadence).
-  - Synchronized Swift Charts displaying pace curves against heart rate and elevation profiles.
-- [ ] **Longitudinal Trends View:**
-  - Weight trend line overlaying raw weigh-ins with 7d/14d rolling averages.
-  - Monthly HRV and RHR baseline trajectories.
+### 2.2. View 1: Today View (Readiness, Strain & Caloric Balance)
+- [x] Initial single-page dashboard scaffold in `ContentView.swift`.
+- [ ] Refactor into dedicated `Features/Today/TodayView.swift` within `MainTabView`.
+- [ ] Interactive Bevel-style rings:
+  - **Readiness Ring:** 0-100% composite score from HRV z-score, RHR delta, and deep/REM sleep duration.
+  - **Strain Ring:** Cardiovascular load computed from HR zones + isolated NEAT.
+  - **Nutrition Ring:** Macro progress vs daily targets with deficit buffer applied.
+- [ ] Metric cards: Sleep stages breakdown, morning autonomic summary, latest activity.
 
-### 2.4. AI Athletic Performance Analyst (Gemini API)
-- [x] Draft **70 / 15 / 15** prompt architecture (RFC in `docs/RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md`).
-- [ ] Integrate Gemini API client into iOS app (`LifecoreAIService.swift`).
-- [ ] Implement prompt payload assembler passing pre-calculated splits, cardiac drift %, benchmark comparisons, and recovery context.
-- [ ] Enforce elite sports analyst persona (zero generic wellness platitudes, zero medical panic).
+### 2.3. View 2: Workouts View (Splits, Telemetry & 70/15/15 AI Coach)
+- [ ] Dedicated `Features/Workouts/WorkoutsListView.swift`:
+  - Athletic workout filtering (Running, Strength, HIIT vs casual walks / commutes).
+- [ ] `Features/Workouts/WorkoutDetailView.swift`:
+  - Interactive 1km split table (Pace, HR, $\Delta h$, Cadence).
+  - Structured interval laps section for HIIT / track sessions.
+  - Synchronized Swift Charts displaying pace curves against heart rate zones and elevation profile.
+  - Efficiency Factor ($EF$) and Cardiac Drift % indicator cards.
+- [ ] AI Athletic Performance Analyst card (`Features/Workouts/CoachReportView.swift`):
+  - On-demand Gemini analysis via `CoachPrompt.swift`.
+  - Strictly follows the **70 / 15 / 15** breakdown (Pacing Telemetry 70%, Benchmark 15%, Root Causes & 24h Directive 15%).
+  - Zero medical alarmism; output in Ukrainian.
 
-### 2.5. In-App Vision Food Scanner
-- [ ] Integrate native iOS camera scanner using AVFoundation.
-- [ ] Implement optimistic UI: instant local entry creation while Gemini Vision analyzes portions and macros in the background.
-- [ ] Auto-apply +12.5% deficit buffer and dietary date offset (04:00 AM).
+### 2.4. View 3: Nutrition View (Frictionless Vision & Optimistic UI)
+- [ ] Dedicated `Features/Nutrition/NutritionView.swift`:
+  - Daily macronutrient summary card (Protein, Fat, Carbs, Total kcal).
+  - List of meals logged for the current dietary day (04:00 AM cutoff).
+  - "Log for Yesterday" toggle.
+- [ ] Native camera capture (AVFoundation) and photo picker (<5s total flow).
+- [ ] Optimistic UI: instant SwiftData meal card insertion (<0.2s) in "Analyzing..." state.
+- [ ] Background processing: `GeminiService.swift` runs vision analysis with `FoodPrompt.swift`.
+- [ ] Automatic application of +12.5% deficit buffer and taxonomy tags.
+- [ ] Write-back to HealthKit dietary calories/macros and sync to Supabase `meals`.
 
-### 2.6. SwiftData Offline-First Persistence & Supabase Sync
-- [ ] Define `@Model` SwiftData classes for `MealEntity`, `WorkoutEntity`, `DailyMetricEntity`, and `SleepLogEntity`.
-- [ ] Implement seamless two-way background synchronization with Supabase PostgreSQL via `LifecoreAPIService`.
+### 2.5. View 4: Trends View (Water Noise Filter & Longitudinal Baselines)
+- [ ] Dedicated `Features/Trends/TrendsView.swift`:
+  - **Body Weight Trend Chart:** Raw daily weigh-ins overlayed with 7-day and 14-day rolling averages (filtering water/glycogen noise).
+  - **Autonomic Baseline Chart:** 30-day rolling baseline for HRV SDNN and sleeping RHR.
+  - **Aerobic Efficiency Trend:** Historical $EF$ and cardiac drift progression across running sessions.
+
+### 2.6. Local Storage & Cloud Backup (SwiftData + Supabase)
+- [ ] Local `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`, `DailyMetricEntity`, `SleepLogEntity`).
+- [ ] Asynchronous cloud sync to Supabase `meals` and `workout_analyses` (`splits_json`, `laps_json`).
+- [ ] `LogMealIntent.swift` for fast Siri / Action Button food capture.
 
 ---
 
 ## 📈 Phase 3 — Advanced Physiological Modeling & Time-Lags (Next)
 
 ### 3.1. Multi-Day Time-Lagged Correlations
-- [ ] Quantify the impact of sodium intake (Day T) on morning fluid retention (Day T+1, T+2).
-- [ ] Quantify the correlation between carbohydrate deficit and subsequent aerobic decoupling on endurance runs.
+- [ ] Quantify impact of sodium intake (Day T) on morning fluid retention (Day T+1, T+2).
+- [ ] Quantify correlation between carbohydrate deficit and subsequent aerobic decoupling on endurance runs.
 - [ ] Detect early overtraining signals via cumulative acute-to-chronic workload ratio (ACWR).
 
 ### 3.2. Automated Morning Briefing

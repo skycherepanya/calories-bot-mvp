@@ -34,22 +34,29 @@
 ```
 ┌────────────────────────────────────────────────────────┐
 │  Layer 1: Canonical Source of Truth (Apple HealthKit)  │
-│  Continuous Heart Rate • Sleep Phases • Workouts • HRV │
+│  Apple Watch Ultra & iPhone 16 Pro (<5ms direct query) │
+│  Sleep Stages • HRV SDNN • Sleeping RHR • Series Data  │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 2: Swift Deterministic Math & Telemetry Engine  │
-│  1km Splits • Cardiac Drift % • Isolated NEAT • TEF    │
+│  Readiness (0-100%) • Strain • Pure NEAT Isolation     │
+│  1km Auto-Splits • Laps • EF • Cardiac Drift % • GAP   │
+│  7d / 14d Rolling Weight Averages (Water Noise Filter) │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 3: Local Persistence & Cloud Synchronization    │
-│  SwiftData (Local-First Offline) ◄──► Supabase Cloud   │
+│  SwiftData (Local-First Offline Storage)               │
+│  ▲                                                     │
+│  └──► Async Backup: Supabase (meals, workout_analyses) │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 4: Presentation & AI Athletic Intelligence      │
-│  SwiftUI Bevel-Style Dashboard • Gemini Athletic Coach │
+│  SwiftUI Bevel-Style Dashboard (Today, Workouts, etc.) │
+│  Gemini Vision Food Parser (+12.5% buffer, tags)       │
+│  AI Athletic Performance Analyst (70 / 15 / 15)        │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -59,37 +66,41 @@
 
 ```
 lifecore/
-├── AGENTS.md                  # Single-agent rules & iOS-first guidelines
-├── PROJECT_KNOWLEDGE.md       # Master Single Source of Truth
-├── CHANGELOG.md               # Changelog & architectural milestones
+├── AGENTS.md                  # Token economy rules & agent instructions (English)
+├── PROJECT_KNOWLEDGE.md       # Master Single Source of Truth (English)
+├── ARCHITECTURAL_PIVOT_IOS_FIRST.md # Master architectural pivot directive
+├── CHANGELOG.md               # Milestones & engineering log
 │
-├── ios/                       🍏 Primary Codebase: Native iOS App (Swift 6)
-│   ├── README.md              Xcode project guide & capability setup
+├── ios/                       🍏 Primary Client: Native iOS App (Swift 6)
+│   ├── README.md              # Capabilities & Xcode configuration guide
 │   └── Lifecore/
 │       ├── Lifecore.xcodeproj
 │       └── Lifecore/
-│           ├── LifecoreApp.swift         Main SwiftUI App entry point
-│           ├── ContentView.swift         Dark-mode Quantified Self dashboard
-│           ├── HealthKitManager.swift    Async HealthKit queries (sleep, HRV, RHR)
-│           ├── HealthPayload.swift       Codable data models matching schema
-│           ├── LifecoreAPIService.swift  URLSession client for Supabase sync
-│           └── LifecoreSyncIntent.swift  AppIntent for iOS automations
+│           ├── App/           # LifecoreApp.swift, MainTabView.swift
+│           ├── Core/
+│           │   ├── HealthKit/ # HealthKitManager.swift, WorkoutTelemetryExtractor.swift
+│           │   ├── MathEngine/# ReadinessCalculator.swift, WorkoutMathEngine.swift
+│           │   ├── AI/        # GeminiService.swift, FoodPrompt.swift, CoachPrompt.swift
+│           │   └── Storage/   # SwiftDataModels.swift, SupabaseSyncService.swift
+│           ├── Features/      # Today/, Workouts/, Nutrition/, Trends/
+│           └── Intents/       # LifecoreSyncIntent.swift, LogMealIntent.swift
 │
-├── supabase/                  ☁️ Cloud Persistence Layer (Supabase PostgreSQL)
-│   ├── functions/
-│   │   ├── ingest-health/     ✅ Active telemetry ingestion endpoint
-│   │   └── telegram-bot/      ⚠️ Legacy / Deprecated Telegram webhook
-│   └── migrations/            PostgreSQL schema migrations (001–005)
-│
-├── docs/                      📚 Architecture & Documentation
-│   ├── ARCHITECTURE.md        Comprehensive system architecture
-│   ├── DATABASE.md            PostgreSQL schema & data dictionary
-│   ├── ROADMAP.md             iOS-First development roadmap
+├── docs/                      📚 Architecture & Technical Specifications
+│   ├── ARCHITECTURE.md        # 4-layer on-device architecture specification
+│   ├── DATABASE.md            # PostgreSQL cloud warehouse schema & data dictionary
+│   ├── ROADMAP.md             # Native iOS-first development roadmap
 │   └── RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md
 │
-├── handlers/                  ⚠️ Legacy: Node.js Telegram Bot Handlers
-├── utils/                     ⚠️ Legacy: Node.js Bot Utilities
-└── index.js                   ⚠️ Legacy: Node.js Long-Polling Entry Point
+├── supabase/                  ☁️ Cloud Warehouse Layer (Supabase PostgreSQL)
+│   ├── functions/
+│   │   ├── ingest-health/     # Telemetry ingestion endpoint for AppIntents
+│   │   └── telegram-bot/      # ⚠️ DEPRECATED (v1.0 Telegram Webhook)
+│   └── migrations/            # SQL DDL migrations (001–005)
+│
+└── legacy_telegram/           ⚠️ DEPRECATED / ARCHIVED (v1.0 Telegram Bot)
+    ├── index.js               # Node.js long-polling entry point
+    ├── handlers/              # Command & message handlers
+    └── utils/                 # Prompts & math utilities
 ```
 
 ---

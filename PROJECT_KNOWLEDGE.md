@@ -88,51 +88,64 @@ Key autonomic telemetry captured by Apple Watch:
 
 ---
 
-## 3. Current Implementation (iOS-First)
+## 3. Current Implementation (Native iOS-First)
 
-The architecture is centered on the native iOS application, backed by Supabase for cloud sync.
+The system is centered on the native iOS application (`ios/Lifecore/`), with Supabase PostgreSQL as an asynchronous cloud backup and long-term synchronization warehouse.
 
-### 3.1. Native iOS Application (`ios/Lifecore/`) — Primary
-* **Framework:** SwiftUI, Swift 6 concurrency, Swift Charts, HealthKit, SwiftData.
-* **Core Components:**
-  - [`HealthKitManager.swift`](./ios/Lifecore/Lifecore/Lifecore/HealthKitManager.swift): Direct interface to HealthStore (`HKStatisticsQuery`, `HKSampleQuery`, `HKWorkoutRouteQuery`). Pulls sleep stages, HRV, RHR, steps, and workouts.
-  - `WorkoutTelemetryEngine.swift`: Parses raw HealthKit samples into kilometer splits, computes $EF$, cardiac drift %, and hill impact.
-  - [`HealthPayload.swift`](./ios/Lifecore/Lifecore/Lifecore/HealthPayload.swift): Strongly typed `Codable` structs for local persistence and cloud sync.
-  - [`LifecoreAPIService.swift`](./ios/Lifecore/Lifecore/Lifecore/LifecoreAPIService.swift): URLSession networking service syncing payloads with Supabase.
-  - [`LifecoreSyncIntent.swift`](./ios/Lifecore/Lifecore/Lifecore/LifecoreSyncIntent.swift): AppIntent exposing 1-tap and automated background synchronization to iOS.
-  - **SwiftUI Views (Bevel-Style Dashboard):**
-    - `TodayView`: Rings for Readiness, Strain, and Nutrition balance.
-    - `WorkoutDetailView`: Split-by-split interactive table, pace/HR charts, hill elevation profile.
-    - `FoodLogView`: On-device photo capture, optimistic UI, nutrition macro breakdown.
-    - `TrendsView`: 7-day and 14-day rolling body weight trends.
+### 3.1. Native iOS Architecture (`ios/Lifecore/`)
+Built with **Swift 6 concurrency, SwiftUI, Swift Charts, HealthKit, and SwiftData**:
+
+```
+ios/Lifecore/
+└── Lifecore/
+    ├── App/
+    │   ├── LifecoreApp.swift             # App lifecycle, SwiftData container setup
+    │   └── MainTabView.swift             # 4-tab navigation (Today, Workouts, Nutrition, Trends)
+    ├── Core/
+    │   ├── HealthKit/
+    │   │   ├── HealthKitManager.swift    # Queries raw biometrics, daily totals, sleep stages
+    │   │   └── WorkoutTelemetryExtractor.swift # Extracts HKQuantitySeriesSample (HR, GPS, Altitude, Cadence)
+    │   ├── MathEngine/
+    │   │   ├── ReadinessCalculator.swift # Recovery score (0-100%), Strain score, Pure NEAT, rolling averages
+    │   │   └── WorkoutMathEngine.swift   # 1km auto-splits, interval laps, EF, cardiac drift %, GAP, benchmarks
+    │   ├── AI/
+    │   │   ├── GeminiService.swift       # Direct Google AI Studio client (Vision & Text models)
+    │   │   ├── FoodPrompt.swift          # English system prompt for optimistic vision food parsing
+    │   │   └── CoachPrompt.swift         # English system prompt for 70/15/15 athletic performance analyst
+    │   └── Storage/
+    │       ├── SwiftDataModels.swift     # Local-first @Model entities (offline-capable)
+    │       └── SupabaseSyncService.swift # Async cloud persistence for meals & workout_analyses
+    ├── Features/
+    │   ├── Today/                        # Dark-mode dashboard: Readiness, Strain, Nutrition rings
+    │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts
+    │   ├── Nutrition/                    # Camera capture, optimistic meal cards, macro breakdown
+    │   └── Trends/                       # 7d/14d rolling weight trend charts, autonomic baselines
+    └── Intents/
+        ├── LogMealIntent.swift           # Fast Siri / Action button meal logger
+        └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
+```
 
 ---
 
 ### 3.2. Cloud Storage & Synchronization (Supabase PostgreSQL)
-* **Purpose:** Multi-device synchronization, long-term historical warehouse, and AI prompt context preparation.
-* **Active Edge Functions (`supabase/functions/`):**
-  - `ingest-health`: Webhook for ingesting encrypted payloads from `LifecoreSyncIntent` / Apple Shortcuts.
-* **Database Tables (Active):**
-  - `meals`: individual food logs with micronutrients and tags.
-  - `body_measurements`: morning weigh-ins and BIA metrics.
-  - `daily_metrics`: daily steps, active energy, isolated NEAT, rolling averages.
-  - `sleep_logs`: sleep phases, nightly HRV SDNN, and sleeping RHR.
-  - `workouts`: sessions with cached `splits JSONB`, total elevation gain, and primary training flags.
+* **Role:** Asynchronous backup, historical cold storage (10+ years), and multi-device warehouse.
+* **Active Edge Functions:** `ingest-health` (telemetry payload ingestion from AppIntents / Shortcuts).
+* **Active Tables:** `meals` (nutrition logs), `workout_analyses` (cached JSONB splits & laps + AI reports), `daily_metrics`, `sleep_logs`, `body_measurements`.
 
 ---
 
-### 3.3. Legacy Systems (Deprecated)
-The following components belong to Version 1.0 (Telegram MVP) and are maintained in a **Legacy / Deprecated** status:
+### 3.3. Legacy Telegram Architecture (Deprecated)
+The following Version 1.0 components are **Legacy / Deprecated**:
 * **Node.js Long-Polling:** `index.js`, `handlers/`, `utils/`.
 * **Deno Telegram Bot Webhook:** `supabase/functions/telegram-bot/index.ts`.
-* *Note:* Agents are NOT required to maintain feature parity with these legacy components.
+* *Policy:* Maintenance of dual-backend parity is discontinued. Telegram serves purely as an auxiliary fallback interface.
 
 ---
 
-## 4. Database Schema (Supabase PostgreSQL)
+## 4. Cloud Database Schema (Supabase PostgreSQL)
 
 ```sql
--- 1. Meals & Nutrition
+-- 1. Meals & Nutrition Warehouse
 CREATE TABLE meals (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -146,12 +159,33 @@ CREATE TABLE meals (
     tags TEXT[],                        -- Taxonomy tags
     micronutrients JSONB DEFAULT '{}',  -- Fiber, sodium, potassium, etc.
     amino_acids JSONB DEFAULT '{}',     -- BCAA, leucine
-    dietary_date DATE NOT NULL,         -- 4-hour day shift
+    dietary_date DATE NOT NULL,         -- 04:00 AM day shift
     telegram_file_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Daily Summary & Rolling Metrics
+-- 2. Workout Analyses (Replaces flat workouts table to eliminate relational join overhead)
+CREATE TABLE IF NOT EXISTS workout_analyses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id BIGINT NOT NULL,
+    healthkit_workout_uuid TEXT UNIQUE NOT NULL,
+    workout_type TEXT NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL,
+    distance_km NUMERIC(6, 2),
+    duration_min NUMERIC(6, 2),
+    avg_pace_min_km NUMERIC(5, 2),
+    avg_hr NUMERIC(5, 1),
+    max_hr NUMERIC(5, 1),
+    elevation_gain_m NUMERIC(6, 1),
+    efficiency_factor NUMERIC(5, 3),
+    aerobic_decoupling_pct NUMERIC(5, 2),
+    splits_json JSONB NOT NULL,         -- Array of 1km split metrics (pace, HR, Δh, cadence)
+    laps_json JSONB,                    -- Structured interval laps from HKWorkoutActivity
+    ai_coach_report TEXT,               -- Stored 70/15/15 performance analyst narrative
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Daily Summary & Rolling Metrics
 CREATE TABLE daily_metrics (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -166,7 +200,7 @@ CREATE TABLE daily_metrics (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Sleep & Autonomic Telemetry
+-- 4. Sleep & Autonomic Telemetry
 CREATE TABLE sleep_logs (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -181,61 +215,31 @@ CREATE TABLE sleep_logs (
     vo2max NUMERIC(4, 1),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- 4. Workouts & Splits Cache
-CREATE TABLE workouts (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    workout_type TEXT NOT NULL,         -- 'running', 'strength', 'cycling', etc.
-    source TEXT DEFAULT 'apple_health',
-    started_at TIMESTAMPTZ NOT NULL,
-    duration_min NUMERIC(5, 1) NOT NULL,
-    distance_km NUMERIC(6, 2),
-    active_kcal NUMERIC(6, 1),
-    avg_pace_min_km NUMERIC(5, 2),
-    avg_heart_rate NUMERIC(4, 1),
-    max_heart_rate NUMERIC(4, 1),
-    elevation_gain_m NUMERIC(6, 1),
-    is_primary_training BOOLEAN DEFAULT FALSE,
-    has_splits BOOLEAN DEFAULT FALSE,
-    splits JSONB DEFAULT '[]',          -- Cached 1km split telemetry array
-    raw_data JSONB DEFAULT '{}',
-    dietary_date DATE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
 ```
 
 ---
 
 ## 5. AI Prompt Engineering Specifications
 
-### 5.1. Food Recognition Prompt Rules
-1. **Deficit Buffer (+12.5%):** Automatically apply `kcal = raw_kcal * 1.125`. Keep protein, fat, and carbs exact.
-2. **Portion Calibration:** Base estimates on standard plate diameters (24–26 cm).
-3. **Cooked vs Raw Weight:** Always output calculated values based on COOKED weights for starches (pasta, rice, grains).
-4. **Taxonomy & Micronutrients:** Always output 2–4 mandatory quality tags, along with estimations for fiber, sodium, potassium, and leucine (for protein sources).
-5. **Format:** Output STRICT, valid JSON adhering to the target schema.
+### 5.1. Food Recognition Prompt Rules (Vision Model)
+* **System Prompt Language:** Authored in high-density English (Token Economy).
+* **User Output Language:** Meal names and descriptions returned in Ukrainian.
+* **Deficit Buffer (+12.5%):** Strictly calculate `kcal_final = round(kcal_exact * 1.125)`. Macros (protein, fat, carbs) remain exact.
+* **Portion & Cooked State:** Always estimate cooked weights for grains, rice, pasta, and meats.
+* **Mandatory Quality Tags (2-4 per meal):** `whole_food`, `ultra_processed`, `solid`, `liquid`, `fast_absorbing`, `slow_absorbing`, `high_sodium`.
+* **Micronutrients & Amino Acids:** Estimate `fiber_g`, `sodium_mg`, `potassium_mg`, `vitamin_c_mg`, `iron_mg`, `calcium_mg`, `bcaa_g`, `leucine_g`.
+* **Output Format:** Strict, valid JSON adhering to schema.
 
 ---
 
-### 5.2. AI Coach Prompt Rules — Athletic Performance Analyst (70 / 15 / 15)
-
-The AI Coach is configured with the persona of an **Elite Endurance & Strength Performance Analyst**:
-
-```
-Role: Elite Athletic Performance Coach & Sports Physiologist.
-Audience: Experienced endurance runner & calisthenics athlete.
-Tone: Concise, objective, analytical, authoritative. No fluff, no wellness platitudes.
-```
-
-#### Output Structure:
-1. **🏃 АНАЛІЗ ТРЕНУВАННЯ (70% обсягу):**
-   - Розбір кілометрових сплітів: стабільність темпу, пульсова вартість швидкості.
-   - Реакція на профіль рельєфу: як серце реагувало на підйоми ($\Delta h$) і чи відновлювався пульс на спусках.
-   - Аеробне розщеплення (Cardiac Drift %): чи поплив пульс у другій половині дистанції при збереженні темпу.
-2. **⚖️ ПОРІВНЯННЯ З БЕНЧМАРКОМ (15% обсягу):**
-   - Порівняння з нещодавніми аналогічними тренуваннями (темп при тому ж пульсі, динаміка пульсових зон).
-3. **🧬 ФІЗІОЛОГІЧНИЙ КОНТЕКСТ (15% обсягу):**
-   - Пояснення причин просадки або успіху на дистанції через метрики відновлення (RHR, HRV, фази сну) та баланс глікогену (вуглеводи напередодні).
-4. **🎯 ДІЯ НА НАСТУПНІ 24 ГОДИНИ:**
-   - Рівно 1 чітка, тактична спортивна рекомендація (наприклад, тип наступного бігу, відновлювальний протокол або цільовий прийом вуглеводів).
+### 5.2. AI Athletic Performance Analyst Rules (70 / 15 / 15)
+* **Persona:** Elite Endurance & Functional Performance Analyst. Objective, data-driven, authoritative sports physiologist.
+* **System Prompt Language:** Authored in high-density English; output generated strictly in Ukrainian.
+* **Strict Anti-Alarmism Rules:**
+  - Completely eliminate the "anxious therapist" tone.
+  - Zero unsolicited wellness platitudes (no "take a warm bath", "do breathing exercises", "try meditation").
+  - Day-to-day RHR variations ($\pm 2\text{--}4\text{ bpm}$) and HRV fluctuations are standard athletic training responses, NOT medical emergencies. Never issue premature "STOP / CANCEL TRAINING" alarms.
+* **Three-Section Output Structure (Ukrainian):**
+  1. **🏃 Аналіз тренування (70%):** Deep breakdown of 1km splits, pacing strategy (positive/negative split), exact km/interval of cardiac drift ($EF$ drop), HR response to elevation gains ($\Delta h$), and HR recovery on downhills or rest intervals.
+  2. **⚖️ Порівняння з бенчмарком (15%):** Objective comparison against the last 3 similar sessions (pace vs HR delta, $EF$ shift, zone shifts).
+  3. **🧬 Фізіологічний контекст & Дія на 24г (15%):** Connects performance deltas to the last 48h of recovery telemetry (sleep phases, HRV/RHR, pre-workout carbohydrates/caloric deficit) + **exactly 1 actionable athletic directive** for the next 24h (e.g., target carbohydrate refill quantity, tomorrow's active recovery heart rate ceiling).

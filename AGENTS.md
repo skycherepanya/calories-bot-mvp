@@ -4,59 +4,68 @@ Welcome to the **Lifecore (Native iOS-First & Athletic Performance Platform)** p
 
 ---
 
-## 1. Single Source of Truth
-Before executing any tasks, modifying code, or creating new components:
-* **Always refer to [PROJECT_KNOWLEDGE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/PROJECT_KNOWLEDGE.md)**. It contains the complete domain model, physiological calculation rules (water retention, glycogen, TEF), prompt specifications, database schema, and active architecture.
-* Do not burn unnecessary tokens or blindly search files on disk — all critical architecture, business logic, and mathematical rules are consolidated in this repository's documentation.
+## 1. Mandatory Agent Operational Directives (Token Economy & Language Protocol)
+
+### 1.1. English-Only Artifacts & Code (Token Economy)
+* **All Documentation & Code:** Write all documentation (`PROJECT_KNOWLEDGE.md`, `AGENTS.md`, `README.md`, `docs/*.md`, `CHANGELOG.md`), code comments, commit messages, variable/type names, and AI system prompt instructions in concise, high-density English.
+* **Density:** Avoid verbose prose, conversational filler, or redundant examples in markdown files to minimize context window usage.
+
+### 1.2. Ukrainian User Chat Protocol
+* **Chat Communication:** Communicate with the user in chat strictly in Ukrainian. Keep chat responses brief, technical, and action-oriented.
+* **In-App AI Output:** In-app AI Coach reports and food labels generated for the end-user must be in Ukrainian, even though system prompt instructions and templates are authored in English.
+
+### 1.3. Skills & AGENTS.md First
+* Inspect `AGENTS.md` and check `.agents/skills/` before executing tasks or modifying code.
+* Use `brainstorming` and `writing-plans` for new features; `test-driven-development` and `verification-before-completion` for implementation; `systematic-debugging` for bug fixes.
 
 ---
 
-## 2. Architectural Constraints and Conventions (iOS-First Pivot)
-1. **iOS-First Architecture (`ios/Lifecore/`):**
-   * **Primary Client & Engine:** The core application is a native iOS app built in Swift 6, SwiftUI, Swift Charts, HealthKit, and SwiftData.
-   * **Legacy Backend Deprecation:** The previous Dual-Backend (`Node.js` long polling in `index.js`/`handlers/` and Deno in `supabase/functions/telegram-bot/`) is now **Legacy / Deprecated**. Agents must NOT spend effort maintaining dual parity between Node.js and Deno for new features. The Telegram bot serves purely as a secondary interface.
-   * **Cloud Storage & Sync:** Supabase PostgreSQL serves as a cloud backup and synchronization layer.
-2. **Strict Separation: Deterministic Math vs AI Reasoning:**
-   * **Swift Math Engine:** All deterministic calculations (1km splits, pace, heart rate decoupling / cardiac drift, pure NEAT isolation, rolling weight averages, deficit calculations) **MUST** be computed natively in Swift code.
-   * **Gemini AI Role:** AI models are strictly for qualitative, athletic, and causal narrative reasoning (interpreting pre-calculated telemetry numbers), NOT for guessing arithmetic or statistics.
-3. **AI Coach Persona — Athletic Performance Analyst (70 / 15 / 15):**
-   * **70%:** Deep breakdown of the specific workout (1km splits, pace vs HR, response to elevation/hills, cardiac drift).
-   * **15%:** Historical benchmark comparison against previous similar workouts.
-   * **15%:** Physiological root causes (sleep phases, HRV, RHR, pre-workout carbohydrates/deficit) explaining *why* performance changed, plus **1 actionable directive for the next 24h**.
-   * **Zero Medical Alarmism:** Completely eliminate the "anxious therapist" tone. No premature "СТОП / ВІДНОВЛЕННЯ" alarms on normal RHR fluctuations; no unsolicited generic wellness advice (warm baths, meditation, etc.).
-4. **Food Recognition & Nutrition Principles:**
-   * Multiplier: strictly maintain the **Deficit Buffer (+12.5% kcal)** (`kcal_final = kcal_exact * 1.125`), while keeping exact grams for protein, fat, and carbs.
-   * Tagging taxonomy: mandatory quality tags (`whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`).
-5. **Dietary Date Convention:**
-   * The dietary day shift occurs at **04:00 AM** (`shiftHours = 4`), not at midnight. All late-night meals and post-midnight workouts are attributed to the previous calendar day.
+## 2. Architectural Constraints & Conventions (Native iOS-First)
+
+### 2.1. iOS-First Architecture (`ios/Lifecore/`)
+* **Primary Client & Engine:** Native iOS application built in Swift 6, SwiftUI, Swift Charts, HealthKit, and SwiftData.
+* **Modular Structure:**
+  - `Lifecore/App/`: `LifecoreApp.swift`, `MainTabView.swift`
+  - `Lifecore/Core/HealthKit/`: `HealthKitManager.swift`, `WorkoutTelemetryExtractor.swift`
+  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`
+  - `Lifecore/Core/AI/`: `GeminiService.swift`, `FoodPrompt.swift`, `CoachPrompt.swift`
+  - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `SupabaseSyncService.swift`
+  - `Lifecore/Features/`: `Today/`, `Workouts/`, `Nutrition/`, `Trends/`
+  - `Lifecore/Intents/`: `LogMealIntent.swift`, `LifecoreSyncIntent.swift`
+* **Legacy Backend Deprecation:** The Dual-Backend (`index.js`, `handlers/`, `utils/`, `supabase/functions/telegram-bot/`) is **Legacy / Deprecated**. Agents must NOT spend effort maintaining parity with Node.js/Deno bots.
+* **Cloud Storage & Sync:** Supabase PostgreSQL serves as cloud backup and synchronization layer.
+
+### 2.2. Strict Separation: Deterministic Math vs AI Reasoning
+* **Swift Math Engine:** All deterministic calculations (1km splits, pace, heart rate decoupling / cardiac drift %, pure NEAT isolation, 7d/14d rolling weight averages, caloric deficit buffer) **MUST** be computed natively in Swift code.
+* **Gemini AI Role:** AI models are reserved strictly for qualitative narrative reasoning, athletic pattern interpretation, and causal explanation over pre-calculated metrics. Never ask Gemini to calculate averages or arithmetic.
+
+### 2.3. AI Coach Persona — Athletic Performance Analyst (70 / 15 / 15)
+* **70%:** Deep workout breakdown (1km splits, pace vs HR, elevation response, cardiac drift / aerobic decoupling).
+* **15%:** Historical benchmark comparison against previous similar workouts (pace, HR, EF deltas).
+* **15%:** Physiological root causes (sleep stages, HRV, RHR, pre-workout carbohydrates/deficit) explaining *why* performance shifted, plus **1 actionable athletic directive for the next 24h**.
+* **Zero Medical Alarmism:** No "anxious therapist" tone. No premature "СТОП / ВІДНОВЛЕННЯ" alarms on normal RHR variations ($\pm 2\text{--}4\text{ bpm}$); no generic unsolicited wellness advice (warm baths, meditation).
+
+### 2.4. Food Recognition & Nutrition Principles
+* **Deficit Buffer (+12.5% kcal):** Strictly apply `kcal_final = round(kcal_exact * 1.125)`. Keep protein, fat, and carbs exact.
+* **Portion & Cooked State:** Always estimate cooked values for grains, rice, pasta, and meat.
+* **Tagging Taxonomy:** Mandatory quality tags (`whole_food`, `solid`, `liquid`, `fast_absorbing`, `ultra_processed`, `high_sodium`).
+* **Dietary Date Convention:** Day shift occurs at **04:00 AM** (`shiftHours = 4`). Post-midnight meals and workouts belong to the previous calendar day.
 
 ---
 
-## 3. Working Tools and Superpowers
-The project has a configured skills library in [.agents/skills/](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/.agents/skills):
-* For creating new features, use `brainstorming` and `writing-plans` first.
-* For writing code, use `test-driven-development` and `verification-before-completion`.
-* When fixing bugs, follow `systematic-debugging`.
+## 3. Documentation Integrity Rule
+> ⚠️ **STRICT RULE:** Any change in code, database, prompts, or configuration **MUST IMMEDIATELY** be reflected in the corresponding documentation before declaring a task complete.
+
+1. **[CHANGELOG.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/CHANGELOG.md):** Record date, description of changes, and list of affected files.
+2. **[PROJECT_KNOWLEDGE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/PROJECT_KNOWLEDGE.md):** Keep Section 3 ("Current Implementation") and all technical sections synchronized with active code.
+3. **[docs/ROADMAP.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/ROADMAP.md):** Mark completed items (`[x]`) and keep upcoming phases accurate.
+4. **[docs/DATABASE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/DATABASE.md):** Update schemas, JSONB structures, and table definitions.
+5. **[docs/ARCHITECTURE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/ARCHITECTURE.md):** Update component diagrams and layer interactions.
+6. **[README.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/README.md):** Keep setup instructions, structure, and capability summaries aligned.
 
 ---
 
-## 4. Documentation Integrity Rule
-> ⚠️ **STRICT RULE:** Any change in code, database, prompts, or configuration **MUST IMMEDIATELY** be reflected in the corresponding documentation. A task is considered completed ONLY after updating the supporting documents.
-
-Every time changes are made, the AI agent must:
-1. **Record the event in [CHANGELOG.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/CHANGELOG.md):** add a new block with the date, description of what was added/changed, and a list of affected files.
-2. **Synchronize [PROJECT_KNOWLEDGE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/PROJECT_KNOWLEDGE.md):** update Section 3 ("Current Implementation") and other relevant sections so reality is reflected.
-3. **Update checkboxes in [docs/ROADMAP.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/ROADMAP.md):** mark completed subtasks (`[x]`) or add new requirements.
-4. **Update [docs/DATABASE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/DATABASE.md):** if tables were changed, columns added, indexes or migrations created.
-5. **Update [docs/ARCHITECTURE.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/ARCHITECTURE.md):** if new modules, endpoints, or on-device engines were added.
-6. **Update [README.md](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/README.md):** if startup instructions, feature lists, or system roles changed.
-
----
-
-## 5. Testing and Verification Rule
-> ⚠️ **STRICT RULE:** After any change, you must verify it, commit it, and deploy/test it.
-
-After completing a task and updating documentation, the AI agent must:
-1. **Verify the code:** Check Swift builds (`swift build` / `xcodebuild` where applicable), Deno linting, or Node.js syntax before declaring success.
-2. **Version Control:** Commit the changes to Git with a descriptive, conventional commit message and push to the repository (`origin/main`).
-3. **Deploy:** If edge functions or backend scripts were updated, deploy via Supabase CLI (`supabase functions deploy ... --no-verify-jwt --use-api`).
+## 4. Verification and Version Control Rule
+1. **Verification:** Verify Swift code (`xcodebuild` / `swift build`), lints, and scripts before declaring completion.
+2. **Commit:** Commit with conventional commit messages and push to `origin/main`.
+3. **Deploy:** Deploy updated Edge Functions via Supabase CLI (`supabase functions deploy ... --no-verify-jwt --use-api`).

@@ -4,6 +4,49 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-19] - Phase 2.1: HealthKit Reader & Deterministic Math Engine Implementation
+
+### 🍏 Native iOS & Swift Math Engine:
+- **Modular Directory Reorganization:** Migrated `ios/Lifecore/` into clean domain layers (`App/`, `Core/HealthKit/`, `Core/MathEngine/`, `Core/Storage/`, `Features/Today/`, `Intents/`).
+- **Implemented `WorkoutTelemetryExtractor.swift`:** Added extraction of continuous `HKQuantitySeriesSample` (distance, heart rate, elevation) and structured interval laps (`HKWorkoutActivity`), assembling a unified `WorkoutTelemetrySeries`.
+- **Implemented `WorkoutMathEngine.swift`:** Built deterministic pure Swift engine computing:
+  - 1km auto-splits with pace, average HR, peak HR, elevation delta ($\Delta h$), and cadence.
+  - Interval laps classification (`work` vs `recovery`) with heart rate recovery drop ($\text{HR}_{\text{drop}}$).
+  - Efficiency Factor ($EF = \text{Speed (m/min)} / \text{Avg HR (bpm)}$).
+  - Aerobic Decoupling / Cardiac Drift % ($((EF_1 - EF_2) / EF_1) \times 100\%$).
+  - Historical benchmark comparisons against prior similar sessions ($\pm 20\%$ distance).
+  - Indoor treadmill detection (elevation gain == 0).
+- **Implemented `ReadinessCalculator.swift`:** Built deterministic physiological calculations:
+  - Autonomic Recovery Score (0–100%) incorporating HRV SDNN z-score, RHR delta, total sleep duration, and deep/REM architecture.
+  - Cardiovascular Strain Score (0–100% and 0–21 scale) combining workout intensity zones and lifestyle movement.
+  - Pure NEAT isolation ($\text{NEAT} = \max(0, \text{active\_kcal} - \sum \text{workout\_kcal})$).
+  - 7-day and 14-day rolling body weight averages with water-spike detection.
+- **Built Verification Suite (`MathEngineVerification.swift`):** Validated all 6 core mathematical algorithms; 100% test pass rate with Xcode 27 / iOS 27 build success.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/WorkoutTelemetryExtractor.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/ReadinessCalculator.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`,
+`docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
+## [2026-10-18] - Documentation Refactoring & iOS Codebase Audit (Section 0.2 Pivot Alignment)
+
+### 📚 Documentation & Architectural Alignment:
+- **Audited `ios/Lifecore/` Native Codebase:** Examined existing Xcode project, `HealthKitManager.swift`, `HealthPayload.swift`, `LifecoreSyncIntent.swift`, and `ContentView.swift`. Mapped gaps against target modular architecture (`App/`, `Core/`, `Features/`, `Intents/`).
+- **Enforced Token Economy & Language Protocol in `AGENTS.md`:** Embedded Section 0.1 directives (high-density English documentation/code, Ukrainian user chat protocol, Skills-first rule, and Swift 6 / HealthKit modularity constraints). Removed legacy dual-sync requirements.
+- **Synchronized `PROJECT_KNOWLEDGE.md`:** Refactored Section 3 with target native iOS modular structure, Section 4 with cloud `workout_analyses` (`splits_json` and `laps_json`), and Section 5 with non-alarmist 70/15/15 Athletic Performance Analyst framework.
+- **Updated `README.md` & `docs/ARCHITECTURE.md`:** Fully specified the 4-layer On-Device architecture (HealthKit -> Swift Math Engine -> SwiftData + Supabase -> SwiftUI Dashboard) and archived legacy Node.js/Deno bots under `legacy_telegram/` (Deprecated).
+- **Updated `docs/DATABASE.md`:** Replaced flat `workouts` table with `workout_analyses` containing `splits_json` and `laps_json` JSONB definitions and single-query telemetry retrieval.
+- **Rewrote `docs/ROADMAP.md`:** Reorganized Phase 2 deliverables around the four native iOS views: Today (Readiness/Strain), Workouts (Splits/Laps/Coach), Nutrition (Vision/Optimistic UI), and Trends (Rolling Averages/Baselines).
+
+### Affected Files
+`AGENTS.md`, `PROJECT_KNOWLEDGE.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-18] - Architectural Pivot: Lifecore 2.0 Native iOS-First & Athletic Performance Platform
 
 ### 🚀 Strategic & Architectural Transformation:

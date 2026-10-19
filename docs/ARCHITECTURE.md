@@ -100,32 +100,35 @@ flowchart TD
 ---
 
 ### 3.3. Layer 3: Persistence & Synchronization Layer
-* **Local Persistence:** **SwiftData** manages on-device caching, ensuring the application launches instantly and functions completely offline.
-* **Cloud Persistence (Supabase):**
-  - PostgreSQL database in Supabase holds the longitudinal history (10+ years).
-  - Background synchronization executed via `LifecoreAPIService` and `LifecoreSyncIntent` upon workout completion and morning wake-up.
-  - Endpoints: `ingest-health` Edge Function.
+* **Local Persistence (SwiftData):** Local-first encrypted storage for `@Model` entities (`MealEntity`, `WorkoutEntity`, `DailyMetricEntity`, `SleepLogEntity`). Enables instant app startup (<5ms) and full offline functionality.
+* **Cloud Persistence & Backup (Supabase PostgreSQL):**
+  - Asynchronous cloud backup ensuring longitudinal data longevity (10+ years).
+  - Key tables: `meals` (nutrition warehouse) and `workout_analyses` (stores 1km splits and structured laps as `JSONB`, alongside AI performance reports).
+  - Background synchronization triggered via `LifecoreSyncIntent` / `URLSession` on morning wake-up and workout completion.
+  - Ingestion endpoint: `ingest-health` Edge Function.
 
 ---
 
 ### 3.4. Layer 4: Presentation & AI Athletic Intelligence
-* **UI/UX:** Dark-mode SwiftUI design system inspired by Whoop and Bevel:
-  - **Readiness Ring:** Weighted score derived from HRV SDNN deviation, RHR stability, and deep/REM sleep duration.
-  - **Strain Ring:** Cardiovascular load calculated from workout heart rate zones and NEAT.
-  - **Splits Detail View:** Interactive kilometer table with synchronized Swift Charts displaying pacing against elevation and heart rate.
-* **AI Athletic Coach (Gemini API):**
-  - Evaluates the pre-calculated telemetry payload.
-  - Strictly adheres to the **70 / 15 / 15** ratio:
-    - **70%:** Granular execution breakdown of the workout.
-    - **15%:** Historical benchmark comparison.
-    - **15%:** Biometric root causes (sleep, nutrition) + 1 actionable directive.
+* **Presentation Layer (SwiftUI Dark-Mode Dashboard):**
+  - **Today View:** Bevel-style rings for Readiness (0-100%), Cardiovascular Strain (0-100%), and Caloric Balance.
+  - **Workouts View:** Slices runs into 1km auto-splits and interval laps; synchronized Swift Charts for pace, heart rate, and elevation profile.
+  - **Nutrition View:** Optimistic photo capture (<0.2s UI response), portion and macro breakdown with +12.5% deficit buffer.
+  - **Trends View:** 7-day and 14-day rolling body weight averages (filtering water/glycogen noise), long-term HRV/RHR trajectories.
+* **AI Athletic Coach (Gemini API direct service):**
+  - Evaluates pre-calculated Swift telemetry payload.
+  - Strictly follows the **70 / 15 / 15** athletic performance framework:
+    - **70%:** Granular execution breakdown of 1km splits, pacing stability, HR vs elevation ($\Delta h$), and cardiac drift.
+    - **15%:** Historical benchmark comparison against previous similar sessions.
+    - **15%:** Physiological root causes (sleep stages, HRV/RHR, pre-run nutrition) + 1 tactical athletic directive for the next 24h.
+  - **Zero Alarmism:** No unsolicited generic wellness advice; normal athletic RHR variations are treated as standard training adaptations.
 
 ---
 
-## 4. Status of Legacy Components (Version 1.0)
+## 4. Status of Legacy Telegram Components (Version 1.0)
 
 | Component | Path | Status | Notes |
 |---|---|---|---|
-| Node.js Long Polling | `index.js`, `handlers/`, `utils/` | ⚠️ **Legacy / Deprecated** | Retained for reference; no new features |
-| Deno Telegram Bot | `supabase/functions/telegram-bot/` | ⚠️ **Legacy / Deprecated** | Secondary Telegram interface only |
+| Node.js Long Polling | `index.js`, `handlers/`, `utils/` (`legacy_telegram/`) | ⚠️ **Legacy / Deprecated** | Retained for reference; feature development discontinued |
+| Deno Telegram Webhook | `supabase/functions/telegram-bot/` (`legacy_telegram/`) | ⚠️ **Legacy / Deprecated** | Secondary Telegram interface only; no dual-sync |
 | Offline Python Analytics | `Lifecore/scripts/` | ✅ **Archival Reference** | Historical XML parser and data migration |
