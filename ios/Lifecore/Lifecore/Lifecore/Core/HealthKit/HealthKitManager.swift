@@ -217,6 +217,147 @@ public final class HealthKitManager: @unchecked Sendable {
         }
     }
 
+    /// Fetches recent HealthKit workouts within the given days.
+    public func fetchRecentWorkouts(days: Int = 30, limit: Int = 60) async throws -> [HKWorkout] {
+        let calendar = Calendar.current
+        let now = Date()
+        let pastDate = calendar.date(byAdding: .day, value: -days, to: now) ?? now.addingTimeInterval(-TimeInterval(days * 86400))
+        let predicate = HKQuery.predicateForSamples(withStart: pastDate, end: now, options: [])
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: .workoutType(),
+                predicate: predicate,
+                limit: limit,
+                sortDescriptors: [sortDescriptor]
+            ) { _, results, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: (results as? [HKWorkout]) ?? [])
+            }
+            self.healthStore.execute(query)
+        }
+    }
+
+    /// Queries previous workouts of matching activity type within ±25% distance for benchmark comparison.
+    public func fetchHistoricalSimilarWorkouts(to workout: HKWorkout, limit: Int = 3) async throws -> [(distanceKm: Double, paceMinKm: Double, avgHr: Double?, ef: Double?)] {
+        let targetType = workout.workoutActivityType
+        let targetDistance = workout.totalDistance?.doubleValue(for: .meter()) ?? 0.0
+        let targetDate = workout.startDate
+
+        let calendar = Calendar.current
+        let pastDate = calendar.date(byAdding: .day, value: -60, to: targetDate) ?? targetDate.addingTimeInterval(-60 * 86400)
+        let predicate = HKQuery.predicateForSamples(withStart: pastDate, end: targetDate.addingTimeInterval(-60), options: [])
+
+        let candidates: [HKWorkout] = try await withCheckedThrowingContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: .workoutType(),
+                predicate: predicate,
+                limit: 30,
+                sortDescriptors: [sortDescriptor]
+            ) { _, results, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: (results as? [HKWorkout]) ?? [])
+            }
+            self.healthStore.execute(query)
+        }
+
+        var results: [(distanceKm: Double, paceMinKm: Double, avgHr: Double?, ef: Double?)] = []
+        for c in candidates where c.workoutActivityType == targetType && c.uuid != workout.uuid {
+            let distM = c.totalDistance?.doubleValue(for: .meter()) ?? 0.0
+            if targetDistance > 0 {
+                let ratio = distM / targetDistance
+                guard ratio >= 0.75 && ratio <= 1.25 else { continue }
+            }
+            guard c.duration > 300 else { continue } // min 5 minutes
+
+            let distKm = distM / 1000.0
+            let durationMin = c.duration / 60.0
+            let paceMinKm = distKm > 0 ? (durationMin / distKm) : 0.0
+            let avgHr = c.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+
+            let speedMpm = c.duration > 0 ? (distM / (c.duration / 60.0)) : 0.0
+            let ef = (avgHr != nil && avgHr! > 0 && speedMpm > 0) ? (speedMpm / avgHr!) : nil
+
+            results.append((distanceKm: distKm, paceMinKm: paceMinKm, avgHr: avgHr, ef: ef))
+            if results.count >= limit { break }
+        }
+
+        return results
+    }
+
+    /// Fetches 48h pre-workout physiological recovery context (sleep architecture, morning HRV, RHR baseline delta).
+    public func fetchRecentRecoveryContext(for workoutDate: Date) async -> RecentRecoveryContext {
+        let calendar = Calendar.current
+        let startWindow = calendar.date(byAdding: .day, value: -2, to: workoutDate) ?? workoutDate.addingTimeInterval(-172800)
+        let baseline = await fetchHistoricalBaseline(days: 30)
+
+        let sleepPredicate = HKQuery.predicateForSamples(withStart: startWindow, end: workoutDate, options: [])
+        let sleepSamples: [HKCategorySample] = (try? await withCheckedThrowingContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: HKCategoryType(.sleepAnalysis),
+                predicate: sleepPredicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sortDescriptor]
+            ) { _, res, _ in
+                continuation.resume(returning: (res as? [HKCategorySample]) ?? [])
+            }
+            self.healthStore.execute(query)
+        }) ?? []
+
+        var deepSec: TimeInterval = 0
+        var remSec: TimeInterval = 0
+        var coreSec: TimeInterval = 0
+        for s in sleepSamples {
+            let dur = s.endDate.timeIntervalSince(s.startDate)
+            switch s.value {
+            case HKCategoryValueSleepAnalysis.asleepDeep.rawValue: deepSec += dur
+            case HKCategoryValueSleepAnalysis.asleepREM.rawValue: remSec += dur
+            case HKCategoryValueSleepAnalysis.asleepCore.rawValue: coreSec += dur
+            default: break
+            }
+        }
+        let totalSleep = round(((deepSec + remSec + coreSec) / 3600.0) * 10) / 10
+        let deepHours = round((deepSec / 3600.0) * 10) / 10
+        let remHours = round((remSec / 3600.0) * 10) / 10
+
+        let biomarkerPredicate = HKQuery.predicateForSamples(withStart: startWindow, end: workoutDate, options: [])
+        let hrvVals = (try? await fetchQuantityValues(for: HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli), predicate: biomarkerPredicate)) ?? []
+        let rhrVals = (try? await fetchQuantityValues(for: HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()), predicate: biomarkerPredicate)) ?? []
+
+        let morningHrv = hrvVals.first != nil ? round(hrvVals.first! * 10) / 10 : nil
+        let morningRhr = rhrVals.first != nil ? round(rhrVals.first! * 10) / 10 : nil
+
+        let recovery = ReadinessCalculator.computeRecovery(
+            morningHrv: morningHrv,
+            morningRhr: morningRhr,
+            totalSleepHours: totalSleep > 0 ? totalSleep : 7.2,
+            deepSleepHours: deepHours > 0 ? deepHours : 1.2,
+            remSleepHours: remHours > 0 ? remHours : 1.4,
+            baseline: baseline
+        )
+
+        return RecentRecoveryContext(
+            lastNightSleepHours: totalSleep > 0 ? totalSleep : nil,
+            lastNightDeepHours: deepHours > 0 ? deepHours : nil,
+            lastNightRemHours: remHours > 0 ? remHours : nil,
+            morningHrvMs: morningHrv,
+            baselineHrvMs: baseline.avgHrvSDNN,
+            morningRhrBpm: morningRhr,
+            baselineRhrBpm: baseline.avgRHR,
+            yesterdayActiveKcal: nil,
+            recoveryScore: recovery.score
+        )
+    }
+
     // MARK: - 4. 30-Day Historical Baselines
     public func fetchHistoricalBaseline(days: Int = 30) async -> ReadinessCalculator.Baseline {
         let calendar = Calendar.current

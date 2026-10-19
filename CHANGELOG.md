@@ -4,6 +4,45 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-19] - Phase 2.3: Workouts View, Swift Charts Telemetry & 70/15/15 AI Coach
+ 
+### 🏃 Athletic Workout Telemetry & AI Performance Analyst:
+- **`Features/Workouts/WorkoutsView.swift`:** Built comprehensive athletic workout browser:
+  - Multi-category filter chips (`All`, `Running`, `Strength`, `Cycling`, `HIIT`, `Walks`) with instant filtering.
+  - Casual walks exclusion toggle to focus strictly on deliberate athletic training sessions.
+  - Rich workout summary cards showing duration, distance, pace, kcal burn, and average heart rate.
+  - Seamless navigation to detailed analysis view via `NavigationLink`.
+- **`Features/Workouts/WorkoutDetailView.swift`:** Implemented granular post-workout diagnostic dashboard:
+  - Header summary with workout classification, duration, distance, calories, and average heart rate.
+  - Synchronized `WorkoutChartsView.swift` powered by Apple `Charts`:
+    * Interactive tabbed curves for Heart Rate zones, Pace (inverted Y scale), and Elevation profile.
+    * Interactive scrub tooltip displaying point-in-time distance, instantaneous pace, and heart rate.
+  - `SplitsTableView`: Chronological 1km splits table showing pace, avg HR, max HR, elevation delta ($\Delta h$), and cadence.
+  - `IntervalLapsTableView`: Structured HIIT / track interval laps breakdown with classification (`work` vs `recovery`) and heart rate recovery drop ($\text{HR}_{\text{drop}}$).
+  - Metric cards: Efficiency Factor ($EF = \text{Speed} / \text{Avg HR}$) card and Aerobic Decoupling / Cardiac Drift % card ($((EF_1 - EF_2) / EF_1) \times 100\%$) with clinical athletic interpretation badges (`< 5%`, `5–10%`, `> 10%`).
+  - `BenchmarkComparisonCard`: Automatic comparison against prior similar sessions ($\pm 25\%$ distance) detailing pace $\Delta$, HR $\Delta$, and EF shift.
+- **`Core/AI/CoachPrompt.swift` & `GeminiService.swift`:**
+  - Authored high-density English prompt enforcing the Athletic Performance Analyst persona (70% workout telemetry analysis, 15% historical benchmark comparison, 15% physiological root causes + 1 actionable 24h directive).
+  - Strictly eliminated medical alarmism and generic wellness advice; outputs rendered strictly in Ukrainian.
+  - Asynchronous client calling Google AI Studio Gemini API (`gemini-2.5-flash`) with deterministic offline sports analyst fallback.
+- **`HealthKitManager.swift` Extensions:**
+  - Added `fetchRecentWorkouts(days:limit:)` querying `HKWorkout` objects for full telemetry extraction.
+  - Added `fetchHistoricalSimilarWorkouts(to:limit:)` filtering matching workouts within $\pm 25\%$ distance for benchmark calculations.
+  - Added `fetchRecentRecoveryContext(for:)` aggregating 48h pre-workout sleep architecture, morning HRV, and RHR baseline deltas.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutChartsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailComponents.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/CoachReportView.swift`,
+`docs/ROADMAP.md`, `CHANGELOG.md`
+
+---
+
 ## [2026-10-19] - Phase 2.2: MainTabView & Bevel-Style TodayView with Live HealthKit Wiring
 
 ### 🍏 Native iOS UI & Real HealthKit Telemetry:

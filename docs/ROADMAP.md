@@ -44,17 +44,17 @@
 - [x] Live HealthKit data pipeline: `fetchTodaySnapshot()` with 30-day dynamic baseline calculation (fallback to Sasha's baseline: HRV 102ms, RHR 49bpm).
 
 ### 2.3. View 2: Workouts View (Splits, Telemetry & 70/15/15 AI Coach)
-- [ ] Dedicated `Features/Workouts/WorkoutsListView.swift`:
-  - Athletic workout filtering (Running, Strength, HIIT vs casual walks / commutes).
-- [ ] `Features/Workouts/WorkoutDetailView.swift`:
+- [x] Dedicated `Features/Workouts/WorkoutsView.swift`:
+  - Athletic workout filtering (Running, Strength, Cycling, HIIT, Walks) and casual walks exclusion toggle.
+- [x] `Features/Workouts/WorkoutDetailView.swift`:
   - Interactive 1km split table (Pace, HR, $\Delta h$, Cadence).
-  - Structured interval laps section for HIIT / track sessions.
-  - Synchronized Swift Charts displaying pace curves against heart rate zones and elevation profile.
-  - Efficiency Factor ($EF$) and Cardiac Drift % indicator cards.
-- [ ] AI Athletic Performance Analyst card (`Features/Workouts/CoachReportView.swift`):
-  - On-demand Gemini analysis via `CoachPrompt.swift`.
+  - Structured interval laps section for HIIT / track sessions with HR recovery drop ($\text{HR}_{\text{drop}}$).
+  - Synchronized Swift Charts (`WorkoutChartsView.swift`) displaying pace curves, heart rate zones, and elevation profile with interactive scrub tooltip.
+  - Efficiency Factor ($EF$) and Aerobic Decoupling / Cardiac Drift % indicator cards.
+- [x] AI Athletic Performance Analyst card (`Features/Workouts/CoachReportView.swift`):
+  - On-demand Gemini analysis via `CoachPrompt.swift` & `GeminiService.swift`.
   - Strictly follows the **70 / 15 / 15** breakdown (Pacing Telemetry 70%, Benchmark 15%, Root Causes & 24h Directive 15%).
-  - Zero medical alarmism; output in Ukrainian.
+  - Zero medical alarmism; output in Ukrainian with deterministic offline fallback.
 
 ### 2.4. View 3: Nutrition View (Frictionless Vision & Optimistic UI)
 - [ ] Dedicated `Features/Nutrition/NutritionView.swift`:
