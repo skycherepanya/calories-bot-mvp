@@ -68,21 +68,54 @@ All running metrics are computed deterministically in the on-device Swift engine
 
 ---
 
-### 2.4. Recovery Biomarkers (Autonomic Regulation)
+### 2.4. 5-Metric Overnight Vitals & Illness Prodrome Detection (Apple Vitals + Stanford NightSignal)
 
-Key autonomic telemetry captured by Apple Watch:
+Key nocturnal biomarkers captured passively by Apple Watch:
 
-| Biomarker | Physiological Role | Athletic Significance |
-|---|---|---|
-| **HRV SDNN (ms)** | Autonomic nervous system variability | Higher = parasympathetic readiness. Acute drops = systemic fatigue or immune stress |
-| **RHR (bpm)** | Sleeping Resting Heart Rate | Athletic baseline: ~49 bpm. Sustained elevations (>4–5 bpm) signal incomplete recovery |
-| **Sleep Architecture** | Deep (cellular/tissue repair) & REM (neural recovery) | $\ge 1.2\text{h}$ Deep and $\ge 1.5\text{h}$ REM required for heavy training volume |
+| Biomarker | HealthKit Identifier | Physiological Role | Outlier Criterion (60d Corridor) |
+|---|---|---|---|
+| **HRV (RMSSD / SDNN)** | `HKHeartbeatSeriesSample` / `.heartRateVariabilitySDNN` | Vagal parasympathetic tone (20% ectopic beat filter + $\ln$ transform) | $Z_{\text{HRV}} \le -1.35\sigma$ |
+| **Sleeping RHR (bpm)** | `.restingHeartRate` | Nocturnal cardiac baseline (~49 bpm) | $\Delta\text{RHR} \ge +4.5\text{ bpm}$ or $Z_{\text{RHR}} \ge +1.6\sigma$ |
+| **Wrist Temperature ($\Delta T^\circ\text{C}$)** | `.appleSleepingWristTemperature` | Nocturnal thermoregulation & immune response | $\Delta T \ge +0.40^\circ\text{C}$ (Warning at $+0.25^\circ\text{C}$) |
+| **Respiratory Rate (br/min)** | `.respiratoryRate` | Sleeping ventilation effort (~14.2 br/min) | $\Delta\text{RR} \ge +1.8\text{ br/min}$ |
+| **Blood Oxygen ($\text{SpO}_2\%$)** | `.oxygenSaturation` | Nocturnal capillary oxygenation (~98%) | $\text{SpO}_2 < 95.0\%$ or $\Delta\text{SpO}_2 \le -2.0\%$ |
+| **Sleep Architecture** | `.sleepAnalysis` | Deep (cellular repair) & REM (neural recovery) | $< 1.2\text{h}$ Deep or $< 1.5\text{h}$ REM |
 
-> **Athletic Guardrail Policy:** Normal day-to-day RHR variations ($\pm 2\text{--}4\text{ bpm}$) are standard athletic adaptations, NOT medical emergencies. The AI Coach must NEVER panic or issue premature "STOP / CANCEL TRAINING" alarms unless multiple severe biomarkers converge (e.g. HRV down >25% + acute fever/infection symptoms).
+#### Logarithmic HRV Normalization:
+$$\text{RMSSD} = \sqrt{\frac{1}{N-1}\sum_{i=1}^{N-1}(RR_{i+1}-RR_i)^2}, \quad Z_{\text{HRV}} = \frac{\ln(\text{HRV}_{\text{today}}) - \mu_{\ln, 60d}}{\max(0.06, \sigma_{\ln, 60d})}$$
+
+#### Multi-Metric Confluence State Machine (`ImmuneSystemState`):
+* **`optimal` (0 outliers):** Full autonomic readiness.
+* **`trainingFatigue` (1 outlier, $\Delta T < +0.30^\circ\text{C}$):** Normal day-to-day training adaptation or late-meal residue. Zero sickness alarm.
+* **`immuneWatch` (2 outliers OR $[\Delta T \ge +0.30^\circ\text{C} \land \ge 1\text{ warning}]$):** Early systemic strain; cap intensity at Zone 1/2 ($\le 135\text{ bpm}$).
+* **`illnessProdrome` ($\ge 3$ outliers OR $[\Delta T \ge +0.40^\circ\text{C} \land (\text{RHR} \lor \text{HRV} \lor \text{RR outlier})]$):** High-confidence viral/inflammatory prodrome signature 24–48h prior to clinical symptoms. Proactively overrides daily directive to rest and hydration.
 
 ---
 
-### 2.5. Dietary Date Convention
+### 2.5. Internal Workload (Banister TRIMP, EWMA ACWR) & Continuous Energy Bank (Garmin Firstbeat)
+
+1. **Banister's Training Impulse (TRIMP):**
+   $$\Delta\text{HR}_r = \frac{\text{HR}_{\text{avg}} - \text{HR}_{\text{rest}}}{\text{HR}_{\text{max}} - \text{HR}_{\text{rest}}}, \quad \text{TRIMP} = D_{\text{min}} \cdot \Delta\text{HR}_r \cdot 0.64 \cdot e^{1.92 \cdot \Delta\text{HR}_r}$$
+2. **Exponentially Weighted Moving Average (EWMA) ACWR:**
+   - Acute Load (7d fatigue, $\lambda_a = 2/8 = 0.25$): $L_{\text{acute}}(t) = 0.25 \cdot \text{TRIMP}_t + 0.75 \cdot L_{\text{acute}}(t-1)$
+   - Chronic Load (28d fitness, $\lambda_c = 2/29 \approx 0.069$): $L_{\text{chronic}}(t) = \lambda_c \cdot \text{TRIMP}_t + (1 - \lambda_c) \cdot L_{\text{chronic}}(t-1)$
+   - Workload Ratio: $\text{ACWR} = L_{\text{acute}} / \max(15.0, L_{\text{chronic}})$
+     - **Sweet Spot:** $0.80 \le \text{ACWR} \le 1.30$ (optimal progressive overload without injury risk).
+     - **Danger Zone:** $\text{ACWR} \ge 1.50$ (rapid load spike / soft-tissue injury risk).
+3. **Continuous 24h Body Battery / Energy Bank (0–100%):**
+   - Charges overnight via vagal tone ($Z_{\text{HRV}}$) and sleep architecture; drains hourly from 07:00 to 23:00 via basal circadian rhythm, Pure NEAT rate, workout TRIMP impulses, and immune strain multiplier.
+
+---
+
+### 2.6. Confounder-Controlled Time-Lagged Correlation Math ($T+0, T+1, T+2$)
+* **Point-Biserial ($r_{pb}$) & Pearson ($r$) Lag Matrix:**
+  - **Sodium ($\text{mg}$) / `high_sodium` (Day $T$) $\to$ Scale Water Spike $\Delta W = W_{\text{raw}} - W_{7d}$ ($T+1, T+2$):** Quantifies individual extracellular fluid retention sensitivity.
+  - **Late Meal ($>21:30$) / `ultra_processed` (Day $T$) $\to$ Overnight HRV & RHR ($T+1$):** Computed strictly on non-heavy workout days ($\text{TRIMP}_T \le 130$) to prevent training fatigue confounding.
+  - **Pre-Workout 24h Carbohydrates ($\text{g}$) (Day $T-1$) $\to$ Running Cardiac Drift % & Efficiency Factor ($EF$) (Day $T$).**
+
+---
+
+### 2.7. Dietary Date Convention
 * The dietary day shifts at **04:00 AM** (`shiftHours = 4`), not midnight.
 * Meals, post-midnight workouts, and sleep cycles occurring between 00:00 and 03:59 AM belong to the physiological cycle of the preceding calendar day.
 
@@ -103,28 +136,38 @@ ios/Lifecore/
     │   └── MainTabView.swift             # 4-tab navigation (Today, Workouts, Nutrition, Trends)
     ├── Core/
     │   ├── HealthKit/
-    │   │   ├── HealthKitManager.swift    # Queries raw biometrics, daily totals, sleep stages
+    │   │   ├── HealthKitManager.swift    # Queries raw biometrics, 5-metric Vitals, R-R Heartbeat series, sleep stages
     │   │   └── WorkoutTelemetryExtractor.swift # Extracts HKQuantitySeriesSample (HR, GPS, Altitude, Cadence)
     │   ├── MathEngine/
     │   │   ├── ReadinessCalculator.swift # Recovery score (0-100%), Strain score, Pure NEAT, rolling averages
-    │   │   └── WorkoutMathEngine.swift   # 1km auto-splits, interval laps, EF, cardiac drift %, GAP, benchmarks
+    │   │   ├── WorkoutMathEngine.swift   # 1km auto-splits, interval laps, EF, cardiac drift %, GAP, benchmarks
+    │   │   ├── VitalsAndIllnessEngine.swift # (Phase 3) 20% R-R filter, ln(RMSSD), 5-metric Vitals & Illness Prodrome
+    │   │   ├── TrainingLoadAndBatteryEngine.swift # (Phase 3) Banister TRIMP, EWMA ACWR (7d/28d), 24h Body Battery
+    │   │   └── CorrelationEngine.swift   # (Phase 3) Multi-day time-lagged (T+0, T+1, T+2) r_pb & Pearson r engine
+    │   ├── UI/
+    │   │   └── LifecoreDesignSystem.swift # (Phase 3) Liquid Glass Dark surfaces, specular borders, Vitals glow pills
     │   ├── AI/
     │   │   ├── GeminiService.swift       # Direct Google AI Studio client (Vision & Text models)
     │   │   ├── FoodPrompt.swift          # English system prompt for optimistic vision food parsing
-    │   │   └── CoachPrompt.swift         # English system prompt for 70/15/15 athletic performance analyst
+    │   │   └── CoachPrompt.swift         # English system prompt for athletic performance analyst + Vitals/ACWR context
     │   └── Storage/
     │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity)
+    │       ├── AthleteProfileStore.swift # (Phase 3) Editable physiological & macro calibration store
     │       ├── MealStorageService.swift  # SwiftData meal repository & optimistic state manager
-    │       └── SupabaseSyncService.swift # Async cloud persistence for meals & workout_analyses
+    │       └── SupabaseSyncService.swift # Bidirectional cloud persistence for meals, workout_analyses & vitals
     ├── Features/
-    │   ├── Today/                        # Dark-mode dashboard: Readiness, Strain, Nutrition rings
+    │   ├── Today/                        # Dark-mode dashboard: Rings, 5-Pill Overnight Vitals, Illness Radar, 24h Energy Bank
     │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts
     │   ├── Nutrition/                    # Camera capture, optimistic meal cards, macro breakdown
-    │   └── Trends/                       # 7d/14d rolling weight trend (water noise filter), autonomic baselines (HRV/RHR corridor), aerobic efficiency (EF & drift) (TrendsView.swift, TrendsComponents.swift)
+    │   └── Trends/                       # 7d/14d weight trend, autonomic baselines, EF/drift, Time-Lagged Correlations & ACWR
     └── Intents/
         ├── LogMealIntent.swift           # Fast Siri / Action button meal logger
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
 ```
+
+> **Phase 3 Architectural Spec & Implementation Plan:**
+> - **Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)
+> - **Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
 
 ---
 
@@ -186,7 +229,7 @@ CREATE TABLE IF NOT EXISTS workout_analyses (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Daily Summary & Rolling Metrics
+-- 3. Daily Summary, EWMA ACWR & Body Battery (Phase 2 & 3)
 CREATE TABLE daily_metrics (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -198,10 +241,16 @@ CREATE TABLE daily_metrics (
     morning_weight_kg NUMERIC(5, 2),
     rolling_avg_weight_7d NUMERIC(5, 2),
     rolling_avg_weight_14d NUMERIC(5, 2),
+    trimp_score NUMERIC(6, 1),          -- Banister's Training Impulse
+    ewma_acute_load NUMERIC(6, 1),      -- 7d EWMA Acute Load (λ = 2/8)
+    ewma_chronic_load NUMERIC(6, 1),    -- 28d EWMA Chronic Load (λ = 2/29)
+    acwr_ratio NUMERIC(4, 2),           -- Acute-to-Chronic Workload Ratio (0.8-1.3 sweet spot)
+    body_battery_wake INTEGER,          -- Morning Energy Bank 0-100%
+    body_battery_min INTEGER,           -- End-of-day Energy Bank 0-100%
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Sleep & Autonomic Telemetry
+-- 4. Sleep, 5-Metric Overnight Vitals & Immune State (Phase 2 & 3)
 CREATE TABLE sleep_logs (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -212,7 +261,13 @@ CREATE TABLE sleep_logs (
     core_hours NUMERIC(4, 2),
     awake_hours NUMERIC(4, 2),
     hrv_avg_ms NUMERIC(5, 1),           -- Nightly HRV SDNN
+    hrv_rmssd_ms NUMERIC(5, 1),         -- Beat-to-beat RMSSD (20% artifact filtered)
     rhr_bpm NUMERIC(4, 1),              -- Resting Heart Rate
+    wrist_temp_delta_c NUMERIC(4, 2),   -- Sleeping wrist temperature delta °C
+    spo2_pct NUMERIC(4, 1),             -- Nocturnal SpO2 %
+    respiratory_rate NUMERIC(4, 1),     -- Sleeping breaths/min
+    sleep_efficiency_pct NUMERIC(4, 1), -- Asleep / Time-in-Bed %
+    immune_state TEXT DEFAULT 'optimal',-- optimal | training_fatigue | immune_watch | illness_prodrome
     vo2max NUMERIC(4, 1),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -19,54 +19,58 @@ Commercial health platforms (Whoop, Oura, Strava, MyFitnessPal) enforce vendor l
 
 ---
 
-## 2. 4-Layer On-Device Architecture
+## 2. 4-Layer On-Device Architecture (Lifecore 2.0 & 3.0 Engine)
 
 ```mermaid
 flowchart TD
     subgraph Layer1 ["1️⃣ Layer 1: Canonical Source of Truth (Apple HealthKit)"]
-        Watch["⌚️ Apple Watch Ultra\n(Continuous HR, GPS, Accelerometer)"]
-        HKStore[("🍏 Apple HealthStore\n(Sleep Stages, HRV SDNN, RHR, Steps, Workouts)")]
+        Watch["⌚️ Apple Watch Ultra\n(Continuous HR, R-R Heartbeat Series, Wrist Temp, SpO2, GPS)"]
+        HKStore[("🍏 Apple HealthStore\n(Sleep Stages, RMSSD/SDNN, RHR, Wrist Temp °C, SpO2 %, Resp Rate, VO2Max, Workouts)")]
         Camera["📸 In-App Food Camera\n(High-resolution meal captures)"]
         Watch --> HKStore
     end
 
-    subgraph Layer2 ["2️⃣ Layer 2: Swift Deterministic Math & Telemetry Engine"]
-        SplitEngine["⏱ Splits Parser\n(1km Pace, HR per split, Δh Elevation)"]
-        DriftEngine["💓 Cardiac Drift & Aerobic Decoupling\n(Efficiency Factor = Speed / HR, Drift %)"]
-        NEATEngine["🚶 Pure NEAT Isolation\n(daily_active_kcal - workout_kcal)"]
-        RollingEngine["📈 Rolling Averages Engine\n(7d / 14d Water Noise Filter)"]
-        MacroEngine["🥗 Macro & Deficit Buffer Engine\n(kcal * 1.125, TEF Calculation)"]
+    subgraph Layer2 ["2️⃣ Layer 2: Swift Deterministic Math & Physiological Engine"]
+        VitalsEngine["🧬 Overnight Vitals & Illness Radar\n(20% Ectopic Filter -> ln(RMSSD), 5-Metric Corridor, NightSignal Prodrome)"]
+        WorkloadEngine["⚡ Workload & Energy Bank (Firstbeat)\n(Banister TRIMP, 7d/28d EWMA ACWR, 24h Body Battery 0-100%)"]
+        SplitEngine["⏱ Splits & Cardiac Drift Engine\n(1km Pace, HR per split, Δh, EF = Speed / HR, Drift %)"]
+        CorrEngine["🔗 Time-Lagged Correlation Engine (T+0, T+1, T+2)\n(Point-Biserial r_pb & Pearson r with Strain Confounder Filter)"]
+        NEATEngine["🚶 Pure NEAT & Rolling Weight Engine\n(daily_active_kcal - workout_kcal, 7d/14d Water Noise Filter)"]
+        MacroEngine["🥗 Macro & Deficit Buffer Engine\n(kcal * 1.125, Quality Taxonomy, Micronutrients)"]
     end
 
-    subgraph Layer3 ["3️⃣ Layer 3: Persistence & Synchronization"]
-        SwiftData[("💾 SwiftData (On-Device)\nLocal-first, encrypted, instant access")]
-        SyncService["🔄 LifecoreAPIService / AppIntent\n(URLSession background sync)"]
-        SupaDB[("☁️ Supabase PostgreSQL\nmeals, workouts, daily_metrics, sleep_logs")]
+    subgraph Layer3 ["3️⃣ Layer 3: Persistence, Profile & Bidirectional Cloud Sync"]
+        SwiftData[("💾 SwiftData + AthleteProfileStore\nMealEntity, WorkoutAnalysisEntity, Editable Profile")]
+        SyncService["🔄 SupabaseSyncService / AppIntents\n(Two-Way REST Sync & Offline Queue)"]
+        SupaDB[("☁️ Supabase PostgreSQL\nmeals, workout_analyses, daily_metrics, sleep_logs")]
     end
 
-    subgraph Layer4 ["4️⃣ Layer 4: Presentation & AI Athletic Intelligence"]
-        Dashboard["📱 SwiftUI Dashboard (Bevel-Style)\nReadiness, Strain, Nutrition, Splits"]
-        Charts["📊 Swift Charts\nPace vs HR curves, Elevation profile, Trends"]
-        GeminiProxy["🤖 Gemini AI Athletic Coach (70/15/15)\nDeep split analysis, benchmark comparison, root causes"]
+    subgraph Layer4 ["4️⃣ Layer 4: Lifecore UI 3.0 (Liquid Glass Dark) & AI Intelligence"]
+        Dashboard["📱 TodayView 3.0 (Bevel 2.0 + Apple Vitals)\nReadiness/Strain Rings, 5-Pill Vitals Bar, Illness Radar, 24h Energy Bank"]
+        TrendsHub["📊 TrendsView 3.0 & Workout Charts\nTime-Lagged Correlations Hub, EWMA ACWR Sweet-Spot, Pace/HR Curves"]
+        GeminiProxy["🤖 Gemini AI Athletic Coach\nDeep split analysis, benchmark delta, Vitals/ACWR/Correlation synthesis"]
     end
 
+    HKStore --> VitalsEngine
+    HKStore --> WorkloadEngine
     HKStore --> SplitEngine
-    HKStore --> DriftEngine
     HKStore --> NEATEngine
-    HKStore --> RollingEngine
     Camera --> MacroEngine
 
+    VitalsEngine --> SwiftData
+    WorkloadEngine --> SwiftData
     SplitEngine --> SwiftData
-    DriftEngine --> SwiftData
     NEATEngine --> SwiftData
-    RollingEngine --> SwiftData
     MacroEngine --> SwiftData
+    SwiftData --> CorrEngine
 
     SwiftData <--> SyncService
     SyncService <--> SupaDB
 
     SwiftData --> Dashboard
-    SwiftData --> Charts
+    SwiftData --> TrendsHub
+    CorrEngine --> TrendsHub
+    CorrEngine --> GeminiProxy
     SwiftData --> GeminiProxy
     GeminiProxy --> Dashboard
 ```
@@ -76,52 +80,59 @@ flowchart TD
 ## 3. Detailed Layer Specifications
 
 ### 3.1. Layer 1: Ingestion & Canonical Telemetry
-* **Technology:** Apple HealthKit framework (`HKHealthStore`), AVFoundation (camera).
+* **Technology:** Apple HealthKit framework (`HKHealthStore`, `HKHeartbeatSeriesQuery`, `HKStatisticsQuery`), AVFoundation (camera).
 * **Guiding Rule:** The Apple Watch passively records high-frequency physiological telemetry with zero user friction.
 * **Telemetry Collected:**
-  - **Sleep Architecture:** Categorized durations in `asleepDeep`, `asleepREM`, `asleepCore`, and `awake`.
-  - **Autonomic Readiness:** Morning HRV (SDNN) and resting heart rate (RHR).
-  - **Workouts:** `HKWorkout` sessions, route coordinate samples (`HKWorkoutRoute`), and instant heart rate samples (`HKQuantityTypeIdentifierHeartRate`).
-  - **Daily Activity:** Cumulative step count and active energy burned.
+  - **Sleep Architecture:** Categorized durations in `asleepDeep`, `asleepREM`, `asleepCore`, and `awake`, plus sleep efficiency and 14-day circadian consistency.
+  - **5-Metric Overnight Vitals:**
+    1. **Beat-to-Beat HRV (`HKHeartbeatSeriesSample` & `.heartRateVariabilitySDNN`):** Raw R-R intervals filtered for ectopic artifacts (>20% jump rejected) to compute $\text{RMSSD}$, with automatic fallback to nocturnal `SDNN`.
+    2. **Sleeping Resting Heart Rate (`.restingHeartRate`):** Nocturnal RHR baseline.
+    3. **Sleeping Wrist Temperature (`.appleSleepingWristTemperature`):** Nocturnal skin temperature delta ($\Delta T^\circ\text{C}$) against 30/60-day personal baseline.
+    4. **Sleeping Respiratory Rate (`.respiratoryRate`):** Nocturnal breaths per minute.
+    5. **Blood Oxygen Saturation (`.oxygenSaturation`):** Overnight capillary $\text{SpO}_2\%$.
+  - **Cardiorespiratory Fitness & Workouts:** `HKWorkout` sessions, continuous heart rate/distance/altitude series, structured `HKWorkoutActivity` interval laps, and `.vo2Max`.
+  - **Daily Activity:** Cumulative step count, active energy burned, and scale body mass (`.bodyMass`).
 
 ---
 
-### 3.2. Layer 2: Swift Deterministic Math & Telemetry Engine
-* **Technology:** Swift 6 concurrency, SIMD / native vector algorithms.
-* **Separation of Concerns:** Zero arithmetic is delegated to the LLM. Swift executes all formulas:
-  1. **Kilometer Splits:** Extracts raw distance and timestamp samples into discrete 1000m windows, computing exact pace, average HR, and elevation delta ($\Delta h$).
-  2. **Cardiac Drift & Decoupling:**
-     $$\text{Efficiency Factor } (EF) = \frac{\text{Speed (m/min)}}{\text{Average Heart Rate (bpm)}}$$
-     $$\text{Cardiac Drift } (\%) = \left(\frac{EF_{\text{1st half}} - EF_{\text{2nd half}}}{EF_{\text{1st half}}}\right) \times 100\%$$
-  3. **Pure NEAT Isolation:**
-     $$\text{NEAT}_{\text{kcal}} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_kcal})$$
-  4. **Deficit Buffer Discipline:** Multiplies raw food calories by $\times 1.125$ to compensate for unlogged cooking oils and portion variance.
+### 3.2. Layer 2: Swift Deterministic Math & Physiological Engine
+* **Technology:** Swift 6 concurrency, deterministic statistical and physiological modeling (`Lifecore/Core/MathEngine/`).
+* **Separation of Concerns:** Zero arithmetic or statistical correlation is delegated to the LLM. Swift executes all formulas:
+  1. **Kilometer Splits & Cardiac Drift:** Extracts raw distance and timestamp samples into discrete 1000m windows with linear boundary interpolation, computing exact pace, average HR, elevation delta ($\Delta h$), Efficiency Factor ($EF = \text{Speed} / \text{HR}$), and Cardiac Drift %.
+  2. **Log-Transformed HRV & 5-Metric Overnight Vitals Confluence (`VitalsAndIllnessEngine.swift`):**
+     - Normalizes skewed HRV via natural logarithm: $Z_{\text{HRV}} = (\ln\text{HRV}_t - \mu_{\ln, 60d}) / \sigma_{\ln, 60d}$.
+     - Evaluates all 5 nocturnal pillars against personal rolling corridors and runs the **Stanford NightSignal + Apple Vitals** confluence classifier (`optimal`, `trainingFatigue`, `immuneWatch`, `illnessProdrome`) to flag viral/inflammatory prodrome 24–48h before symptoms while preventing false alarms on 1-metric training fatigue.
+  3. **Garmin Firstbeat Workload & Continuous Energy Bank (`TrainingLoadAndBatteryEngine.swift`):**
+     - **Banister TRIMP:** $\text{TRIMP} = D_{\text{min}} \cdot \Delta\text{HR}_r \cdot 0.64 \cdot e^{1.92 \cdot \Delta\text{HR}_r}$.
+     - **EWMA ACWR:** Acute 7-day ($\lambda_a = 2/8$) vs Chronic 28-day ($\lambda_c = 2/29$) Exponentially Weighted Moving Average ratio, targeting the $0.80\text{--}1.30$ progressive overload sweet spot.
+     - **Body Battery / Energy Bank (0–100%):** Hourly differential trajectory from wake-up to bedtime combining sleep recharge and daytime sympathetic/metabolic drain.
+  4. **Confounder-Controlled Time-Lagged Correlation Engine (`CorrelationEngine.swift`):**
+     - Computes Point-Biserial ($r_{pb}$) and Pearson ($r$) correlations across $T+0, T+1, T+2$ lags (e.g., Sodium $\to$ next-day water weight spike; Late meal / UPF $\to$ overnight HRV drop excluding high-TRIMP days; Pre-run carbs $\to$ Cardiac Drift %).
+  5. **Pure NEAT Isolation & Deficit Buffer Discipline:**
+     - $\text{NEAT}_{\text{kcal}} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_kcal})$.
+     - Multiplies raw food calories by $\times 1.125$ to compensate for hidden cooking oils and portion variance.
 
 ---
 
-### 3.3. Layer 3: Persistence & Synchronization Layer
-* **Local Persistence (SwiftData):** Local-first encrypted storage for `@Model` entities (`MealEntity`, `WorkoutEntity`, `DailyMetricEntity`, `SleepLogEntity`). Enables instant app startup (<5ms) and full offline functionality.
-* **Cloud Persistence & Backup (Supabase PostgreSQL):**
-  - Asynchronous cloud backup ensuring longitudinal data longevity (10+ years).
-  - Key tables: `meals` (nutrition warehouse) and `workout_analyses` (stores 1km splits and structured laps as `JSONB`, alongside AI performance reports).
-  - Background synchronization triggered via `LifecoreSyncIntent` / `URLSession` on morning wake-up and workout completion.
-   - Cloud synchronization pipeline: Direct native iOS client (`SupabaseSyncService.swift`) connecting to Supabase PostgreSQL REST endpoints.
+### 3.3. Layer 3: Persistence, Profile & Synchronization Layer
+* **Local Persistence (SwiftData & `AthleteProfileStore`):**
+  - Lean `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`) for app-generated data, while raw biometrics are queried directly from HealthKit in <5ms.
+  - `AthleteProfileStore` provides user-editable physiological baselines, BMR, Active Move goals, macro targets, and `hybridRMSSD` vs `appleSDNN` selection.
+* **Bidirectional Cloud Warehouse (Supabase PostgreSQL):**
+  - Asynchronous cloud backup ensuring longitudinal data longevity (10+ years) across `meals`, `workout_analyses`, `daily_metrics`, and `sleep_logs`.
+  - Direct native iOS REST client (`SupabaseSyncService.swift`) supporting both background push and two-way cloud hydration (`pullHistoricalDataIfNeeded()`) on fresh installs.
 
 ---
 
-### 3.4. Layer 4: Presentation & AI Athletic Intelligence
-* **Presentation Layer (SwiftUI Dark-Mode Dashboard):**
-  - **Today View:** Bevel-style rings for Readiness (0-100%), Cardiovascular Strain (0-100%), and Caloric Balance.
-  - **Workouts View:** Slices runs into 1km auto-splits and interval laps; synchronized Swift Charts for pace, heart rate, and elevation profile.
-  - **Nutrition View:** Optimistic photo capture (<0.2s UI response), portion and macro breakdown with +12.5% deficit buffer.
-  - **Trends View:** 7-day and 14-day rolling body weight averages (filtering water/glycogen noise), long-term HRV/RHR trajectories.
+### 3.4. Layer 4: Presentation (Lifecore UI 3.0) & AI Athletic Intelligence
+* **Presentation Layer (`LifecoreDesignSystem` — Liquid Glass Dark / Bevel 2.0 Aesthetic):**
+  - **Today View 3.0:** Readiness, Strain (with ACWR badge), and Active Move rings; **5-Pill Overnight Vitals Corridor Bar** with **Illness Prodrome Radar Banner**; **24h Energy Bank (Body Battery)** curve; Sleep Architecture & Sleep Debt; Movement & Pure NEAT with real-time accrued BMR; and `AthleteProfileSheet`.
+  - **Workouts View:** 1km auto-splits and interval laps; synchronized Swift Charts for pace, heart rate, and elevation profile; EF, Cardiac Drift %, and Benchmark Delta cards.
+  - **Nutrition View:** Optimistic photo/voice capture (<0.2s UI response), +12.5% deficit buffer, Whole Food vs UPF quality card, sodium water-retention warning, and leucine MPS threshold.
+  - **Trends View 3.0:** 7d/14d rolling body weight trend (water noise filter), 30d/60d autonomic baseline corridors, **Time-Lagged Correlations & Insights Hub** ($r, r_{pb}$ with $T+1/T+2$ badges), and **EWMA ACWR Workload Ratio Chart**.
 * **AI Athletic Coach (Gemini API direct service):**
-  - Evaluates pre-calculated Swift telemetry payload.
-  - Strictly follows the **70 / 15 / 15** athletic performance framework:
-    - **70%:** Granular execution breakdown of 1km splits, pacing stability, HR vs elevation ($\Delta h$), and cardiac drift.
-    - **15%:** Historical benchmark comparison against previous similar sessions.
-    - **15%:** Physiological root causes (sleep stages, HRV/RHR, pre-run nutrition) + 1 tactical athletic directive for the next 24h.
-  - **Zero Alarmism:** No unsolicited generic wellness advice; normal athletic RHR variations are treated as standard training adaptations.
+  - Evaluates pre-calculated Swift telemetry, Overnight Vitals confluence, EWMA ACWR, and personal time-lagged correlations.
+  - Delivers human, motivating Ukrainian debriefs across 3 clear sections (`Як пройшов забіг`, `Твій прогрес`, `Що робити далі (план на 24г)`) with zero medical alarmism on normal training adaptations.
 
 ---
 

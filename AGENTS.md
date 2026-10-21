@@ -27,23 +27,26 @@ Welcome to the **Lifecore (Native iOS-First & Athletic Performance Platform)** p
 * **Modular Structure:**
   - `Lifecore/App/`: `LifecoreApp.swift`, `MainTabView.swift`
   - `Lifecore/Core/HealthKit/`: `HealthKitManager.swift`, `WorkoutTelemetryExtractor.swift`
-  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`
+  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`, `VitalsAndIllnessEngine.swift` (Phase 3), `TrainingLoadAndBatteryEngine.swift` (Phase 3), `CorrelationEngine.swift` (Phase 3)
+  - `Lifecore/Core/UI/`: `LifecoreDesignSystem.swift` (Phase 3 Liquid Glass Dark)
   - `Lifecore/Core/AI/`: `GeminiService.swift`, `FoodPrompt.swift`, `CoachPrompt.swift`
-  - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `SupabaseSyncService.swift`
+  - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `AthleteProfileStore.swift` (Phase 3), `MealStorageService.swift`, `SupabaseSyncService.swift`
   - `Lifecore/Features/`: `Today/`, `Workouts/`, `Nutrition/`, `Trends/`
   - `Lifecore/Intents/`: `LogMealIntent.swift`, `LifecoreSyncIntent.swift`
 * **Legacy Backend Archived:** The Dual-Backend has been removed from `main` and safely archived in git tag `v1.0-telegram-archive`. The repository is strictly native iOS-First.
-* **Cloud Storage & Sync:** Supabase PostgreSQL serves as cloud backup and synchronization layer.
+* **Cloud Storage & Sync:** Supabase PostgreSQL serves as bidirectional cloud backup and synchronization layer.
 
 ### 2.2. Strict Separation: Deterministic Math vs AI Reasoning
-* **Swift Math Engine:** All deterministic calculations (1km splits, pace, heart rate decoupling / cardiac drift %, pure NEAT isolation, 7d/14d rolling weight averages, caloric deficit buffer) **MUST** be computed natively in Swift code.
-* **Gemini AI Role:** AI models are reserved strictly for qualitative narrative reasoning, athletic pattern interpretation, and causal explanation over pre-calculated metrics. Never ask Gemini to calculate averages or arithmetic.
+* **Swift Math Engine:** All deterministic calculations (1km splits, pace, heart rate decoupling / cardiac drift %, pure NEAT isolation, 7d/14d rolling weight averages, caloric deficit buffer, beat-to-beat RMSSD + $\ln\text{HRV}$ Z-scores, 5-metric Overnight Vitals confluence, Banister TRIMP, EWMA ACWR, 24h Body Battery, and $T+0/T+1/T+2$ statistical correlations $r, r_{pb}$) **MUST** be computed natively in Swift code.
+* **Gemini AI Role:** AI models are reserved strictly for qualitative narrative reasoning, athletic pattern interpretation, and causal explanation over pre-calculated metrics. Never ask Gemini to calculate averages, correlations, or arithmetic.
 
-### 2.3. AI Coach Persona — Athletic Performance Analyst (70 / 15 / 15)
+### 2.3. AI Coach Persona & Multi-Metric Illness Confluence Rules
 * **70%:** Deep workout breakdown (1km splits, pace vs HR, elevation response, cardiac drift / aerobic decoupling).
-* **15%:** Historical benchmark comparison against previous similar workouts (pace, HR, EF deltas).
-* **15%:** Physiological root causes (sleep stages, HRV, RHR, pre-workout carbohydrates/deficit) explaining *why* performance shifted, plus **1 actionable athletic directive for the next 24h**.
-* **Zero Medical Alarmism:** No "anxious therapist" tone. No premature "СТОП / ВІДНОВЛЕННЯ" alarms on normal RHR variations ($\pm 2\text{--}4\text{ bpm}$); no generic unsolicited wellness advice (warm baths, meditation).
+* **15%:** Historical benchmark comparison against previous similar workouts (pace, HR, EF deltas, EWMA ACWR context).
+* **15%:** Physiological root causes (sleep stages, 5-metric Overnight Vitals, time-lagged nutrition/carbohydrate correlations) explaining *why* performance shifted, plus **1 actionable athletic directive for the next 24h**.
+* **Zero Single-Metric Medical Alarmism vs True Illness Confluence:**
+  - Normal single-metric RHR variations ($\pm 2\text{--}4\text{ bpm}$) without fever or respiratory shift are treated as standard training adaptations (`trainingFatigue`).
+  - Pre-symptomatic **Illness Prodrome (`illnessProdrome`)** alerts trigger strictly when $\ge 3$ of 5 nocturnal Vitals (HRV, RHR, Wrist Temp $\Delta T^\circ\text{C}$, Respiratory Rate, $\text{SpO}_2\%$) deviate simultaneously, or when $\Delta T \ge +0.40^\circ\text{C}$ converges with an autonomic shift (Stanford NightSignal + Apple Vitals rule).
 
 ### 2.4. Food Recognition & Nutrition Principles
 * **Deficit Buffer (+12.5% kcal):** Strictly apply `kcal_final = round(kcal_exact * 1.125)`. Keep protein, fat, and carbs exact.

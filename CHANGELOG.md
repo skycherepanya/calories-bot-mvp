@@ -2,6 +2,39 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Architecture & Spec: Lifecore 3.0 (Phase 3) Physiological Engine, Overnight Vitals, Illness Prodrome, Time-Lagged Correlations & UI 3.0 Master Plan
+
+### 🧬 Scientific Research & Mathematical Specifications (`VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `CorrelationEngine`):
+- **5-Metric Overnight Vitals & Hybrid RMSSD (Bevel 2.0 + Apple Vitals):**
+  - Specified ingestion of `appleSleepingWristTemperature` ($\Delta T^\circ\text{C}$), `oxygenSaturation` ($\text{SpO}_2\%$), `respiratoryRate` ($\text{br/min}$), `vo2Max`, and raw beat-to-beat `HKHeartbeatSeriesSample`.
+  - Formulated 20% ectopic beat R-R artifact filtering to compute vagal $\text{RMSSD}$ with automatic fallback to nocturnal `SDNN`, normalized via 60-day logarithmic Z-scores ($Z_{\text{HRV}} = (\ln\text{HRV}_t - \mu_{\ln, 60d}) / \sigma_{\ln, 60d}$).
+- **Pre-Symptomatic Illness Prodrome Detection (Stanford NightSignal + Apple Vitals Confluence):**
+  - Designed a 4-tier nocturnal confluence state machine (`optimal`, `trainingFatigue`, `immuneWatch`, `illnessProdrome`) that prevents false medical alarms on single-metric training fatigue while flagging viral/inflammatory prodrome 24–48h before symptom onset ($\ge 3$ simultaneous Vitals outliers or $\Delta T \ge +0.40^\circ\text{C}$ paired with an autonomic shift).
+- **Garmin Firstbeat Workload & Continuous Energy Reserve:**
+  - Specified **Banister's Training Impulse (TRIMP)** ($\text{TRIMP} = D \cdot \Delta\text{HR}_r \cdot 0.64 \cdot e^{1.92 \cdot \Delta\text{HR}_r}$).
+  - Specified **Exponentially Weighted Moving Average (EWMA) ACWR** comparing 7-day Acute Load ($\lambda_a = 2/8$) against 28-day Chronic Load ($\lambda_c = 2/29$) with $0.80\text{--}1.30$ sweet-spot classification.
+  - Specified **24-Hour Continuous Body Battery / Energy Bank (0–100%)** differential trajectory and **Sleep Debt / Circadian Consistency** scoring.
+- **Confounder-Controlled Time-Lagged Correlation Engine ($T+0, T+1, T+2$):**
+  - Specified Point-Biserial ($r_{pb}$) and Pearson ($r$) correlation discovery linking sodium intake to $T+1/T+2$ extracellular water weight spikes, pre-run 24h carbohydrates to Cardiac Drift %, and late/UPF meals to overnight HRV suppression (filtering out high-TRIMP workout confounders).
+
+### 🎨 Lifecore UI 3.0 Redesign & Technical Debt Polish Plan:
+- **`LifecoreDesignSystem.swift` (Liquid Glass Dark):** Specified translucent glass surfaces, 1px top-edge specular gradient strokes, semantic glow badges, and `.numericText()` transitions.
+- **`AthleteProfileStore.swift` & `AthleteProfileSheet.swift`:** Eliminated hardcoded BMR (`1750 kcal`), Active Move (`650 kcal`), Max HR, and macro constants in favor of a user-editable calibration store with `hybridRMSSD` / `appleSDNN` selection.
+- **Bidirectional Cloud Hydration & Schema Migration (`007_lifecore_v3_vitals_and_correlations.sql`):** Extended `sleep_logs` and `daily_metrics` schemas for Vitals, RMSSD, TRIMP, EWMA ACWR, and Body Battery, and specified `pullHistoricalDataIfNeeded()` for two-way Supabase-to-SwiftData restoration.
+
+### Affected Files
+`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`,
+`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`,
+`docs/ROADMAP.md`,
+`docs/ARCHITECTURE.md`,
+`docs/DATABASE.md`,
+`PROJECT_KNOWLEDGE.md`,
+`AGENTS.md`,
+`README.md`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Fix: Audit Reconcile, Model Cascade Restoration & Math Edge-Case Hardening
 
 ### 🤖 Gemini AI Cascade & Integrity:

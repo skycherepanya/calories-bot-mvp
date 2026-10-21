@@ -91,18 +91,40 @@
 
 ---
 
-## 📈 Phase 3 — Advanced Physiological Modeling & Time-Lags (Next)
+## 📈 Phase 3 — Advanced Physiological Intelligence, Overnight Vitals, Illness Prodrome & UI 3.0 (Active / Next Focus)
 
-### 3.1. Multi-Day Time-Lagged Correlations
-- [ ] Quantify impact of sodium intake (Day T) on morning fluid retention (Day T+1, T+2).
-- [ ] Quantify correlation between carbohydrate deficit and subsequent aerobic decoupling on endurance runs.
-- [ ] Detect early overtraining signals via cumulative acute-to-chronic workload ratio (ACWR).
+> **Master Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)  
+> **Master Implementation Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
 
-### 3.2. Automated Morning Briefing
-- [ ] iOS Lock Screen Widget and notification at 08:00 AM:
-  - Morning Readiness Score (HRV/RHR).
-  - Recommended workout intensity for the day.
-  - Target carbohydrate and hydration intake.
+### 3.1. Overnight Vitals Corridor & Pre-Symptomatic Illness Detection (Apple Vitals + NightSignal)
+- [ ] Expand `HealthKitManager` to query `appleSleepingWristTemperature` ($\Delta T^\circ\text{C}$), `oxygenSaturation` ($\text{SpO}_2\%$), `respiratoryRate` ($\text{br/min}$), `vo2Max`, and raw beat-to-beat `HKHeartbeatSeriesSample`.
+- [ ] Implement Bevel/Kubios 20% ectopic beat artifact filter and beat-to-beat $\text{RMSSD}$ calculation with fallback to log-transformed $\ln(\text{SDNN})$ and 60-day rolling Z-score ($Z_{\text{HRV}}$).
+- [ ] Build `VitalsAndIllnessEngine.swift` with 5-metric nocturnal corridor evaluation and multi-metric confluence state machine (`optimal`, `trainingFatigue`, `immuneWatch`, `illnessProdrome`) to detect viral/inflammatory prodrome 24–48h before symptoms while preventing single-metric alarmism.
+
+### 3.2. Garmin Firstbeat Workload Math (Banister TRIMP, EWMA ACWR & Continuous Energy Bank)
+- [ ] Implement `TrainingLoadAndBatteryEngine.swift`:
+  - **Banister TRIMP:** Exponential heart-rate reserve impulse ($\text{TRIMP} = D \cdot \Delta\text{HR}_r \cdot 0.64 \cdot e^{1.92 \cdot \Delta\text{HR}_r}$).
+  - **EWMA ACWR:** Exponentially Weighted Moving Average Acute (7d, $\lambda_a = 2/8$) vs Chronic (28d, $\lambda_c = 2/29$) Workload Ratio with $0.80\text{--}1.30$ sweet-spot classification.
+  - **Continuous 24h Body Battery / Energy Bank (0–100%):** Differential reserve trajectory combining sleep recharge ($\ln\text{RMSSD}$ + Deep/REM efficiency) and daytime hourly drain (basal circadian + Pure NEAT + workout TRIMP + immune strain).
+  - **Sleep Bank & Consistency:** Cumulative 7-day Sleep Debt and 14-day circadian bedtime/wake alignment score.
+
+### 3.3. Confounder-Controlled Time-Lagged Correlation Engine ($T+0, T+1, T+2$)
+- [ ] Implement `CorrelationEngine.swift` computing Point-Biserial ($r_{pb}$) and Pearson ($r$) correlations across multi-day lags with high-TRIMP confounder filtering:
+  - Quantify impact of sodium intake ($\text{mg}$) and `high_sodium` meals (Day $T$) on extracellular water weight retention ($\Delta W = W_{\text{raw}} - W_{7d}$ on Days $T+1, T+2$).
+  - Quantify correlation between 24h pre-workout carbohydrate availability and running Cardiac Drift % / Efficiency Factor ($EF$).
+  - Quantify impact of late meals ($>21:30$) and `ultra_processed` ratio on overnight HRV suppression and RHR elevation (filtering out days with $\text{TRIMP} > 130$).
+  - Quantify impact of `whole_food` dominance and leucine ($\ge 3\text{g}$) on 48h autonomic recovery velocity.
+
+### 3.4. Lifecore UI 3.0 Redesign (Liquid Glass Dark) & Technical Debt Polish
+- [ ] Create `LifecoreDesignSystem.swift` (Liquid Glass Dark translucent surfaces, 1px top-edge specular gradient borders, semantic status glow pills, smooth `.numericText()` transitions).
+- [ ] Create `AthleteProfileStore.swift` & `AthleteProfileSheet.swift` to replace hardcoded BMR (`1750 kcal`), Active Move (`650 kcal`), Max HR, and macro constants with user-editable calibration and `hybridRMSSD` / `appleSDNN` toggle.
+- [ ] Upgrade `SupabaseSyncService.swift` + SQL migration `007_lifecore_v3_vitals_and_correlations.sql` with bidirectional cloud-to-SwiftData hydration (`pullHistoricalDataIfNeeded()`).
+- [ ] Upgrade `TodayView.swift` with `OvernightVitalsCard` (5-pill Vitals corridor + Illness Prodrome Radar banner) and `EnergyBankCard` (24h Body Battery curve).
+- [ ] Upgrade `TrendsView.swift` with `CorrelationInsightsCard` (ranked personal habits/nutrition impacts with $r$ and $T+1/T+2$ badges) and `ACWRWorkloadTrendCard`.
+- [ ] Inject Overnight Vitals confluence state, EWMA ACWR, and personal correlation insights into `CoachPrompt.swift`.
+
+### 3.5. Automated Morning Briefing & Lock Screen Widgets
+- [ ] iOS WidgetKit Lock Screen & Home Screen widgets displaying Morning Readiness, 5-Metric Vitals status, Energy Bank %, and daily target directive.
 
 ---
 

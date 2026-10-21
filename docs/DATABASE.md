@@ -94,7 +94,13 @@ erDiagram
         numeric core_hours
         numeric awake_hours
         numeric hrv_avg_ms "Nightly HRV SDNN"
+        numeric hrv_rmssd_ms "Beat-to-beat RMSSD (Phase 3)"
         numeric rhr_bpm "Sleeping RHR"
+        numeric wrist_temp_delta_c "Sleeping wrist temp delta °C (Phase 3)"
+        numeric spo2_pct "Nocturnal SpO2 % (Phase 3)"
+        numeric respiratory_rate "Breaths/min (Phase 3)"
+        numeric sleep_efficiency_pct "Asleep vs Time-in-Bed % (Phase 3)"
+        text immune_state "optimal | training_fatigue | immune_watch | illness_prodrome"
         numeric vo2max
         timestamptz created_at
     }
@@ -110,6 +116,12 @@ erDiagram
         numeric morning_weight_kg
         numeric rolling_avg_weight_7d
         numeric rolling_avg_weight_14d
+        numeric trimp_score "Banister TRIMP (Phase 3)"
+        numeric ewma_acute_load "7d EWMA Acute Load (Phase 3)"
+        numeric ewma_chronic_load "28d EWMA Chronic Load (Phase 3)"
+        numeric acwr_ratio "Acute-to-Chronic Workload Ratio (Phase 3)"
+        integer body_battery_wake "Morning Energy Bank 0-100% (Phase 3)"
+        integer body_battery_min "End-of-day Energy Bank 0-100% (Phase 3)"
         timestamptz created_at
     }
 
@@ -210,28 +222,40 @@ Captures whole-day lifestyle movement and longitudinal trend metrics.
 | `morning_weight_kg`      | `NUMERIC(5, 2)` |                                            | Morning scale weigh-in                              |
 | `rolling_avg_weight_7d`  | `NUMERIC(5, 2)` |                                            | 7-day rolling weight average (noise-filtered)       |
 | `rolling_avg_weight_14d` | `NUMERIC(5, 2)` |                                            | 14-day rolling weight average                       |
+| `trimp_score`            | `NUMERIC(6, 1)` |                                            | Banister's Training Impulse internal load (Phase 3) |
+| `ewma_acute_load`        | `NUMERIC(6, 1)` |                                            | 7-day EWMA Acute Load ($\lambda_a = 2/8$, Phase 3)  |
+| `ewma_chronic_load`      | `NUMERIC(6, 1)` |                                            | 28-day EWMA Chronic Load ($\lambda_c = 2/29$, Phase 3) |
+| `acwr_ratio`             | `NUMERIC(4, 2)` |                                            | Acute-to-Chronic Workload Ratio ($0.80\text{--}1.30$ sweet spot) |
+| `body_battery_wake`      | `INTEGER`       |                                            | Morning Energy Bank starting reserve (0–100%)       |
+| `body_battery_min`       | `INTEGER`       |                                            | End-of-day Energy Bank reserve (0–100%)             |
 | `created_at`             | `TIMESTAMPTZ`   | `DEFAULT NOW()`                          | Record insertion timestamp                          |
 
 ---
 
-### 3.3. `sleep_logs` — Sleep Architecture & Autonomic Health
+### 3.3. `sleep_logs` — Sleep Architecture, 5-Metric Overnight Vitals & Immune State
 
-Captures sleep stages and morning recovery biomarkers.
+Captures sleep stages, nocturnal recovery biomarkers, and NightSignal + Apple Vitals confluence state.
 
-| Column          | Type              | Constraints                               | Description                              |
-| --------------- | ----------------- | ----------------------------------------- | ---------------------------------------- |
-| `id`          | `BIGSERIAL`     | `PRIMARY KEY`                           | Unique log identifier                    |
-| `user_id`     | `BIGINT`        | `NOT NULL`                              | User identifier                          |
-| `sleep_date`  | `DATE`          | `NOT NULL, UNIQUE(user_id, sleep_date)` | Date corresponding to the night of sleep |
-| `total_hours` | `NUMERIC(4, 2)` | `NOT NULL`                              | Total time asleep                        |
-| `deep_hours`  | `NUMERIC(4, 2)` |                                           | Deep sleep duration                      |
-| `rem_hours`   | `NUMERIC(4, 2)` |                                           | REM sleep duration                       |
-| `core_hours`  | `NUMERIC(4, 2)` |                                           | Core/Light sleep duration                |
-| `awake_hours` | `NUMERIC(4, 2)` |                                           | Time awake during sleep session          |
-| `hrv_avg_ms`  | `NUMERIC(5, 1)` |                                           | Average morning HRV (SDNN)               |
-| `rhr_bpm`     | `NUMERIC(4, 1)` |                                           | Resting Heart Rate during sleep          |
-| `vo2max`      | `NUMERIC(4, 1)` |                                           | Cardiorespiratory fitness score          |
-| `created_at`  | `TIMESTAMPTZ`   | `DEFAULT NOW()`                         | Record insertion timestamp               |
+| Column                 | Type              | Constraints                               | Description                                                       |
+| ---------------------- | ----------------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| `id`                   | `BIGSERIAL`       | `PRIMARY KEY`                             | Unique log identifier                                             |
+| `user_id`              | `BIGINT`          | `NOT NULL`                                | User identifier                                                   |
+| `sleep_date`           | `DATE`            | `NOT NULL, UNIQUE(user_id, sleep_date)`   | Date corresponding to the night of sleep                          |
+| `total_hours`          | `NUMERIC(4, 2)`   | `NOT NULL`                                | Total time asleep                                                 |
+| `deep_hours`           | `NUMERIC(4, 2)`   |                                           | Deep sleep duration                                               |
+| `rem_hours`            | `NUMERIC(4, 2)`   |                                           | REM sleep duration                                                |
+| `core_hours`           | `NUMERIC(4, 2)`   |                                           | Core/Light sleep duration                                         |
+| `awake_hours`          | `NUMERIC(4, 2)`   |                                           | Time awake during sleep session                                   |
+| `hrv_avg_ms`           | `NUMERIC(5, 1)`   |                                           | Average morning HRV (SDNN)                                        |
+| `hrv_rmssd_ms`         | `NUMERIC(5, 1)`   |                                           | Beat-to-beat vagal HRV RMSSD filtered for artifacts (Phase 3)     |
+| `rhr_bpm`              | `NUMERIC(4, 1)`   |                                           | Resting Heart Rate during sleep                                   |
+| `wrist_temp_delta_c`   | `NUMERIC(4, 2)`   |                                           | Sleeping wrist temperature delta ($\Delta T^\circ\text{C}$) vs baseline |
+| `spo2_pct`             | `NUMERIC(4, 1)`   |                                           | Overnight blood oxygen saturation ($\text{SpO}_2\%$)              |
+| `respiratory_rate`     | `NUMERIC(4, 1)`   |                                           | Sleeping respiratory rate (breaths/min)                           |
+| `sleep_efficiency_pct` | `NUMERIC(4, 1)`   |                                           | Asleep duration divided by total time in bed (%)                  |
+| `immune_state`         | `TEXT`            | `DEFAULT 'optimal'`                       | `optimal`, `training_fatigue`, `immune_watch`, `illness_prodrome` |
+| `vo2max`               | `NUMERIC(4, 1)`   |                                           | Cardiorespiratory fitness score                                   |
+| `created_at`           | `TIMESTAMPTZ`     | `DEFAULT NOW()`                           | Record insertion timestamp                                        |
 
 ---
 

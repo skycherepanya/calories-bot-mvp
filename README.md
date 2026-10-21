@@ -7,9 +7,10 @@
 ## ⚡ Key Capabilities (Lifecore 2.0)
 
 ### 🍏 Native iOS Application (`ios/Lifecore/`)
-* **Bevel-Style Dashboard:** Modern dark-mode interface presenting daily Readiness, Cardiovascular Strain, and Caloric Balance at a glance.
-* **HealthKit Native Telemetry:** Direct on-device queries (<5ms) for sleep architecture (Deep, REM, Core, Awake), morning HRV SDNN, resting heart rate (RHR), and continuous workout telemetry.
-* **1-Tap & Automated Sync:** `LifecoreSyncIntent` integrates with iOS Shortcuts, Action Button, Siri, and background automations.
+* **Bevel 2.0 + Apple Vitals Dashboard (UI 3.0):** Liquid Glass Dark interface presenting daily Readiness, Cardiovascular Strain (with EWMA ACWR), 24h Body Battery / Energy Bank, and Caloric Balance at a glance.
+* **5-Metric Overnight Vitals & Illness Radar:** Direct on-device queries (<5ms) for sleep architecture, beat-to-beat HRV RMSSD (`HKHeartbeatSeriesSample`) + $\ln(\text{SDNN})$, sleeping RHR, sleeping wrist temperature ($\Delta T^\circ\text{C}$), blood oxygen ($\text{SpO}_2\%$), respiratory rate, and $\text{VO}_2\text{max}$. Uses Stanford NightSignal + Apple Vitals confluence to detect pre-symptomatic viral prodrome 24–48h early while avoiding single-metric alarmism.
+* **Time-Lagged Correlation Engine ($T+0, T+1, T+2$):** Deterministic Point-Biserial ($r_{pb}$) and Pearson ($r$) correlation hub linking sodium to water weight spikes, pre-run carbohydrates to cardiac drift %, and late/UPF meals to overnight HRV recovery (with high-TRIMP confounder filtering).
+* **1-Tap & Automated Sync:** `LifecoreSyncIntent` & `LogMealIntent` integrate with iOS Shortcuts, Action Button, Siri, and bidirectional Supabase cloud hydration.
 
 ### 🏃 Athletic Split Telemetry & Running Engine
 * **Kilometer-by-Kilometer Splits:** Granular analysis of every kilometer (pace, average heart rate, elevation gain/loss $\Delta h$, cadence).
@@ -88,10 +89,13 @@ lifecore/
 ├── docs/                      📚 Architecture & Technical Specifications
 │   ├── ARCHITECTURE.md        # 4-layer on-device architecture specification
 │   ├── DATABASE.md            # PostgreSQL cloud warehouse schema & data dictionary
-│   └── ROADMAP.md             # Native iOS-first development roadmap
+│   ├── ROADMAP.md             # Native iOS-first development roadmap (Phase 1–4)
+│   └── superpowers/
+│       ├── specs/             # Architectural specifications (Lifecore 3.0 Vitals, ACWR, Correlations & UI 3.0)
+│       └── plans/             # Task-by-task implementation plans (Phase 2 & Phase 3)
 │
 ├── supabase/                  ☁️ Cloud Warehouse Layer (Supabase PostgreSQL)
-│   └── migrations/            # SQL DDL migrations (001–005, 20260904160000)
+│   └── migrations/            # SQL DDL migrations (001–007)
 │
 └── [Tag: v1.0-telegram-archive] 📦 Safely preserved legacy Telegram, Deno & Python code in Git history
 ```
