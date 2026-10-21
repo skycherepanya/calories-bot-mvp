@@ -488,21 +488,18 @@ public struct TodayView: View {
     private func syncWithCloud() async {
         guard let snap = snapshot else { return }
         isSyncingWithCloud = true
-        cloudSyncMessage = "Syncing..."
+        cloudSyncMessage = "Синхронізація..."
 
         do {
-            let response = try await LifecoreAPIService.shared.syncTelemetry(
+            try await SupabaseSyncService.shared.syncTelemetry(
                 dailyActivity: snap.dailyActivity,
                 sleep: snap.sleepLog,
                 workout: snap.workouts.first
             )
-            if response.ok {
-                cloudSyncMessage = "✅ Successfully saved to Lifecore cloud"
-            } else {
-                cloudSyncMessage = "⚠️ Completed with warnings"
-            }
+            let result = await SupabaseSyncService.shared.syncAll()
+            cloudSyncMessage = "✅ Хмара оновлена (страв: \(result.mealsSynced), тренувань: \(result.analysesSynced))"
         } catch {
-            cloudSyncMessage = "⚠️ Sync error: \(error.localizedDescription)"
+            cloudSyncMessage = "⚠️ Помилка: \(error.localizedDescription)"
         }
 
         isSyncingWithCloud = false

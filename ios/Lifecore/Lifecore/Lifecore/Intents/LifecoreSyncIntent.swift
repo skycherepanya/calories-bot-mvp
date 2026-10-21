@@ -13,7 +13,6 @@ public struct LifecoreSyncIntent: AppIntent {
     @MainActor
     public func perform() async throws -> some IntentResult & ProvidesDialog {
         let health = HealthKitManager.shared
-        let api = LifecoreAPIService.shared
 
         // 1. Ensure permissions
         do {
@@ -33,33 +32,30 @@ public struct LifecoreSyncIntent: AppIntent {
 
         // 3. Send payload to Supabase
         do {
-            let response = try await api.syncTelemetry(
+            try await SupabaseSyncService.shared.syncTelemetry(
                 dailyActivity: dailyActivity,
                 sleep: sleepLog,
                 workout: workout
             )
+            let (meals, analyses) = await SupabaseSyncService.shared.syncAll()
 
-            guard response.ok else {
-                return .result(dialog: "⚠️ Lifecore sync completed with server warnings.")
-            }
-
-            var summary = "✅ Lifecore Synced:"
+            var summary = "✅ Lifecore синхронізовано:"
             if let sleep = sleepLog {
-                summary += " 😴 \(sleep.totalHours)h (Deep: \(sleep.deepHours)h)"
+                summary += " 😴 \(sleep.totalHours)г (Deep: \(sleep.deepHours)г)"
                 if let hrv = sleep.hrvAvgMs {
-                    summary += " | HRV: \(hrv)ms"
+                    summary += " | HRV: \(Int(hrv))ms"
                 }
             }
             if let act = dailyActivity {
-                summary += " | 👟 \(act.steps) steps (\(act.activeKcal) kcal)"
+                summary += " | 👟 \(act.steps) кроків"
             }
-            if let w = workout {
-                summary += " | 🏃 \(w.type) (\(w.durationMin) min)"
+            if meals > 0 || analyses > 0 {
+                summary += " | ☁️ +\(meals) страв, +\(analyses) тренувань"
             }
 
             return .result(dialog: IntentDialog(stringLiteral: summary))
         } catch {
-            return .result(dialog: "⚠️ Failed to sync with Lifecore: \(error.localizedDescription)")
+            return .result(dialog: "⚠️ Помилка синхронізації з Lifecore: \(error.localizedDescription)")
         }
     }
 }
@@ -72,10 +68,20 @@ public struct LifecoreShortcutsProvider: AppShortcutsProvider {
             phrases: [
                 "Sync \(.applicationName)",
                 "Sync with \(.applicationName)",
-                "Log health in \(.applicationName)"
+                "Синхронізувати \(.applicationName)"
             ],
             shortTitle: "Sync Health",
             systemImageName: "heart.text.square.fill"
+        )
+        AppShortcut(
+            intent: LogMealIntent(),
+            phrases: [
+                "Log meal in \(.applicationName)",
+                "Записати їжу в \(.applicationName)",
+                "Додати страву в \(.applicationName)"
+            ],
+            shortTitle: "Log Meal",
+            systemImageName: "fork.knife"
         )
     }
 }

@@ -1,22 +1,30 @@
 import Foundation
 import SwiftUI
 import Combine
+import SwiftData
 
 @MainActor
 public final class MealStorageService: ObservableObject {
     public static let shared = MealStorageService()
 
-    private let storageKey = "LIFECORE_SAVED_MEALS_V1"
-    private let hasSeededKey = "LIFECORE_HAS_SEEDED_MEALS_V1"
+    private let legacyStorageKey = "LIFECORE_SAVED_MEALS_V1"
+    private let hasSeededKey = "LIFECORE_HAS_SEEDED_MEALS_V2"
 
     @Published public private(set) var allMeals: [MealRecord] = []
 
+    private var context: ModelContext {
+        LifecoreDataStore.shared.context
+    }
+
     private init() {
-        loadMeals()
+        migrateFromUserDefaultsIfNeeded()
+        loadMealsFromSwiftData()
+
         let hasSeeded = UserDefaults.standard.bool(forKey: hasSeededKey)
         if allMeals.isEmpty && !hasSeeded {
             seedSampleMeals()
             UserDefaults.standard.set(true, forKey: hasSeededKey)
+            loadMealsFromSwiftData()
         }
     }
 
@@ -63,105 +71,177 @@ public final class MealStorageService: ObservableObject {
         )
     }
 
+    // MARK: - SwiftData Load & Migration
+
+    private func loadMealsFromSwiftData() {
+        let descriptor = FetchDescriptor<MealEntity>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        do {
+            let entities = try context.fetch(descriptor)
+            self.allMeals = entities.map { $0.toRecord() }
+        } catch {
+            print("⚠️ Failed to fetch MealEntity from SwiftData: \(error)")
+        }
+    }
+
+    private func migrateFromUserDefaultsIfNeeded() {
+        guard let data = UserDefaults.standard.data(forKey: legacyStorageKey),
+              let list = try? JSONDecoder().decode([MealRecord].self, from: data),
+              !list.isEmpty else {
+            return
+        }
+
+        for record in list {
+            let entity = MealEntity(record: record)
+            context.insert(entity)
+        }
+        try? context.save()
+        UserDefaults.standard.removeObject(forKey: legacyStorageKey)
+        print("✅ Successfully migrated \(list.count) meals from UserDefaults to SwiftData")
+    }
+
     // MARK: - Mutations
 
     /// Inserts an optimistic pending meal in <0.2s to deliver instant UI feedback.
     @discardableResult
     public func insertOptimisticPending(name: String, dietaryDate: String) -> MealRecord {
-        let record = MealRecord(
+        let entity = MealEntity(
             name: name,
             kcal: 0,
             proteinG: 0,
             fatG: 0,
             carbsG: 0,
             weightG: nil,
+            confidence: nil,
             tags: ["solid"],
+            micronutrientsJson: nil,
+            aminoAcidsJson: nil,
             dietaryDate: dietaryDate,
             createdAt: Date(),
-            isOptimisticPending: true
+            isOptimisticPending: true,
+            syncedToCloud: false
         )
+        context.insert(entity)
+        try? context.save()
+
+        let record = entity.toRecord()
         allMeals.insert(record, at: 0)
-        saveMeals()
         return record
     }
 
     /// Replaces the pending meal with the full analyzed nutrition from Gemini.
     @discardableResult
     public func resolvePending(id: UUID, nutrition: MealNutrition) -> MealRecord? {
-        guard let index = allMeals.firstIndex(where: { $0.id == id }) else { return nil }
-        let existing = allMeals[index]
-
-        let resolved = MealRecord(
-            id: existing.id,
-            name: nutrition.mealName,
-            kcal: nutrition.kcal,
-            proteinG: nutrition.protein,
-            fatG: nutrition.fat,
-            carbsG: nutrition.carbs,
-            weightG: nutrition.weightG,
-            tags: nutrition.tags,
-            micronutrients: nutrition.micronutrients,
-            aminoAcids: nutrition.aminoAcids,
-            dietaryDate: existing.dietaryDate,
-            createdAt: existing.createdAt,
-            isOptimisticPending: false
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == id }
         )
+        guard let entities = try? context.fetch(descriptor), let entity = entities.first else {
+            return nil
+        }
 
-        allMeals[index] = resolved
-        saveMeals()
-        return resolved
+        entity.name = nutrition.mealName
+        entity.kcal = nutrition.kcal
+        entity.proteinG = nutrition.protein
+        entity.fatG = nutrition.fat
+        entity.carbsG = nutrition.carbs
+        entity.weightG = nutrition.weightG
+        entity.tags = nutrition.tags
+
+        if let micro = nutrition.micronutrients, let data = try? JSONEncoder().encode(micro) {
+            entity.micronutrientsJson = String(data: data, encoding: .utf8)
+        }
+        if let amino = nutrition.aminoAcids, let data = try? JSONEncoder().encode(amino) {
+            entity.aminoAcidsJson = String(data: data, encoding: .utf8)
+        }
+        entity.isOptimisticPending = false
+        entity.syncedToCloud = false
+
+        try? context.save()
+
+        loadMealsFromSwiftData()
+        return entity.toRecord()
     }
 
     /// Direct addition of a completed meal.
     @discardableResult
     public func addMeal(nutrition: MealNutrition, dietaryDate: String) -> MealRecord {
-        let record = MealRecord(
+        let microJson: String? = {
+            guard let m = nutrition.micronutrients, let data = try? JSONEncoder().encode(m) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }()
+        let aminoJson: String? = {
+            guard let a = nutrition.aminoAcids, let data = try? JSONEncoder().encode(a) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }()
+
+        let entity = MealEntity(
             name: nutrition.mealName,
             kcal: nutrition.kcal,
             proteinG: nutrition.protein,
             fatG: nutrition.fat,
             carbsG: nutrition.carbs,
             weightG: nutrition.weightG,
+            confidence: nil,
             tags: nutrition.tags,
-            micronutrients: nutrition.micronutrients,
-            aminoAcids: nutrition.aminoAcids,
+            micronutrientsJson: microJson,
+            aminoAcidsJson: aminoJson,
             dietaryDate: dietaryDate,
             createdAt: Date(),
-            isOptimisticPending: false
+            isOptimisticPending: false,
+            syncedToCloud: false
         )
+        context.insert(entity)
+        try? context.save()
+
+        let record = entity.toRecord()
         allMeals.insert(record, at: 0)
-        saveMeals()
         return record
     }
 
     public func deleteMeal(id: UUID) {
         objectWillChange.send()
         allMeals.removeAll(where: { $0.id == id })
-        saveMeals()
+
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let entities = try? context.fetch(descriptor) {
+            for e in entities {
+                context.delete(e)
+            }
+            try? context.save()
+        }
     }
 
     public func restoreMeal(_ meal: MealRecord) {
         objectWillChange.send()
         if !allMeals.contains(where: { $0.id == meal.id }) {
             allMeals.insert(meal, at: 0)
-            saveMeals()
+            let entity = MealEntity(record: meal)
+            context.insert(entity)
+            try? context.save()
         }
     }
 
-    // MARK: - Persistence
+    // MARK: - Cloud Sync Helpers
 
-    private func saveMeals() {
-        if let data = try? JSONEncoder().encode(allMeals) {
-            UserDefaults.standard.set(data, forKey: storageKey)
-        }
+    public func fetchUnsyncedMeals() -> [MealEntity] {
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { !$0.syncedToCloud && !$0.isOptimisticPending }
+        )
+        return (try? context.fetch(descriptor)) ?? []
     }
 
-    private func loadMeals() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
-              let list = try? JSONDecoder().decode([MealRecord].self, from: data) else {
-            return
+    public func markMealSynced(id: UUID, remoteId: Int64) {
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let entity = (try? context.fetch(descriptor))?.first {
+            entity.syncedToCloud = true
+            entity.remoteId = remoteId
+            try? context.save()
         }
-        self.allMeals = list
     }
 
     private func seedSampleMeals() {
@@ -213,7 +293,9 @@ public final class MealStorageService: ObservableObject {
             isOptimisticPending: false
         )
 
-        self.allMeals = [m1, m2, m3]
-        saveMeals()
+        for m in [m1, m2, m3] {
+            context.insert(MealEntity(record: m))
+        }
+        try? context.save()
     }
 }

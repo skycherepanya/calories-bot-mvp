@@ -120,6 +120,16 @@ public struct CoachReportView: View {
         .padding(18)
         .background(Color(red: 0.1, green: 0.11, blue: 0.15))
         .clipShape(RoundedRectangle(cornerRadius: 18))
+        .task {
+            loadCachedReport()
+        }
+    }
+
+    private func loadCachedReport() {
+        if let cached = WorkoutStorageService.fetchAnalysis(for: analysis.workoutUUID),
+           let report = cached.aiCoachReport, !report.isEmpty {
+            self.reportText = report
+        }
     }
 
     private func generateReport() async {
@@ -129,22 +139,31 @@ public struct CoachReportView: View {
         let impact = UIImpactFeedbackGenerator(style: .medium)
         impact.prepare()
 
+        var reportGenerated: String?
+
         do {
             let result = try await GeminiService.shared.generateCoachReport(
                 analysis: analysis,
                 recoveryContext: recoveryContext
             )
-            self.reportText = result
+            reportGenerated = result
             impact.impactOccurred()
         } catch {
             // If API call fails, use deterministic sports analyst offline fallback
-            self.reportText = GeminiService.shared.generateOfflineReport(
+            let fallback = GeminiService.shared.generateOfflineReport(
                 analysis: analysis,
                 recoveryContext: recoveryContext
             )
+            reportGenerated = fallback
             impact.impactOccurred()
+        }
+
+        if let finalReport = reportGenerated {
+            self.reportText = finalReport
+            WorkoutStorageService.updateCoachReport(for: analysis.workoutUUID, report: finalReport)
         }
 
         isLoading = false
     }
 }
+

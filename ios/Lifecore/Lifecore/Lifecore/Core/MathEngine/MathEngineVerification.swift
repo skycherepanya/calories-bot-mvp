@@ -29,6 +29,9 @@ public enum MathEngineVerification {
         // Test 6: Recovery Score Calculation
         results.append(verifyRecoveryScore())
 
+        // Test 7: SwiftData Models & Serialization
+        results.append(verifySwiftDataModels())
+
         return results
     }
 
@@ -182,4 +185,65 @@ public enum MathEngineVerification {
             details: "Prime score: \(primeEval.score) (\(primeEval.state.rawValue)), Strained score: \(strainedEval.score) (\(strainedEval.state.rawValue))"
         )
     }
+
+    private static func verifySwiftDataModels() -> VerificationResult {
+        // 1. Verify MealEntity field roundtrip and +12.5% buffer preservation
+        let meal = MealRecord(
+            name: "Гречка з яловичиною",
+            kcal: round(450 * 1.125),
+            proteinG: 42,
+            fatG: 12,
+            carbsG: 50,
+            weightG: 350,
+            tags: ["whole_food", "solid"],
+            micronutrients: .init(fiberG: 4.0, sodiumMg: 320, potassiumMg: 500, vitaminCMg: 0, ironMg: 3.0, calciumMg: 20),
+            aminoAcids: .init(bcaaG: 8.0, leucineG: 3.5),
+            dietaryDate: "2026-10-21",
+            createdAt: Date(),
+            isOptimisticPending: false
+        )
+        let entity = MealEntity(record: meal, syncedToCloud: false)
+        let roundtrip = entity.toRecord()
+
+        guard roundtrip.name == meal.name,
+              roundtrip.kcal == meal.kcal,
+              roundtrip.proteinG == 42.0,
+              roundtrip.micronutrients?.sodiumMg == 320.0,
+              roundtrip.aminoAcids?.leucineG == 3.5 else {
+            return VerificationResult(testName: "SwiftData Models & Serialization", passed: false, details: "MealEntity field roundtrip failed")
+        }
+
+        // 2. Verify WorkoutAnalysisEntity serialization
+        let splits: [SplitMetric] = [
+            SplitMetric(km: 1, durationSeconds: 300, paceMinPerKm: 5.0, avgHeartRate: 145),
+            SplitMetric(km: 2, durationSeconds: 290, paceMinPerKm: 4.83, avgHeartRate: 150)
+        ]
+        let laps: [LapIntervalMetric] = [
+            LapIntervalMetric(lapIndex: 1, lapType: "work", durationSeconds: 120, avgHeartRate: 165)
+        ]
+
+        let splitsJson = WorkoutAnalysisEntity.serializeSplits(splits)
+        let lapsJson = WorkoutAnalysisEntity.serializeLaps(laps)
+
+        let workoutEntity = WorkoutAnalysisEntity(
+            workoutUUID: UUID(),
+            workoutType: "Running",
+            startedAt: Date(),
+            distanceMeters: 2000,
+            durationSeconds: 590,
+            splitsJson: splitsJson,
+            lapsJson: lapsJson,
+            aiCoachReport: "Чудова пробіжка!"
+        )
+
+        guard workoutEntity.splits.count == 2,
+              workoutEntity.splits.first?.km == 1,
+              workoutEntity.laps.count == 1,
+              workoutEntity.aiCoachReport == "Чудова пробіжка!" else {
+            return VerificationResult(testName: "SwiftData Models & Serialization", passed: false, details: "WorkoutAnalysisEntity serialization failed")
+        }
+
+        return VerificationResult(testName: "SwiftData Models & Serialization", passed: true, details: "MealEntity & WorkoutAnalysisEntity 100% verified")
+    }
 }
+

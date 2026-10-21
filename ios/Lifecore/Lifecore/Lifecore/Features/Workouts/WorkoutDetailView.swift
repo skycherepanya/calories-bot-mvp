@@ -232,6 +232,26 @@ public struct WorkoutDetailView: View {
             )
             self.analysis = analysisResult
 
+            // 5. Persist to SwiftData
+            let distanceM = workout.totalDistance?.doubleValue(for: .meter()) ?? 0
+            let cached = WorkoutStorageService.fetchAnalysis(for: workout.uuid)
+            WorkoutStorageService.saveOrUpdate(
+                workoutUUID: workout.uuid,
+                workoutType: workoutTitle,
+                startedAt: workout.startDate,
+                distanceMeters: distanceM,
+                durationSeconds: workout.duration,
+                avgPaceSecPerKm: analysisResult.avgPaceMinKm * 60.0,
+                avgHeartRate: analysisResult.avgHeartRate,
+                maxHeartRate: analysisResult.maxHeartRate,
+                elevationGainMeters: analysisResult.elevationGainMeters,
+                efficiencyFactor: analysisResult.efficiencyFactor,
+                cardiacDriftPercentage: analysisResult.aerobicDecouplingPct,
+                splits: analysisResult.splits,
+                laps: analysisResult.laps,
+                aiCoachReport: cached?.aiCoachReport
+            )
+
         } catch {
             self.errorMessage = "Помилка читання телеметрії: \(error.localizedDescription)"
         }

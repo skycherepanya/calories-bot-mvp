@@ -102,6 +102,19 @@ public final class HealthKitManager: @unchecked Sendable {
         try await healthStore.save(samples)
     }
 
+    public func saveMealToHealthKit(meal: MealRecord, date: Date = Date()) async throws {
+        try await saveMealToHealthKit(
+            name: meal.name,
+            kcal: meal.kcal,
+            proteinG: meal.proteinG,
+            fatG: meal.fatG,
+            carbsG: meal.carbsG,
+            sodiumMg: meal.micronutrients?.sodiumMg,
+            fiberG: meal.micronutrients?.fiberG,
+            date: date
+        )
+    }
+
     // MARK: - 1. Daily NEAT Activity
     public func fetchDailyActivity(for date: Date = Date()) async throws -> DailyActivity {
         let calendar = Calendar.current

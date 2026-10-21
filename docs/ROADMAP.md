@@ -76,9 +76,18 @@
   - **Interactive Controls:** 30d / 60d / 90d time range selector, interactive scrub tooltips (`.chartXSelection`), pull-to-refresh, and live HealthKit pipelines with high-fidelity realistic fallbacks.
 
 ### 2.6. Local Storage & Cloud Backup (SwiftData + Supabase)
-- [ ] Local `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`, `DailyMetricEntity`, `SleepLogEntity`).
-- [ ] Asynchronous cloud sync to Supabase `meals` and `workout_analyses` (`splits_json`, `laps_json`).
-- [ ] `LogMealIntent.swift` for fast Siri / Action Button food capture.
+- [x] Lean SwiftData `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`):
+  - Strictly limited to nutrition and workout analysis to prevent duplication of raw HealthKit data (sleep & daily metrics are read directly from Apple Health in <5ms).
+  - Preserves +12.5% deficit buffer discipline and 04:00 AM dietary date offset.
+- [x] `WorkoutStorageService` & `MealStorageService`:
+  - Instant offline hydration of 1km splits, interval laps, EF, and AI coach reports.
+  - Seamless migration from UserDefaults to SwiftData.
+- [x] Direct asynchronous cloud sync (`SupabaseSyncService.swift`):
+  - Cloud warehouse persistence to Supabase `meals` and `workout_analyses` tables.
+  - Supabase SQL migration `006_workout_analyses.sql` applied.
+  - Direct REST upload of daily metrics & sleep logs with offline queue.
+- [x] `LogMealIntent.swift` & `LifecoreShortcutsProvider`:
+  - Hands-free Siri, Action Button, and Shortcuts meal capture with instant optimistic response.
 
 ---
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct LifecoreApp: App {
@@ -7,5 +8,6 @@ struct LifecoreApp: App {
             MainTabView()
                 .preferredColorScheme(.dark)
         }
+        .modelContainer(LifecoreDataStore.shared.container)
     }
 }

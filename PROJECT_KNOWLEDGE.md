@@ -113,7 +113,8 @@ ios/Lifecore/
     │   │   ├── FoodPrompt.swift          # English system prompt for optimistic vision food parsing
     │   │   └── CoachPrompt.swift         # English system prompt for 70/15/15 athletic performance analyst
     │   └── Storage/
-    │       ├── SwiftDataModels.swift     # Local-first @Model entities (offline-capable)
+    │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity)
+    │       ├── MealStorageService.swift  # SwiftData meal repository & optimistic state manager
     │       └── SupabaseSyncService.swift # Async cloud persistence for meals & workout_analyses
     ├── Features/
     │   ├── Today/                        # Dark-mode dashboard: Readiness, Strain, Nutrition rings
