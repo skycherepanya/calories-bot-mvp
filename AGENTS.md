@@ -27,8 +27,8 @@ Welcome to the **Lifecore (Native iOS-First & Athletic Performance Platform)** p
 * **Modular Structure:**
   - `Lifecore/App/`: `LifecoreApp.swift`, `MainTabView.swift`
   - `Lifecore/Core/HealthKit/`: `HealthKitManager.swift`, `WorkoutTelemetryExtractor.swift`
-  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`, `VitalsAndIllnessEngine.swift` (Phase 3), `TrainingLoadAndBatteryEngine.swift` (Phase 3), `CorrelationEngine.swift` (Phase 3)
-  - `Lifecore/Core/UI/`: `LifecoreDesignSystem.swift` (Phase 3 Liquid Glass Dark)
+  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`, `VitalsAndIllnessEngine.swift` (Phase 3), `TrainingLoadAndBatteryEngine.swift` (Phase 3), `CorrelationEngine.swift` (Phase 3), `AdaptivePhysiologyEngine.swift` (Phase 3.1 Self-Learning Engine)
+  - `Lifecore/Core/UI/`: `LifecoreDesignSystem.swift` (Phase 3.1 Liquid Glass Bento Cockpit)
   - `Lifecore/Core/AI/`: `GeminiService.swift`, `FoodPrompt.swift`, `CoachPrompt.swift`
   - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `AthleteProfileStore.swift` (Phase 3), `MealStorageService.swift`, `SupabaseSyncService.swift`
   - `Lifecore/Features/`: `Today/`, `Workouts/`, `Nutrition/`, `Trends/`

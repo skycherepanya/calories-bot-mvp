@@ -2,6 +2,34 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Architecture & Spec: Lifecore v3.1 (Phase 3.1) Self-Learning Adaptive Physiology Engine & Complete Liquid Glass Bento UI Overhaul Plan
+
+### 🧠 Self-Learning Mathematical Architecture (`AdaptivePhysiologyEngine.swift`):
+- **Loop 1 — Bayesian Shrinkage & Model Confidence (`confidencePct`):**
+  - Formulated adaptive blending weight $w_N = \frac{N}{N + 14}$ smoothly transitioning all physiological parameters from athlete priors (`AthleteProfile`) to empirical personal data as valid history $N$ grows.
+- **Loop 2 — MacroFactor-Style Adaptive Metabolism (`computeDynamicTDEE`):**
+  - Specified continuous expenditure and BMR calibration from 14-day trend weight delta ($\Delta W_{\text{trend, 14d}} \times 7700\text{ kcal/kg}$) against logged caloric intake and isolated Pure NEAT, automatically detecting metabolic adaptation (`metabolicAdaptationKcal`).
+- **Loop 3 — Online Ridge OLS $\beta$-Sensitivities (`computeLearnedSensitivities`):**
+  - Specified L2-regularized regression slopes for personal sodium water retention ($\beta_{\text{Na}\to\text{H2O}}$ kg/1g Na), TRIMP battery drain elasticity ($\beta_{\text{TRIMP}\to\text{Battery}}$), late meal RHR penalty ($\beta_{\text{LateMeal}\to\text{RHR}}$ bpm), and carbohydrate cardiac drift protection ($\beta_{\text{Carbs}\to\text{Drift}}$ %/100g).
+- **Loop 4 — 60d EWMA Corridors & 1-Tap RPE Weight Calibration:**
+  - Specified rolling 60-day EWMA nocturnal baseline corridors and bounded simplex gradient updates to `ReadinessWeightVector` via 1-tap subjective RPE feedback.
+
+### 🎨 Complete Liquid Glass Bento UI v3.1 Overhaul Specification:
+- **Zero Duplication & Bento Cockpit on `TodayView`:** Removed duplicate `autonomicCard`, integrated `AdaptiveEngineBadgeBar` and `RPEQuickCalibrationRow` into the Hero Cockpit, and converted Sleep + Pure NEAT + Adaptive TDEE into Liquid Glass Bento cards.
+- **Segmented Analytics Hub on `TrendsView`:** Added 4-way Segmented Glass Category Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`) and `AdaptiveEngineStatusCard`.
+- **Full App Cohesion (`WorkoutsView`, `NutritionView`, `MainTabView`):** Unified `.lifecoreGlassCard()` across all 4 tabs, 100% Ukrainian localization, live Banister TRIMP badges on workout cards, and tomorrow's sodium water retention forecast in Nutrition.
+
+### Affected Files
+`docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md`,
+`docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md`,
+`docs/ROADMAP.md`,
+`docs/ARCHITECTURE.md`,
+`PROJECT_KNOWLEDGE.md`,
+`AGENTS.md`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Feature: Lifecore 3.0 (Phase 3) Physiological Intelligence, Overnight Vitals, Illness Prodrome, EWMA ACWR, Energy Bank & UI 3.0 Implementation
 
 ### 🧬 Physiological Math Engines (`VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `CorrelationEngine`):

@@ -115,7 +115,15 @@ $$\text{RMSSD} = \sqrt{\frac{1}{N-1}\sum_{i=1}^{N-1}(RR_{i+1}-RR_i)^2}, \quad Z_
 
 ---
 
-### 2.7. Dietary Date Convention
+### 2.7. Self-Learning Adaptive Physiology Engine (Lifecore v3.1)
+* **Bayesian Shrinkage ($w_N = \frac{N}{N + 14}$):** Smoothly blends athlete priors (`AthleteProfile`) with empirical personal parameters as historical days $N$ accumulate, reporting live `confidencePct` (0–99%).
+* **MacroFactor-Style Adaptive Metabolism (`computeDynamicTDEE`):** Continuously recalibrates effective BMR and TDEE from 14-day exponentially smoothed weight slope ($\Delta W_{\text{trend}} \times 7700\text{ kcal/kg}$) against logged caloric intake and isolated Pure NEAT.
+* **Online Ridge OLS $\beta$-Sensitivities:** Learns personal response slopes: $\beta_{\text{Na}\to\text{H2O}}$ (kg water per 1g sodium), $\beta_{\text{TRIMP}\to\text{Battery}}$ (hourly drain factor), $\beta_{\text{LateMeal}\to\text{RHR}}$ (+bpm overnight penalty), and $\beta_{\text{Carbs}\to\text{Drift}}$ (% cardiac drift per 100g carbs).
+* **60d EWMA Corridors & 1-Tap RPE Weight Calibration:** Updates nocturnal Vitals baselines via 60-day EWMA and adjusts `ReadinessWeightVector` via bounded simplex steps when subjective RPE feedback diverges from predicted Readiness.
+
+---
+
+### 2.8. Dietary Date Convention
 * The dietary day shifts at **04:00 AM** (`shiftHours = 4`), not midnight.
 * Meals, post-midnight workouts, and sleep cycles occurring between 00:00 and 03:59 AM belong to the physiological cycle of the preceding calendar day.
 
@@ -133,7 +141,7 @@ ios/Lifecore/
 └── Lifecore/
     ├── App/
     │   ├── LifecoreApp.swift             # App lifecycle, SwiftData container setup
-    │   └── MainTabView.swift             # 4-tab navigation (Today, Workouts, Nutrition, Trends)
+    │   └── MainTabView.swift             # 4-tab navigation (Сьогодні, Тренування, Харчування, Тренди)
     ├── Core/
     │   ├── HealthKit/
     │   │   ├── HealthKitManager.swift    # Queries raw biometrics, 5-metric Vitals, R-R Heartbeat series, sleep stages
@@ -143,9 +151,10 @@ ios/Lifecore/
     │   │   ├── WorkoutMathEngine.swift   # 1km auto-splits, interval laps, EF, cardiac drift %, GAP, benchmarks
     │   │   ├── VitalsAndIllnessEngine.swift # (Phase 3) 20% R-R filter, ln(RMSSD), 5-metric Vitals & Illness Prodrome
     │   │   ├── TrainingLoadAndBatteryEngine.swift # (Phase 3) Banister TRIMP, EWMA ACWR (7d/28d), 24h Body Battery
-    │   │   └── CorrelationEngine.swift   # (Phase 3) Multi-day time-lagged (T+0, T+1, T+2) r_pb & Pearson r engine
+    │   │   ├── CorrelationEngine.swift   # (Phase 3) Multi-day time-lagged (T+0, T+1, T+2) r_pb & Pearson r engine
+    │   │   └── AdaptivePhysiologyEngine.swift # (Phase 3.1) Bayesian shrinkage, Dynamic TDEE, Ridge OLS β-slopes, 60d EWMA
     │   ├── UI/
-    │   │   └── LifecoreDesignSystem.swift # (Phase 3) Liquid Glass Dark surfaces, specular borders, Vitals glow pills
+    │   │   └── LifecoreDesignSystem.swift # (Phase 3.1) Liquid Glass Bento Cockpit, AdaptiveEngineBadgeBar, RPE calibration
     │   ├── AI/
     │   │   ├── GeminiService.swift       # Direct Google AI Studio client (Vision & Text models)
     │   │   ├── FoodPrompt.swift          # English system prompt for optimistic vision food parsing
