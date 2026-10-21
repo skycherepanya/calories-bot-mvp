@@ -88,19 +88,12 @@ lifecore/
 ├── docs/                      📚 Architecture & Technical Specifications
 │   ├── ARCHITECTURE.md        # 4-layer on-device architecture specification
 │   ├── DATABASE.md            # PostgreSQL cloud warehouse schema & data dictionary
-│   ├── ROADMAP.md             # Native iOS-first development roadmap
-│   └── RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md
+│   └── ROADMAP.md             # Native iOS-first development roadmap
 │
 ├── supabase/                  ☁️ Cloud Warehouse Layer (Supabase PostgreSQL)
-│   ├── functions/
-│   │   ├── ingest-health/     # Telemetry ingestion endpoint for AppIntents
-│   │   └── telegram-bot/      # ⚠️ DEPRECATED (v1.0 Telegram Webhook)
-│   └── migrations/            # SQL DDL migrations (001–005)
+│   └── migrations/            # SQL DDL migrations (001–005, 20260904160000)
 │
-└── legacy_telegram/           ⚠️ DEPRECATED / ARCHIVED (v1.0 Telegram Bot)
-    ├── index.js               # Node.js long-polling entry point
-    ├── handlers/              # Command & message handlers
-    └── utils/                 # Prompts & math utilities
+└── [Tag: v1.0-telegram-archive] 📦 Safely preserved legacy Telegram, Deno & Python code in Git history
 ```
 
 ---
@@ -108,15 +101,13 @@ lifecore/
 ## ⚙️ Setup & Development
 
 ### 1. iOS Application (Primary)
-1. Open `ios/Lifecore/Lifecore.xcodeproj` in **Xcode 16+**.
+1. Open `ios/Lifecore/Lifecore/Lifecore.xcodeproj` in **Xcode 16+**.
 2. Ensure **HealthKit** and **AppIntents** capabilities are assigned to your Apple Developer Team.
 3. Build and run on a physical iPhone connected to an Apple Watch for live HealthKit telemetry.
 
 ### 2. Cloud Synchronization (Supabase)
-Ensure your environment variables are configured in `.env` (or Supabase Secrets for functions):
-```env
-SUPABASE_URL="https://xxxxxxxxxxxx.supabase.co"
-SUPABASE_KEY="anon-or-service-role-key"
-INGEST_SECRET="your-ingest-secret"
-GEMINI_API_KEY="your-google-ai-studio-key"
-```
+Direct on-device synchronization from native iOS (`SupabaseSyncService.swift`) into Supabase PostgreSQL:
+- Supabase Project URL & Anon/Service Role Key configured in `ios/Lifecore/Lifecore/Core/Storage/SupabaseSyncService.swift` (or via environment/runtime configuration).
+- Local-first architecture guarantees 100% offline functionality with async cloud persistence.
+- To inspect or access historical v1.0 Telegram Bot & Deno Edge Function code: `git checkout v1.0-telegram-archive`.
+

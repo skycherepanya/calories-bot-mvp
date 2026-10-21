@@ -2,6 +2,39 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Maintenance: Legacy Repository Cleanup & v1.0 Git Archive Tag
+
+### 🏷️ Git Tag Archive:
+- **`v1.0-telegram-archive`:** Created and pushed annotated git tag `v1.0-telegram-archive` to origin (`git push origin v1.0-telegram-archive`) preserving complete historical Node.js Telegram bot, Deno Edge Functions, and offline Python analytics scripts.
+
+### 🧹 Repository Cleanup:
+- **Purged Temporary & Build Artifacts:** Deleted `scratch/`, `node_modules/`, `Lifecore/scripts/__pycache__/`, and root testing scripts.
+- **Removed Deprecated v1.0 Telegram & ETL Working Tree Files:**
+  - `index.js`, `package.json`, `package-lock.json`
+  - `handlers/` (`callbackHandler.js`, `coachHandler.js`, `photoHandler.js`, `textHandler.js`, `weightHandler.js`)
+  - `utils/` (`coachPrompt.js`, `dateUtils.js`, `gemini.js`, `keyboard.js`, `prompt.js`)
+  - `shortcuts/` (`shortcuts/README.md`, `shortcuts/ingest_health_shortcut.md`)
+  - `supabase/functions/telegram-bot/`, `supabase/functions/ingest-health/`
+  - `Lifecore/` (legacy Python scripts, Strava CSV/GPX datasets, and legacy reports)
+  - `docs/IMPLEMENTATION_PLAN_PHASE2.md`, `docs/RFC_WORKOUT_GRANULARITY_AND_COACH_ARCHITECTURE.md`
+- **Preserved Core Assets:**
+  - `ios/` (complete native Swift 6 application and tests)
+  - `docs/` (`ARCHITECTURE.md`, `DATABASE.md`, `ROADMAP.md`, `superpowers/`)
+  - `supabase/migrations/` (all 6 PostgreSQL DDL migration scripts)
+  - `PROJECT_KNOWLEDGE.md`, `AGENTS.md`, `README.md`, `CHANGELOG.md`, `.agents/`, `.claude/`, `skills-lock.json`
+
+### 📚 Documentation Synchronization:
+- **`README.md` & `PROJECT_KNOWLEDGE.md`:** Updated repository file tree diagrams and cloud synchronization documentation to reflect direct client-to-Supabase REST architecture and reference git tag `v1.0-telegram-archive`.
+- **`docs/ARCHITECTURE.md`:** Updated status matrix and pipeline references to archived state.
+- **`AGENTS.md`:** Synchronized operational constraints and deployment directives.
+
+### Affected Files
+`README.md`,
+`PROJECT_KNOWLEDGE.md`,
+`docs/ARCHITECTURE.md`,
+`AGENTS.md`,
+`CHANGELOG.md`
+
 ---
 
 ## [2026-10-21] - Refactor: Human Coach Insight Persona & Sleep Window Fix

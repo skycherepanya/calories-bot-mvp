@@ -32,7 +32,7 @@ Welcome to the **Lifecore (Native iOS-First & Athletic Performance Platform)** p
   - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `SupabaseSyncService.swift`
   - `Lifecore/Features/`: `Today/`, `Workouts/`, `Nutrition/`, `Trends/`
   - `Lifecore/Intents/`: `LogMealIntent.swift`, `LifecoreSyncIntent.swift`
-* **Legacy Backend Deprecation:** The Dual-Backend (`index.js`, `handlers/`, `utils/`, `supabase/functions/telegram-bot/`) is **Legacy / Deprecated**. Agents must NOT spend effort maintaining parity with Node.js/Deno bots.
+* **Legacy Backend Archived:** The Dual-Backend has been removed from `main` and safely archived in git tag `v1.0-telegram-archive`. The repository is strictly native iOS-First.
 * **Cloud Storage & Sync:** Supabase PostgreSQL serves as cloud backup and synchronization layer.
 
 ### 2.2. Strict Separation: Deterministic Math vs AI Reasoning
@@ -68,4 +68,4 @@ Welcome to the **Lifecore (Native iOS-First & Athletic Performance Platform)** p
 ## 4. Verification and Version Control Rule
 1. **Verification:** Verify Swift code (`xcodebuild` / `swift build`), lints, and scripts before declaring completion.
 2. **Commit:** Commit with conventional commit messages and push to `origin/main`.
-3. **Deploy:** Deploy updated Edge Functions via Supabase CLI (`supabase functions deploy ... --no-verify-jwt --use-api`).
+3. **Deploy:** Apply database migrations to Supabase via Supabase CLI (`supabase db push`) when updating database schemas.

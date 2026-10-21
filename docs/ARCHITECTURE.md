@@ -105,7 +105,7 @@ flowchart TD
   - Asynchronous cloud backup ensuring longitudinal data longevity (10+ years).
   - Key tables: `meals` (nutrition warehouse) and `workout_analyses` (stores 1km splits and structured laps as `JSONB`, alongside AI performance reports).
   - Background synchronization triggered via `LifecoreSyncIntent` / `URLSession` on morning wake-up and workout completion.
-  - Ingestion endpoint: `ingest-health` Edge Function.
+   - Cloud synchronization pipeline: Direct native iOS client (`SupabaseSyncService.swift`) connecting to Supabase PostgreSQL REST endpoints.
 
 ---
 
@@ -125,10 +125,14 @@ flowchart TD
 
 ---
 
-## 4. Status of Legacy Telegram Components (Version 1.0)
+## 4. Status of Legacy Telegram Components (Version 1.0 Archive)
 
-| Component | Path | Status | Notes |
+All Version 1.0 components have been completely removed from `main` and safely archived in git tag `v1.0-telegram-archive`:
+
+| Component | Historical Path | Status | Notes |
 |---|---|---|---|
-| Node.js Long Polling | `index.js`, `handlers/`, `utils/` (`legacy_telegram/`) | ⚠️ **Legacy / Deprecated** | Retained for reference; feature development discontinued |
-| Deno Telegram Webhook | `supabase/functions/telegram-bot/` (`legacy_telegram/`) | ⚠️ **Legacy / Deprecated** | Secondary Telegram interface only; no dual-sync |
-| Offline Python Analytics | `Lifecore/scripts/` | ✅ **Archival Reference** | Historical XML parser and data migration |
+| Node.js Long Polling | `index.js`, `handlers/`, `utils/` | 📦 **Archived in Tag** | Archived in `v1.0-telegram-archive` |
+| Deno Telegram Webhook | `supabase/functions/telegram-bot/` | 📦 **Archived in Tag** | Archived in `v1.0-telegram-archive` |
+| Ingestion Webhook | `supabase/functions/ingest-health/` | 📦 **Archived in Tag** | Replaced by direct iOS client sync |
+| Offline Python Analytics | `Lifecore/scripts/` | 📦 **Archived in Tag** | Historical XML parser & Strava scripts |
+

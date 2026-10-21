@@ -129,16 +129,16 @@ ios/Lifecore/
 
 ### 3.2. Cloud Storage & Synchronization (Supabase PostgreSQL)
 * **Role:** Asynchronous backup, historical cold storage (10+ years), and multi-device warehouse.
-* **Active Edge Functions:** `ingest-health` (telemetry payload ingestion from AppIntents / Shortcuts).
+* **Synchronization Pipeline:** Direct native iOS client (`SupabaseSyncService.swift`) connecting to Supabase PostgreSQL REST endpoints. No intermediary Edge Functions.
 * **Active Tables:** `meals` (nutrition logs), `workout_analyses` (cached JSONB splits & laps + AI reports), `daily_metrics`, `sleep_logs`, `body_measurements`.
 
 ---
 
-### 3.3. Legacy Telegram Architecture (Deprecated)
-The following Version 1.0 components are **Legacy / Deprecated**:
-* **Node.js Long-Polling:** `index.js`, `handlers/`, `utils/`.
-* **Deno Telegram Bot Webhook:** `supabase/functions/telegram-bot/index.ts`.
-* *Policy:* Maintenance of dual-backend parity is discontinued. Telegram serves purely as an auxiliary fallback interface.
+### 3.3. Legacy Telegram Architecture (Archived in Git Tag)
+All Version 1.0 components (Node.js Telegram bot, Deno edge functions, shortcuts, and legacy Python scripts) have been permanently deleted from the active tree and safely archived in git tag **`v1.0-telegram-archive`**:
+* **Tag:** `v1.0-telegram-archive`
+* **Historical Contents:** `index.js`, `handlers/`, `utils/`, `shortcuts/`, `supabase/functions/`, `Lifecore/scripts/`.
+* **Policy:** Dual-backend maintenance is 100% discontinued. The repository is purely iOS-First.
 
 ---
 
