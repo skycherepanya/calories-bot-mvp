@@ -211,7 +211,11 @@ public struct NutritionView: View {
                 LazyVStack(spacing: 10) {
                     ForEach(currentMeals) { meal in
                         if meal.isOptimisticPending {
-                            OptimisticAnalyzingCard(pendingName: meal.name)
+                            OptimisticAnalyzingCard(pendingName: meal.name) {
+                                withAnimation {
+                                    storage.deleteMeal(id: meal.id)
+                                }
+                            }
                         } else {
                             MealItemCard(meal: meal) {
                                 withAnimation {

@@ -4,6 +4,23 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-21] - Feature: Visible Meal Deletion Button & Confirmation Dialogs
+
+### 🥗 Nutrition UI:
+- **`NutritionComponents.swift`:**
+  - Added a dedicated, visible trash icon button (`Image(systemName: "trash")`) to each `MealItemCard` alongside the info button, eliminating reliance on hidden context menus.
+  - Attached a native `.confirmationDialog("Видалити цей прийом їжі?")` with haptic feedback to prevent accidental deletions.
+  - Added a destructive "Видалити цей прийом їжі" button at the bottom of `MealDetailSheet` with confirmation.
+  - Added a cancel/delete button (`xmark.circle.fill`) to `OptimisticAnalyzingCard` allowing users to cancel an optimistic entry immediately.
+- **`NutritionView.swift`:** Wired `onCancel` closure on `OptimisticAnalyzingCard` to `storage.deleteMeal(id:)`.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionComponents.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Fix: Gemini Food Vision & Text Recognition Model Cascade & Token Budget
 
 ### 🥗 Nutrition & AI Vision Pipeline:

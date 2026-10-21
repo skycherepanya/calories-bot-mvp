@@ -273,6 +273,7 @@ public struct MealItemCard: View {
     public let onDelete: () -> Void
 
     @State private var showingDetails = false
+    @State private var showingDeleteAlert = false
 
     public init(meal: MealRecord, onDelete: @escaping () -> Void) {
         self.meal = meal
@@ -310,7 +311,7 @@ public struct MealItemCard: View {
                 }
             }
 
-            // Macros Row
+            // Macros & Action Row
             HStack(spacing: 16) {
                 macroLabel(title: "Б", value: "\(Int(meal.proteinG))г", color: .cyan)
                 macroLabel(title: "Ж", value: "\(Int(meal.fatG))г", color: .yellow)
@@ -318,10 +319,24 @@ public struct MealItemCard: View {
 
                 Spacer()
 
-                Button(action: { showingDetails.toggle() }) {
-                    Image(systemName: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Button(action: { showingDetails = true }) {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(6)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(Circle())
+                    }
+
+                    Button(role: .destructive, action: { showingDeleteAlert = true }) {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                            .foregroundStyle(.red.opacity(0.85))
+                            .padding(6)
+                            .background(Color.red.opacity(0.12))
+                            .clipShape(Circle())
+                    }
                 }
             }
 
@@ -338,13 +353,27 @@ public struct MealItemCard: View {
         .background(Color(red: 0.1, green: 0.11, blue: 0.15))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .contextMenu {
-            Button(role: .destructive, action: onDelete) {
+            Button(role: .destructive, action: { showingDeleteAlert = true }) {
                 Label("Видалити страву", systemImage: "trash")
             }
         }
+        .confirmationDialog(
+            "Видалити цей прийом їжі?",
+            isPresented: $showingDeleteAlert,
+            titleVisibility: .visible
+        ) {
+            Button("Видалити \"\(meal.name)\"", role: .destructive) {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                onDelete()
+            }
+            Button("Скасувати", role: .cancel) {}
+        } message: {
+            Text("Цей запис буде вилучено з вашого щоденника харчування.")
+        }
         .sheet(isPresented: $showingDetails) {
-            MealDetailSheet(meal: meal)
-                .presentationDetents([.medium])
+            MealDetailSheet(meal: meal, onDelete: onDelete)
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -395,11 +424,13 @@ public struct MealItemCard: View {
 
 public struct OptimisticAnalyzingCard: View {
     public let pendingName: String
+    public var onCancel: (() -> Void)? = nil
 
     @State private var isPulsing = false
 
-    public init(pendingName: String) {
+    public init(pendingName: String, onCancel: (() -> Void)? = nil) {
         self.pendingName = pendingName
+        self.onCancel = onCancel
     }
 
     public var body: some View {
@@ -416,14 +447,22 @@ public struct OptimisticAnalyzingCard: View {
 
                 Spacer()
 
-                Text("Аналізую...")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.cyan.opacity(0.18))
-                    .foregroundStyle(.cyan)
-                    .clipShape(Capsule())
+                if let onCancel = onCancel {
+                    Button(action: onCancel) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Аналізую...")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.cyan.opacity(0.18))
+                        .foregroundStyle(.cyan)
+                        .clipShape(Capsule())
+                }
             }
 
             // Shimmer Bar
@@ -466,7 +505,16 @@ public struct OptimisticAnalyzingCard: View {
 // MARK: - 5. Meal Detail Sheet (Micros & Amino Acids)
 
 public struct MealDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
     public let meal: MealRecord
+    public var onDelete: (() -> Void)? = nil
+
+    @State private var showingDeleteConfirm = false
+
+    public init(meal: MealRecord, onDelete: (() -> Void)? = nil) {
+        self.meal = meal
+        self.onDelete = onDelete
+    }
 
     public var body: some View {
         NavigationStack {
@@ -498,9 +546,46 @@ public struct MealDetailSheet: View {
                         if let leu = amino.leucineG { HStack { Text("Лейцин (тригер MPS)"); Spacer(); Text(String(format: "%.1f г", leu)).bold().foregroundStyle(.cyan) } }
                     }
                 }
+
+                if let onDelete = onDelete {
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "trash")
+                                Text("Видалити цей прийом їжі")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                            }
+                            .foregroundStyle(.red)
+                        }
+                    }
+                }
             }
             .navigationTitle(meal.name)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Готово") { dismiss() }
+                }
+            }
+            .confirmationDialog(
+                "Видалити цей прийом їжі?",
+                isPresented: $showingDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Видалити \"\(meal.name)\"", role: .destructive) {
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    dismiss()
+                    onDelete?()
+                }
+                Button("Скасувати", role: .cancel) {}
+            } message: {
+                Text("Цей запис буде вилучено з вашого щоденника харчування.")
+            }
         }
     }
 }
