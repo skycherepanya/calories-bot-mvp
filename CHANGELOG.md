@@ -4,6 +4,40 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-21] - Refactor: Human Coach Insight Persona & Sleep Window Fix
+
+### 🤖 AI Coach Persona & Language Simplification:
+- **`CoachPrompt.swift`:**
+  - **Human Coach Persona:** Re-anchored system prompt to an experienced personal endurance coach giving a clear, motivating, and sharp post-workout debrief in friendly Ukrainian (звернення на «ти»).
+  - **Eliminated Jargon & Academic Tags:** Permanently removed internal framework percentage tags from headings (no more `(70%)`, `(15%)`) and replaced robotic jargon ("декомпенсація міокарда", "коефіцієнт EF", "дельта", "кардіоваскулярні резерви") with intuitive physical running sensations (розкладка сил, контроль пульсу, економність бігу).
+  - **Natural 3-Section Structure:**
+    - `### 🏃 Як пройшов забіг`: загальний темп, розкладка сил (негативний спліт), стабільність серця без задишки.
+    - `### 📈 Твій прогрес`: живе порівняння з минулими забігами простою мовою без сухих табличних колонок.
+    - `### 🎯 Що робити далі (план на 24г)`: зв'язок зі свіжістю організму та рівно одна конкретна порада щодо харчування та відновлення.
+- **`GeminiService.swift`:**
+  - Updated `generateOfflineReport` to match the exact same simple, human, and encouraging tone for offline/fallback mode.
+- **`CoachReportView.swift`:**
+  - Replaced internal engineering badge `"70 / 15 / 15"` with `"Lifecore Coach"` and title with `"AI Тренер"`.
+  - Replaced technical onboarding copy with plain Ukrainian description.
+- **`WorkoutDetailComponents.swift` & `WorkoutMathEngine.swift`:**
+  - Translated `BenchmarkDelta.narrativeSummary` from English to natural Ukrainian (`Порівняно з минулим забігом: темп був на X с/км швидше...`).
+  - Renamed benchmark delta headers to plain Ukrainian terms ("Різниця темпу", "Різниця пульсу", "Ефективність").
+
+### 😴 Sleep Window Calibration:
+- **`HealthKitManager.swift`:**
+  - **Preceding Night Isolation:** Fixed `fetchRecentRecoveryContext` where a 48h lookback window inadvertently summed multiple nights together (causing `15.0 год` sleep). The query now strictly isolates the single night immediately prior to the workout (from 18:00 previous evening) and caps total sleep realistically.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/CoachReportView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailComponents.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Fix: Workout Pace Chart Crash on Toggle & Cardiac Drift Partial Split Distance
 
 ### 🏃 Workout Charts & Telemetry Curves:

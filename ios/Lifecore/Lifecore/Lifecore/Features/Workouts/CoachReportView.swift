@@ -20,7 +20,7 @@ public struct CoachReportView: View {
         VStack(alignment: .leading, spacing: 14) {
             // Header
             HStack {
-                Label("AI Performance Analyst", systemImage: "sparkles")
+                Label("AI Тренер", systemImage: "sparkles")
                     .font(.headline)
                     .foregroundStyle(
                         LinearGradient(
@@ -32,7 +32,7 @@ public struct CoachReportView: View {
 
                 Spacer()
 
-                Text("70 / 15 / 15")
+                Text("Lifecore Coach")
                     .font(.caption2)
                     .fontWeight(.bold)
                     .padding(.horizontal, 8)
@@ -61,7 +61,7 @@ public struct CoachReportView: View {
                             ProgressView().tint(.cyan)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                            Text("Оновити аналіз тренера")
+                            Text("Оновити пораду тренера")
                         }
                     }
                     .font(.footnote)
@@ -74,7 +74,7 @@ public struct CoachReportView: View {
             } else {
                 // Initial CTA Card
                 VStack(spacing: 12) {
-                    Text("Глибокий фізіологічний розбір розкладки сплітів (70%), порівняння з бенчмарками (15%) та причинно-наслідковий зв'язок зі сном і біомаркерами (15%).")
+                    Text("Персональний розбір пробіжки простою мовою: як ти розклав сили, твій прогрес до минулих тренувань та практична порада на сьогодні й завтра.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)

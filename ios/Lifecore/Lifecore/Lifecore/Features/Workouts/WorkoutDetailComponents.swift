@@ -122,12 +122,12 @@ public struct BenchmarkComparisonCard: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Historical Benchmark", systemImage: "arrow.left.arrow.right")
+                Label("Динаміка форми", systemImage: "arrow.left.arrow.right")
                     .font(.headline)
                     .foregroundStyle(.indigo)
                 Spacer()
                 if let count = benchmark?.comparedWorkoutsCount, count > 0 {
-                    Text("\(count) схожих сесій")
+                    Text("\(count) схожих забігів")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -136,21 +136,21 @@ public struct BenchmarkComparisonCard: View {
             if let b = benchmark {
                 HStack(spacing: 16) {
                     deltaItem(
-                        title: "Дельта темпу",
+                        title: "Різниця темпу",
                         value: String(format: "%+.1f с/км", b.paceDeltaSecPerKm),
                         isPositiveGood: false,
                         actualValue: b.paceDeltaSecPerKm
                     )
 
                     deltaItem(
-                        title: "Дельта ЧСС",
-                        value: String(format: "%+.1f bpm", b.hrDeltaBpm),
+                        title: "Різниця пульсу",
+                        value: String(format: "%+.1f уд/хв", b.hrDeltaBpm),
                         isPositiveGood: false,
                         actualValue: b.hrDeltaBpm
                     )
 
                     deltaItem(
-                        title: "Зсув EF",
+                        title: "Ефективність",
                         value: String(format: "%+.3f", b.efDelta),
                         isPositiveGood: true,
                         actualValue: b.efDelta

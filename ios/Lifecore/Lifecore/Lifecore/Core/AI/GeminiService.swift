@@ -537,66 +537,70 @@ public final class GeminiService: @unchecked Sendable {
     ) -> String {
         var report = ""
 
-        report += "### 🏃 Аналіз тренування (70%)\n"
-        report += "• **Дистанція та темп:** Виконано \(String(format: "%.2f", analysis.distanceKm)) км за \(String(format: "%.1f", analysis.durationMin)) хв із середнім темпом \(String(format: "%.2f", analysis.avgPaceMinKm)) хв/км. "
+        // Section 1: Як пройшов забіг
+        report += "### 🏃 Як пройшов забіг\n"
+        let dist = String(format: "%.2f", analysis.distanceKm)
+        let dur = String(format: "%.0f", analysis.durationMin)
+        let pace = analysis.splits.first?.formattedPace ?? String(format: "%.2f", analysis.avgPaceMinKm)
+        report += "Ти подолав \(dist) км за \(dur) хв (середній темп \(pace)). "
 
         if analysis.splits.count >= 2 {
             let firstSplit = analysis.splits.first!
             let lastSplit = analysis.splits.last!
             if lastSplit.paceMinPerKm < firstSplit.paceMinPerKm - 0.15 {
-                report += "Зафіксовано впевнений негативний спліт (прискорення на заключних відрізках з \(firstSplit.formattedPace) до \(lastSplit.formattedPace)).\n"
+                report += "Дуже грамотна розкладка сил: почав спокійно, а під кінець навіть додав темпу з \(firstSplit.formattedPace) до \(lastSplit.formattedPace) (ідеальний негативний спліт). "
             } else if lastSplit.paceMinPerKm > firstSplit.paceMinPerKm + 0.20 {
-                report += "Спостерігається позитивний спліт — темп дещо просів на фінальних кілометрах (з \(firstSplit.formattedPace) до \(lastSplit.formattedPace)).\n"
+                report += "Початок був досить бадьорим, але на фінішних відрізках темп дещо просів — варто починати на 10-15 секунд спокійніше. "
             } else {
-                report += "Витримано рівномірну, стабільну швидкість без суттєвих темпових коливань.\n"
+                report += "Темп був рівним і стабільним по всій дистанції без перепадів. "
             }
-        } else {
-            report += "Сесія пройшла з рівномірною розкладкою темпу.\n"
-        }
-
-        if let ef = analysis.efficiencyFactor {
-            report += "• **Коефіцієнт ефективності (EF):** \(String(format: "%.3f", ef)) м/хв/уд. "
         }
 
         if let drift = analysis.aerobicDecouplingPct {
             if drift < 5.0 {
-                report += "• **Серцевий дрейф (Cardiac Drift):** \(String(format: "%.1f", drift))% — мінімальна декомпенсація. Аеробна база відпрацювала стабільно, відсутні ознаки зневоднення чи втоми міокарда.\n"
+                report += "Пульс залишався спокійним і контрольованим до самого фінішу — аеробна витривалість тримає навантаження на відмінно.\n"
             } else if drift < 10.0 {
-                report += "• **Серцевий дрейф (Cardiac Drift):** \(String(format: "%.1f", drift))% — помірне роз'єднання пульсу та швидкості в другій половині сесії. Організм підключив додаткові кардіоваскулярні резерви.\n"
+                report += "У другій половині забігу серцю знадобилося трохи більше зусиль, але темп ти втримав упевнено.\n"
             } else {
-                report += "• **Серцевий дрейф (Cardiac Drift):** \(String(format: "%.1f", drift))% — відчутний дрейф пульсу при стабільному темпі. Фіксується кардіоваскулярна втома або дефіцит рідини/глікогену.\n"
+                report += "Під кінець відчувався зріст пульсу — організм витратив багато сил, варто звернути увагу на гідратацію та відпочинок.\n"
             }
-        }
-
-        if analysis.elevationGainMeters > 15 {
-            report += "• **Реакція на рельєф:** Набір висоти склав \(Int(analysis.elevationGainMeters)) м. Пульс адекватно реагував на підйоми з компенсацією на спусках.\n"
-        }
-
-        report += "\n### ⚖️ Порівняння з бенчмарком (15%)\n"
-        if let b = analysis.benchmarkDelta {
-            report += "\(b.narrativeSummary)\n"
-            report += "• Дельта темпу: \(String(format: "%+.1f", b.paceDeltaSecPerKm)) с/км | Дельта ЧСС: \(String(format: "%+.1f", b.hrDeltaBpm)) уд/хв | Зсув EF: \(String(format: "%+.3f", b.efDelta)).\n"
         } else {
-            report += "• Попередніх ідентичних тренувань для повної кореляції наразі недостатньо. Поточна сесія зафіксована як новий базовий бенчмарк для цієї дистанції.\n"
+            report += "Робота серця була плавною та адекватною навантаженню.\n"
         }
 
-        report += "\n### 🧬 Фізіологічний контекст & Дія на 24г (15%)\n"
-        if let rec = recoveryContext {
-            if let sleep = rec.lastNightSleepHours {
-                report += "• Сон напередодні: \(String(format: "%.1f", sleep)) год (Глибокий: \(String(format: "%.1f", rec.lastNightDeepHours ?? 0)) год, REM: \(String(format: "%.1f", rec.lastNightRemHours ?? 0)) год). "
-            }
-            if let hrv = rec.morningHrvMs, let base = rec.baselineHrvMs {
-                let delta = hrv - base
-                report += "Ранковий HRV: \(Int(hrv)) мс (\(delta >= 0 ? "+" : "")\(Int(delta)) мс від норми). "
-            }
-            if let score = rec.recoveryScore {
-                report += "Готовність: \(score)%.\n"
+        // Section 2: Твій прогрес
+        report += "\n### 📈 Твій прогрес\n"
+        if let b = analysis.benchmarkDelta {
+            let paceDiff = abs(b.paceDeltaSecPerKm)
+            if b.paceDeltaSecPerKm < -3.0 {
+                report += "Помітний крок уперед: ти біг на \(Int(paceDiff)) с/км швидше за минулі схожі тренування"
+                if abs(b.hrDeltaBpm) <= 3.0 {
+                    report += ", а пульс при цьому майже не змінився. Це пряма ознака росту форми!\n"
+                } else if b.hrDeltaBpm < 0 {
+                    report += " і навіть на меншому пульсі. Тіло стає витривалішим.\n"
+                } else {
+                    report += ". Форма чудово реагує на навантаження.\n"
+                }
+            } else if b.paceDeltaSecPerKm > 5.0 {
+                report += "Це тренування пройшло в спокійнішому темпі, ніж зазвичай — хороший контрольований біг без зайвого виснаження.\n"
             } else {
-                report += "\n"
+                report += "Стабільний рівень: швидкість і пульс практично ідентичні твоїм попереднім забігам на цю дистанцію.\n"
             }
+        } else {
+            report += "Це твій перший зафіксований забіг на цю дистанцію — чудовий базовий орієнтир для наступних тренувань.\n"
         }
 
-        report += "• **Директива на 24г:** Поповнити вуглеводне депо (~300-350г складних вуглеводів протягом дня) та провести завтра легку аеробну сесію відновлення із пульсовою стелею не вище 135 bpm."
+        // Section 3: Що робити далі
+        report += "\n### 🎯 Що робити далі (план на 24г)\n"
+        if let rec = recoveryContext, let hrv = rec.morningHrvMs, let base = rec.baselineHrvMs {
+            let diff = hrv - base
+            if diff >= -5 {
+                report += "Організм був добре відновлений перед стартом (ранковий HRV у нормі). "
+            } else {
+                report += "Перед забігом фіксувалася легка втома за HRV, але тіло гідно впоралося. "
+            }
+        }
+        report += "Сьогодні обов'язково закрий енергетичні витрати складними вуглеводами (каші, паста, картопля), а завтра заплануй легке відновлювальне тренування на спокійному пульсі до 135 bpm або повний день відпочинку."
 
         return report
     }

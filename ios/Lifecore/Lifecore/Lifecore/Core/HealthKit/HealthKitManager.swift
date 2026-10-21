@@ -367,10 +367,12 @@ public final class HealthKitManager: @unchecked Sendable {
     /// Fetches 48h pre-workout physiological recovery context (sleep architecture, morning HRV, RHR baseline delta).
     public func fetchRecentRecoveryContext(for workoutDate: Date) async -> RecentRecoveryContext {
         let calendar = Calendar.current
-        let startWindow = calendar.date(byAdding: .day, value: -2, to: workoutDate) ?? workoutDate.addingTimeInterval(-172800)
         let baseline = await fetchHistoricalBaseline(days: 30)
 
-        let sleepPredicate = HKQuery.predicateForSamples(withStart: startWindow, end: workoutDate, options: [])
+        // Last night sleep window: from 18:00 of the previous evening up to the workout start
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: workoutDate) ?? workoutDate.addingTimeInterval(-86400)
+        let sleepStartWindow = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: previousDay) ?? workoutDate.addingTimeInterval(-14 * 3600)
+        let sleepPredicate = HKQuery.predicateForSamples(withStart: sleepStartWindow, end: workoutDate, options: .strictStartDate)
         let sleepSamples: [HKCategorySample] = (try? await withCheckedThrowingContinuation { continuation in
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
             let query = HKSampleQuery(
@@ -396,11 +398,13 @@ public final class HealthKitManager: @unchecked Sendable {
             default: break
             }
         }
-        let totalSleep = round(((deepSec + remSec + coreSec) / 3600.0) * 10) / 10
+        let rawTotalSleep = round(((deepSec + remSec + coreSec) / 3600.0) * 10) / 10
+        let totalSleep = min(10.0, rawTotalSleep)
         let deepHours = round((deepSec / 3600.0) * 10) / 10
         let remHours = round((remSec / 3600.0) * 10) / 10
 
-        let biomarkerPredicate = HKQuery.predicateForSamples(withStart: startWindow, end: workoutDate, options: [])
+        let biomarkerStartWindow = calendar.date(byAdding: .hour, value: -24, to: workoutDate) ?? workoutDate.addingTimeInterval(-86400)
+        let biomarkerPredicate = HKQuery.predicateForSamples(withStart: biomarkerStartWindow, end: workoutDate, options: [])
         let hrvVals = (try? await fetchQuantityValues(for: HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli), predicate: biomarkerPredicate)) ?? []
         let rhrVals = (try? await fetchQuantityValues(for: HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()), predicate: biomarkerPredicate)) ?? []
 

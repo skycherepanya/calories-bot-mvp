@@ -410,15 +410,16 @@ public enum WorkoutMathEngine {
         let hrDelta = (current.avgHr != nil && benchmarkHr != nil) ? round((current.avgHr! - benchmarkHr!) * 10) / 10 : 0.0
         let efDelta = (current.ef != nil && benchmarkEf != nil) ? round((current.ef! - benchmarkEf!) * 1000) / 1000 : 0.0
 
-        let paceText = paceDeltaSec <= 0
-            ? String(format: "%.0f sec/km faster", abs(paceDeltaSec))
-            : String(format: "%.0f sec/km slower", paceDeltaSec)
+        let paceTextUk = paceDeltaSec <= 0
+            ? String(format: "на %.0f с/км швидше", abs(paceDeltaSec))
+            : String(format: "на %.0f с/км спокійніше", paceDeltaSec)
 
-        let hrText = hrDelta <= 0
-            ? String(format: "%.0f bpm lower HR cost", abs(hrDelta))
-            : String(format: "+%.0f bpm higher HR cost", hrDelta)
+        let hrTextUk = hrDelta <= 0
+            ? String(format: "при пульсі нижче на %.0f уд/хв", abs(hrDelta))
+            : String(format: "із пульсом вище на %.0f уд/хв", hrDelta)
 
-        let summary = "Compared to \(matching.count) similar session(s): pace was \(paceText), at \(hrText) (EF delta: \(efDelta >= 0 ? "+" : "")\(efDelta))."
+        let countUk = matching.count == 1 ? "1 схожим забігом" : "\(matching.count) схожими забігами"
+        let summary = "Порівняно з минулим \(countUk): темп був \(paceTextUk), \(hrTextUk)."
 
         return BenchmarkDelta(
             comparedWorkoutsCount: matching.count,
