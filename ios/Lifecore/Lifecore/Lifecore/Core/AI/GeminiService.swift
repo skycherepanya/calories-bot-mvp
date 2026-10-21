@@ -57,24 +57,40 @@ public struct GeminiRequest: Codable, Sendable {
     }
 
     public struct GenerationConfig: Codable, Sendable {
+        public struct ThinkingConfig: Codable, Sendable {
+            public let thinkingBudget: Int
+
+            public init(thinkingBudget: Int = 0) {
+                self.thinkingBudget = thinkingBudget
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case thinkingBudget = "thinking_budget"
+            }
+        }
+
         public let temperature: Double
         public let maxOutputTokens: Int
         public let responseMimeType: String?
+        public let thinkingConfig: ThinkingConfig?
 
         public init(
             temperature: Double = 0.4,
-            maxOutputTokens: Int = 1500,
-            responseMimeType: String? = nil
+            maxOutputTokens: Int = 2500,
+            responseMimeType: String? = nil,
+            thinkingConfig: ThinkingConfig? = nil
         ) {
             self.temperature = temperature
             self.maxOutputTokens = maxOutputTokens
             self.responseMimeType = responseMimeType
+            self.thinkingConfig = thinkingConfig
         }
 
         enum CodingKeys: String, CodingKey {
             case temperature
             case maxOutputTokens
             case responseMimeType = "response_mime_type"
+            case thinkingConfig = "thinking_config"
         }
     }
 
@@ -94,10 +110,12 @@ public struct GeminiResponse: Codable, Sendable {
         public struct Content: Codable, Sendable {
             public struct Part: Codable, Sendable {
                 public let text: String?
+                public let thought: Bool?
             }
             public let parts: [Part]?
         }
         public let content: Content?
+        public let finishReason: String?
     }
     public let candidates: [Candidate]?
 }
@@ -140,8 +158,8 @@ public final class GeminiService: @unchecked Sendable {
         return decoded
     }
 
-    /// Model cascade as specified in PROJECT_KNOWLEDGE.md and verified against Gemini API
-    public static let foodModelCascade = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-3.6-flash"]
+    /// Model cascade prioritized by real-time latency and reliability
+    public static let foodModelCascade = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.8-flash"]
 
     private let session: URLSession
     private var customApiKey: String?
@@ -188,7 +206,12 @@ public final class GeminiService: @unchecked Sendable {
         let requestBody = GeminiRequest(
             systemInstruction: .init(parts: [.init(text: FoodPrompt.systemPrompt)]),
             contents: [.init(role: "user", parts: parts)],
-            generationConfig: .init(temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json")
+            generationConfig: .init(
+                temperature: 0.2,
+                maxOutputTokens: 2500,
+                responseMimeType: "application/json",
+                thinkingConfig: .init(thinkingBudget: 0)
+            )
         )
 
         let encodedBody = try JSONEncoder().encode(requestBody)
@@ -241,9 +264,22 @@ public final class GeminiService: @unchecked Sendable {
         }
 
         let decoded = try JSONDecoder().decode(GeminiResponse.self, from: data)
-        guard let candidate = decoded.candidates?.first,
-              var jsonText = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n"),
-              !jsonText.isEmpty else {
+        guard let candidate = decoded.candidates?.first else {
+            throw GeminiError.emptyResponse
+        }
+
+        // Filter out thinking parts if any exist
+        let nonThoughtTexts = candidate.content?.parts?
+            .filter { $0.thought != true }
+            .compactMap { $0.text } ?? []
+
+        var jsonText = nonThoughtTexts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if jsonText.isEmpty {
+            jsonText = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+
+        guard !jsonText.isEmpty else {
             throw GeminiError.emptyResponse
         }
 
@@ -265,9 +301,10 @@ public final class GeminiService: @unchecked Sendable {
 
         do {
             let meal = try JSONDecoder().decode(MealNutrition.self, from: jsonData)
+            print("[Gemini] Model \(model) successfully parsed: '\(meal.mealName)' (\(Int(meal.kcal)) kcal, P:\(Int(meal.protein)) F:\(Int(meal.fat)) C:\(Int(meal.carbs)))")
             return meal
         } catch {
-            print("[Gemini] Failed to decode MealNutrition from: \(jsonText)")
+            print("[Gemini] Failed to decode MealNutrition from: \(jsonText). Error: \(error)")
             throw GeminiError.decodingFailed(error.localizedDescription)
         }
     }
@@ -293,7 +330,11 @@ public final class GeminiService: @unchecked Sendable {
         let requestBody = GeminiRequest(
             systemInstruction: .init(parts: [.init(text: CoachPrompt.systemPrompt)]),
             contents: [.init(role: "user", parts: [.init(text: userPrompt)])],
-            generationConfig: .init(temperature: 0.35, maxOutputTokens: 1800)
+            generationConfig: .init(
+                temperature: 0.35,
+                maxOutputTokens: 3000,
+                thinkingConfig: .init(thinkingBudget: 0)
+            )
         )
 
         var request = URLRequest(url: url)
@@ -313,9 +354,20 @@ public final class GeminiService: @unchecked Sendable {
         }
 
         let decoded = try JSONDecoder().decode(GeminiResponse.self, from: data)
-        guard let candidate = decoded.candidates?.first,
-              let text = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n"),
-              !text.isEmpty else {
+        guard let candidate = decoded.candidates?.first else {
+            throw GeminiError.emptyResponse
+        }
+
+        let nonThoughtTexts = candidate.content?.parts?
+            .filter { $0.thought != true }
+            .compactMap { $0.text } ?? []
+
+        var text = nonThoughtTexts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty {
+            text = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n") ?? ""
+        }
+
+        guard !text.isEmpty else {
             throw GeminiError.emptyResponse
         }
 
@@ -325,7 +377,8 @@ public final class GeminiService: @unchecked Sendable {
     // MARK: - Offline Heuristic Fallbacks
 
     public func generateOfflineMeal(textDescription: String?) -> MealNutrition {
-        let desc = textDescription?.lowercased() ?? ""
+        let trimmedDesc = textDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let desc = trimmedDesc.lowercased()
 
         // Realistic cooked weights and exact macros with +12.5% safety deficit buffer
         let mealName: String
@@ -338,7 +391,17 @@ public final class GeminiService: @unchecked Sendable {
         let micro: Micronutrients
         let amino: AminoAcids
 
-        if desc.contains("вівсян") || desc.contains("oat") || desc.contains("каша") {
+        if desc.contains("сендвіч") || desc.contains("бутерброд") || desc.contains("тост") || desc.contains("паніні") || desc.contains("sandwich") {
+            mealName = trimmedDesc.isEmpty ? "Сендвіч із шинкою та сиром" : trimmedDesc.capitalized
+            exactKcal = 370.0
+            protein = 20.0
+            fat = 16.0
+            carbs = 36.0
+            weightG = 160.0
+            tags = ["whole_food", "solid", "slow_absorbing"]
+            micro = .init(fiberG: 2.2, sodiumMg: 720, potassiumMg: 210, vitaminCMg: 2, ironMg: 1.4, calciumMg: 190)
+            amino = .init(bcaaG: 3.8, leucineG: 1.7)
+        } else if desc.contains("вівсян") || desc.contains("oat") || desc.contains("каша") {
             mealName = "Вівсяна каша з ягодами та горіхами"
             exactKcal = 340.0
             protein = 12.0
@@ -368,8 +431,58 @@ public final class GeminiService: @unchecked Sendable {
             tags = ["whole_food", "liquid", "fast_absorbing"]
             micro = .init(fiberG: 0.0, sodiumMg: 140, potassiumMg: 160, vitaminCMg: 0, ironMg: 0.4, calciumMg: 120)
             amino = .init(bcaaG: 6.2, leucineG: 3.1)
-        } else if desc.contains("бургер") || desc.contains("піца") || desc.contains("pizza") || desc.contains("fast") {
-            mealName = "Бургер з яловичиною та картоплею"
+        } else if desc.contains("салат") || desc.contains("цезар") || desc.contains("salad") {
+            mealName = trimmedDesc.isEmpty ? "Салат зі свіжими овочами та сиром" : trimmedDesc.capitalized
+            exactKcal = 220.0
+            protein = 8.0
+            fat = 16.0
+            carbs = 12.0
+            weightG = 240.0
+            tags = ["whole_food", "solid", "slow_absorbing"]
+            micro = .init(fiberG: 4.5, sodiumMg: 380, potassiumMg: 420, vitaminCMg: 28, ironMg: 1.8, calciumMg: 140)
+            amino = .init(bcaaG: 1.5, leucineG: 0.7)
+        } else if desc.contains("суп") || desc.contains("борщ") || desc.contains("soup") {
+            mealName = trimmedDesc.isEmpty ? "Домашній борщ з м'ясом" : trimmedDesc.capitalized
+            exactKcal = 280.0
+            protein = 16.0
+            fat = 10.0
+            carbs = 28.0
+            weightG = 350.0
+            tags = ["whole_food", "liquid", "slow_absorbing"]
+            micro = .init(fiberG: 4.0, sodiumMg: 750, potassiumMg: 480, vitaminCMg: 14, ironMg: 2.2, calciumMg: 45)
+            amino = .init(bcaaG: 2.8, leucineG: 1.3)
+        } else if desc.contains("паста") || desc.contains("макарон") || desc.contains("спагет") || desc.contains("pasta") {
+            mealName = trimmedDesc.isEmpty ? "Паста твердих сортів із соусом" : trimmedDesc.capitalized
+            exactKcal = 440.0
+            protein = 15.0
+            fat = 12.0
+            carbs = 68.0
+            weightG = 280.0
+            tags = ["whole_food", "solid", "slow_absorbing"]
+            micro = .init(fiberG: 4.2, sodiumMg: 460, potassiumMg: 250, vitaminCMg: 3, ironMg: 2.4, calciumMg: 50)
+            amino = .init(bcaaG: 2.6, leucineG: 1.2)
+        } else if desc.contains("лосось") || desc.contains("риб") || desc.contains("fish") || desc.contains("тунець") {
+            mealName = trimmedDesc.isEmpty ? "Запечений лосось із рисом" : trimmedDesc.capitalized
+            exactKcal = 480.0
+            protein = 36.0
+            fat = 18.0
+            carbs = 42.0
+            weightG = 320.0
+            tags = ["whole_food", "solid", "slow_absorbing"]
+            micro = .init(fiberG: 2.0, sodiumMg: 390, potassiumMg: 620, vitaminCMg: 4, ironMg: 1.9, calciumMg: 65)
+            amino = .init(bcaaG: 6.8, leucineG: 3.1)
+        } else if desc.contains("стейк") || desc.contains("яловичин") || desc.contains("м'яс") || desc.contains("мʼяс") || desc.contains("мяс") {
+            mealName = trimmedDesc.isEmpty ? "Стейк із яловичини з овочами" : trimmedDesc.capitalized
+            exactKcal = 490.0
+            protein = 46.0
+            fat = 22.0
+            carbs = 18.0
+            weightG = 310.0
+            tags = ["whole_food", "solid", "slow_absorbing"]
+            micro = .init(fiberG: 3.0, sodiumMg: 480, potassiumMg: 580, vitaminCMg: 12, ironMg: 4.2, calciumMg: 35)
+            amino = .init(bcaaG: 8.5, leucineG: 3.9)
+        } else if desc.contains("бургер") || desc.contains("піца") || desc.contains("pizza") || desc.contains("fast") || desc.contains("шаурм") {
+            mealName = trimmedDesc.isEmpty ? "Бургер з яловичиною" : trimmedDesc.capitalized
             exactKcal = 780.0
             protein = 32.0
             fat = 38.0
@@ -378,17 +491,27 @@ public final class GeminiService: @unchecked Sendable {
             tags = ["ultra_processed", "solid", "fast_absorbing", "high_sodium"]
             micro = .init(fiberG: 3.1, sodiumMg: 1380, potassiumMg: 450, vitaminCMg: 2, ironMg: 3.8, calciumMg: 90)
             amino = .init(bcaaG: 5.5, leucineG: 2.4)
-        } else {
-            // Default healthy balanced meal: Chicken breast + buckwheat + salad
-            mealName = "Куряче філе на грилі з гречкою та свіжим салатом"
-            exactKcal = 430.0
-            protein = 42.0
-            fat = 10.0
+        } else if !trimmedDesc.isEmpty {
+            mealName = trimmedDesc.prefix(1).uppercased() + trimmedDesc.dropFirst()
+            exactKcal = 420.0
+            protein = 28.0
+            fat = 14.0
             carbs = 44.0
-            weightG = 340.0
+            weightG = 300.0
             tags = ["whole_food", "solid", "slow_absorbing"]
-            micro = .init(fiberG: 5.4, sodiumMg: 420, potassiumMg: 560, vitaminCMg: 15, ironMg: 3.2, calciumMg: 50)
-            amino = .init(bcaaG: 7.8, leucineG: 3.4)
+            micro = .init(fiberG: 4.0, sodiumMg: 450, potassiumMg: 400, vitaminCMg: 10, ironMg: 2.5, calciumMg: 60)
+            amino = .init(bcaaG: 4.8, leucineG: 2.2)
+        } else {
+            // General photo fallback without text
+            mealName = "Прийом їжі (з фото)"
+            exactKcal = 430.0
+            protein = 32.0
+            fat = 15.0
+            carbs = 42.0
+            weightG = 320.0
+            tags = ["whole_food", "solid", "slow_absorbing"]
+            micro = .init(fiberG: 4.0, sodiumMg: 450, potassiumMg: 450, vitaminCMg: 10, ironMg: 2.5, calciumMg: 60)
+            amino = .init(bcaaG: 5.2, leucineG: 2.3)
         }
 
         // Apply +12.5% deficit buffer

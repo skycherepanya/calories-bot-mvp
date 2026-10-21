@@ -283,7 +283,7 @@ public struct NutritionView: View {
                 impact.notificationOccurred(.success)
 
             } catch {
-                // If remote fails, fallback heuristic has already resolved
+                print("[NutritionView] AI analysis failed with error: \(error.localizedDescription)")
                 let fallback = GeminiService.shared.generateOfflineMeal(textDescription: textDescription)
                 storage.resolvePending(id: pendingRecord.id, nutrition: fallback)
             }

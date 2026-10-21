@@ -4,6 +4,23 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-21] - Fix: Gemini Food Vision & Text Recognition Model Cascade & Token Budget
+
+### 🥗 Nutrition & AI Vision Pipeline:
+- **`GeminiService.swift`:**
+  - **Thinking Token Budget Resolution:** Configured `thinkingConfig: .init(thinkingBudget: 0)` in `GeminiRequest.GenerationConfig` and raised `maxOutputTokens` from 1200 to 2500. Previously, `gemini-2.5-flash` consumed ~1150 tokens on internal reasoning thoughts, hitting the 1200 `maxOutputTokens` ceiling (`finishReason: MAX_TOKENS`) and truncating the JSON output mid-stream, which caused `JSONDecoder` to fail and silently fall back to offline defaults.
+  - **Prioritized Live Model Cascade:** Re-ordered `foodModelCascade` to `["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.8-flash"]`. `gemini-2.5-flash` delivers sub-1.5s latency with 200 OK reliability, avoiding 503 Service Unavailable errors from overloaded experimental models.
+  - **Thought Part Filtering:** Added `thought: Bool?` support to `GeminiResponse` to explicitly filter out thinking parts and parse only actual JSON content.
+  - **Comprehensive Heuristic Fallbacks:** Expanded `generateOfflineMeal(textDescription:)` with contextual recognition for sandwiches, salads, soups, pasta, steaks, fish, and burgers, and dynamically preserves the user's custom dish title rather than defaulting every unrecognized item to "Куряче філе з гречкою".
+- **`NutritionView.swift`:** Added error logging on analysis failure to prevent silent swallowing of network or decoding errors.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Fix: Workout Auto-Splits Telemetry Isolation & Active Move Calibration
 
 ### 🏃 Workout Telemetry & 1km Auto-Splits Fixes:
