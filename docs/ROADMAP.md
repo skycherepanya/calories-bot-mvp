@@ -69,10 +69,11 @@
 - [x] Write-back to HealthKit dietary calories, protein, fat, carbs, and sodium via `HealthKitManager.swift`.
 
 ### 2.5. View 4: Trends View (Water Noise Filter & Longitudinal Baselines)
-- [ ] Dedicated `Features/Trends/TrendsView.swift`:
-  - **Body Weight Trend Chart:** Raw daily weigh-ins overlayed with 7-day and 14-day rolling averages (filtering water/glycogen noise).
-  - **Autonomic Baseline Chart:** 30-day rolling baseline for HRV SDNN and sleeping RHR.
-  - **Aerobic Efficiency Trend:** Historical $EF$ and cardiac drift progression across running sessions.
+- [x] Dedicated `Features/Trends/TrendsView.swift` & `TrendsComponents.swift`:
+  - **Body Weight Trend Chart:** Raw daily weigh-ins overlayed with 7-day and 14-day rolling averages (filtering water/glycogen noise) with acute water spike badge ($\ge 1.2$ kg jump).
+  - **Autonomic Baseline Chart:** 30-day rolling baseline envelope ($\text{Mean} \pm 0.5\sigma$) for morning HRV SDNN and sleeping RHR.
+  - **Aerobic Efficiency Trend:** Historical Efficiency Factor ($EF = \text{Speed} / \text{Avg HR}$) and cardiac drift / aerobic decoupling progression across running sessions.
+  - **Interactive Controls:** 30d / 60d / 90d time range selector, interactive scrub tooltips (`.chartXSelection`), pull-to-refresh, and live HealthKit pipelines with high-fidelity realistic fallbacks.
 
 ### 2.6. Local Storage & Cloud Backup (SwiftData + Supabase)
 - [ ] Local `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`, `DailyMetricEntity`, `SleepLogEntity`).

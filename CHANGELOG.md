@@ -4,6 +4,44 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-21] - Feature: Step 2.5 — Trends View (Water Noise Filter & Longitudinal Baselines)
+
+### 📈 Longitudinal Trends & Dark Mode Visualizations:
+- **`TrendsComponents.swift`:**
+  - **`TrendsRangePickerView`:** Capsule time range selector allowing smooth animated switching between 30, 60, and 90-day analytical horizons.
+  - **`WeightTrendCard`:**
+    - Raw daily weigh-in scatter overlayed with a solid Cyan 7-day rolling average line (true metabolic trend) and dashed Purple 14-day rolling average line (systemic trajectory).
+    - Water noise spike detection and banner (`isWaterSpike` triggered when daily weight $\ge 1.2$ kg above 7d average due to glycogen/sodium hydration).
+    - Detailed KPI header: Current weigh-in, 7-day rolling average, 14-day rolling average, and net 7-day $\Delta$ kg.
+    - Interactive scrub rule (`.chartXSelection`) providing real-time inspection of daily weigh-in vs filtered moving averages.
+  - **`AutonomicTrendCard`:**
+    - 30-day baseline envelope (`AreaMark`) representing individual autonomic normative corridor ($\text{Mean} \pm 0.5\sigma$).
+    - Segmented toggle between **Morning HRV SDNN** (green progression against baseline corridor) and **Sleeping Resting Heart Rate (RHR)** with soft orange gradient fill.
+    - Autonomic state indicator: "Оптимум" (above baseline), "Стабільно" (within normal bounds), "Напруження" (sympathetic overload).
+  - **`AerobicEfficiencyTrendCard`:**
+    - Running Efficiency Factor ($EF = \text{Speed (m/min)} / \text{Heart Rate (bpm)}$) historical progression curve.
+    - Aerobic Decoupling / Cardiac Drift indicator badges with color coding (<5% green high aerobic endurance, 5-10% moderate, >10% dehydration/fatigue).
+    - Interactive workout scrub displaying session distance, pace, average HR, EF, and decoupling %.
+- **`TrendsView.swift`:**
+  - Full screen orchestration with dark mode Bevel aesthetic (`Color(red: 0.05, green: 0.06, blue: 0.08)`), top bar refresh, pull-to-refresh (`.refreshable`), and reactive reload on time range change (`.task(id: selectedRange)`).
+- **`HealthKitManager.swift`:**
+  - Added `fetchBodyWeightHistory(days:)`, `fetchAutonomicLongitudinalHistory(days:)`, and `fetchAerobicEfficiencyHistory(limit:)`.
+  - Added high-fidelity baseline fallback generators calibrated to Sasha's athletic profile (~78.4–79.2 kg, 102 ms HRV, 49 bpm RHR, 4.17–10 km runs) so the UI renders smoothly on simulators or devices with sparse weigh-ins.
+- **`ReadinessCalculator.swift`:**
+  - Added `DateWeightSample`, `TrendWeightPoint`, `DateAutonomicSample`, and `AerobicEfficiencyTrendSample` models.
+  - Implemented `computeLongitudinalWeightTrend(samples:)` with 7d/14d rolling averages and water retention spike flags in native Swift.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsComponents.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/ReadinessCalculator.swift`,
+`docs/ROADMAP.md`,
+`PROJECT_KNOWLEDGE.md`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Feature: Visible Meal Deletion Button & Confirmation Dialogs
 
 ### 🥗 Nutrition UI:

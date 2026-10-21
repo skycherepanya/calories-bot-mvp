@@ -119,7 +119,7 @@ ios/Lifecore/
     │   ├── Today/                        # Dark-mode dashboard: Readiness, Strain, Nutrition rings
     │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts
     │   ├── Nutrition/                    # Camera capture, optimistic meal cards, macro breakdown
-    │   └── Trends/                       # 7d/14d rolling weight trend charts, autonomic baselines
+    │   └── Trends/                       # 7d/14d rolling weight trend (water noise filter), autonomic baselines (HRV/RHR corridor), aerobic efficiency (EF & drift) (TrendsView.swift, TrendsComponents.swift)
     └── Intents/
         ├── LogMealIntent.swift           # Fast Siri / Action button meal logger
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
