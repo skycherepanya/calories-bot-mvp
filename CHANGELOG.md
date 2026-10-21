@@ -4,6 +4,28 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-21] - Fix: Workout Pace Chart Crash on Toggle & Cardiac Drift Partial Split Distance
+
+### 🏃 Workout Charts & Telemetry Curves:
+- **`WorkoutChartsView.swift`:**
+  - **ClosedRange Crash Resolution:** Fixed fatal runtime exception (`Range requires lowerBound <= upperBound`) when switching to the "Темп" (Pace) tab. Previously, the chart attempted to invert the scale via `.chartYScale(domain: maxPace...minPace)`. In Swift, `ClosedRange` asserts `lowerBound <= upperBound`, causing an immediate crash when `maxPace > minPace`.
+  - **Native Scale Inversion:** Replaced the range construct with Swift Charts' native `.chartYScale(domain: .automatic(includesZero: false, reversed: true))` which reverses the axis (placing faster paces at the top) without violating Swift range invariants.
+  - **Pace Ticks & Label Formatting:** Added custom `chartYAxis` and `chartXAxis` renderers displaying pace in standard athletic time notation (`M:SS`) rather than floating-point decimals.
+  - **Robust Pace Formatter (`formatPace`):** Added a shared pace formatting helper that correctly rolls over 60 seconds (`M:00` instead of `M:60`).
+  - **Empty Telemetry Fallback:** Added explicit empty state view for workouts without distance/pace telemetry.
+
+### 🫀 Deterministic Math Engine:
+- **`WorkoutMathEngine.swift`:**
+  - **Partial Split Cardiac Drift Calibration:** Fixed `computeCardiacDrift` where `halfEF` assumed all splits were exactly 1000m (`Double(halfSplits.count) * 1000.0`). For non-integer distances (e.g. 4.17 km with a 170m final split), this erroneously attributed 1000m of distance to a 70-second split in the second half, distorting speed and producing an erroneous negative cardiac drift of `-38.6%`.
+  - Now accurately calculates each split's physical distance from its duration and pace, along with duration-weighted average heart rate across both halves.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutChartsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Feature: Step 2.5 — Trends View (Water Noise Filter & Longitudinal Baselines)
 
 ### 📈 Longitudinal Trends & Dark Mode Visualizations:

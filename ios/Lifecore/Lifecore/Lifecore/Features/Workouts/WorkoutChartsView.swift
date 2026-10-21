@@ -213,44 +213,85 @@ public struct WorkoutChartsView: View {
 
     // MARK: - 2. Pace Chart
 
+    @ViewBuilder
     private var paceChart: some View {
         let validPacePoints = chartPoints.filter { $0.paceMinKm != nil }
-        let minPace = max(2.5, (validPacePoints.compactMap { $0.paceMinKm }.min() ?? 4.0) - 0.5)
-        let maxPace = min(12.0, (validPacePoints.compactMap { $0.paceMinKm }.max() ?? 7.0) + 0.5)
 
-        return Chart {
-            ForEach(validPacePoints) { p in
-                LineMark(
-                    x: .value("Distance (km)", p.distanceKm),
-                    y: .value("Pace", p.paceMinKm!)
-                )
-                .foregroundStyle(Color.cyan)
-                .lineStyle(StrokeStyle(lineWidth: 2.2))
+        if validPacePoints.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "speedometer")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("Дані темпу недоступні для цього тренування.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 190)
+        } else {
+            Chart {
+                ForEach(validPacePoints) { p in
+                    LineMark(
+                        x: .value("Distance (km)", p.distanceKm),
+                        y: .value("Pace", p.paceMinKm!)
+                    )
+                    .foregroundStyle(Color.cyan)
+                    .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+                }
 
-            if let avg = avgPaceMinKm {
-                RuleMark(y: .value("Avg Pace", avg))
-                    .foregroundStyle(Color.white.opacity(0.4))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-            }
+                if let avg = avgPaceMinKm {
+                    RuleMark(y: .value("Avg Pace", avg))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        .annotation(position: .top, alignment: .trailing) {
+                            Text("Avg: \(formatPace(avg))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                }
 
-            if let p = selectedPoint, let pace = p.paceMinKm {
-                RuleMark(x: .value("Selected Distance", p.distanceKm))
+                if let p = selectedPoint, let pace = p.paceMinKm {
+                    RuleMark(x: .value("Selected Distance", p.distanceKm))
+                        .foregroundStyle(Color.green)
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
+
+                    PointMark(
+                        x: .value("Selected Distance", p.distanceKm),
+                        y: .value("Pace", pace)
+                    )
                     .foregroundStyle(Color.green)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5))
-
-                PointMark(
-                    x: .value("Selected Distance", p.distanceKm),
-                    y: .value("Pace", pace)
-                )
-                .foregroundStyle(Color.green)
-                .symbolSize(45)
+                    .symbolSize(45)
+                }
             }
+            // Invert Y scale safely so smaller min/km (faster pace) is at top without crashing ClosedRange
+            .chartYScale(domain: .automatic(includesZero: false, reversed: true))
+            .chartXSelection(value: $selectedDistance)
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Color.white.opacity(0.08))
+                    AxisValueLabel {
+                        if let pace = value.as(Double.self) {
+                            let totalSec = max(0, Int(round(pace * 60.0)))
+                            let m = totalSec / 60
+                            let s = totalSec % 60
+                            Text(String(format: "%d:%02d", m, s))
+                                .font(.caption2)
+                                .foregroundStyle(Color.secondary)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                        .foregroundStyle(Color.white.opacity(0.08))
+                    AxisValueLabel()
+                        .foregroundStyle(Color.secondary)
+                }
+            }
+            .frame(height: 190)
         }
-        // Invert Y scale for pace so that faster (smaller min/km) is at top
-        .chartYScale(domain: maxPace...minPace)
-        .chartXSelection(value: $selectedDistance)
-        .frame(height: 190)
     }
 
     // MARK: - 3. Elevation Chart
@@ -322,9 +363,7 @@ public struct WorkoutChartsView: View {
             }
 
             if let pace = point.paceMinKm {
-                let min = Int(pace)
-                let sec = Int(round((pace - Double(min)) * 60.0))
-                Text(String(format: "%d:%02d/km", min, sec))
+                Text(formatPace(pace))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -339,6 +378,13 @@ public struct WorkoutChartsView: View {
         .padding(.vertical, 6)
         .background(Color.black.opacity(0.6))
         .clipShape(Capsule())
+    }
+
+    private func formatPace(_ pace: Double) -> String {
+        let totalSec = max(0, Int(round(pace * 60.0)))
+        let m = totalSec / 60
+        let s = totalSec % 60
+        return String(format: "%d:%02d/km", m, s)
     }
 
     private var emptyTelemetryCard: some View {

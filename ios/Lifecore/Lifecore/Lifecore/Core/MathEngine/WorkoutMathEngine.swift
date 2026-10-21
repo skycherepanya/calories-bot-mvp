@@ -303,11 +303,24 @@ public enum WorkoutMathEngine {
         let secondHalf = Array(splits[midpoint..<splits.count])
 
         func halfEF(_ halfSplits: [SplitMetric]) -> Double? {
-            let totalDistMeters = Double(halfSplits.count) * 1000.0
-            let totalDurSeconds = halfSplits.reduce(0.0) { $0 + $1.durationSeconds }
-            let validHRs = halfSplits.compactMap { $0.avgHeartRate }
-            guard !validHRs.isEmpty, totalDurSeconds > 0 else { return nil }
-            let avgHR = validHRs.reduce(0.0, +) / Double(validHRs.count)
+            var totalDistMeters: Double = 0.0
+            var totalDurSeconds: Double = 0.0
+            var hrWeightedSum: Double = 0.0
+            var hrDurationSum: Double = 0.0
+
+            for s in halfSplits {
+                guard s.durationSeconds > 0, s.paceMinPerKm > 0 else { continue }
+                let dist = (s.durationSeconds / 60.0) / s.paceMinPerKm * 1000.0
+                totalDistMeters += dist
+                totalDurSeconds += s.durationSeconds
+                if let hr = s.avgHeartRate {
+                    hrWeightedSum += hr * s.durationSeconds
+                    hrDurationSum += s.durationSeconds
+                }
+            }
+
+            guard totalDurSeconds > 0, totalDistMeters > 0, hrDurationSum > 0 else { return nil }
+            let avgHR = hrWeightedSum / hrDurationSum
             return computeEfficiencyFactor(distanceMeters: totalDistMeters, durationSeconds: totalDurSeconds, avgHeartRate: avgHR)
         }
 
