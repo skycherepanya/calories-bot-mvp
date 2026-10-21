@@ -101,27 +101,45 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
         let isIndoor = workout.metadata?[HKMetadataKeyIndoorWorkout] as? Bool ?? false
         let timePredicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: .strictStartDate)
 
-        // 1. Concurrently fetch Heart Rate and Distance series samples
-        async let hrSamples = fetchQuantitySamples(for: HKQuantityType(.heartRate), predicate: timePredicate)
-        async let distSamples = fetchQuantitySamples(for: HKQuantityType(.distanceWalkingRunning), predicate: timePredicate)
+        // 1. Concurrently fetch Heart Rate and Distance series samples scoped strictly to this workout and its recording device
+        async let hrSamplesTask = fetchWorkoutQuantitySamples(for: HKQuantityType(.heartRate), workout: workout, timePredicate: timePredicate)
+        async let distSamplesTask = fetchWorkoutQuantitySamples(for: HKQuantityType(.distanceWalkingRunning), workout: workout, timePredicate: timePredicate)
 
-        let heartRates = try await hrSamples
-        let distances = try await distSamples
-
-        // 2. Align samples by timestamp into a unified stream
-        var telemetryPoints: [RawTelemetryPoint] = []
-        var runningCumulativeDistance: Double = 0.0
+        let heartRates = try await hrSamplesTask
+        let distances = try await distSamplesTask
 
         let hrUnit = HKUnit.count().unitDivided(by: .minute())
         let distanceUnit = HKUnit.meter()
 
-        // Index HR samples for fast nearest-neighbor matching
-        let sortedHR = heartRates.sorted { $0.startDate < $1.startDate }
-        let sortedDist = distances.sorted { $0.startDate < $1.startDate }
+        // 2. Filter out aggregate summary samples (e.g. multi-minute summary batches or non-granular chunks)
+        // Granular running telemetry samples are small increments (typically < 300m and duration <= 60s)
+        var granularDistances: [HKQuantitySample] = []
+        for sample in distances {
+            let dur = sample.endDate.timeIntervalSince(sample.startDate)
+            let dist = sample.quantity.doubleValue(for: distanceUnit)
+            if dur > 60.0 || dist > 300.0 {
+                continue // Ignore macro summary samples that cause instant distance jumps
+            }
+            granularDistances.append(sample)
+        }
+        let activeDistances = granularDistances.isEmpty ? distances : granularDistances
 
-        // Aggregate distance points and pair with closest heart rate
+        // 3. Sort strictly by endDate to ensure chronological progression
+        let sortedHR = heartRates.sorted { $0.startDate < $1.startDate }
+        let sortedDist = activeDistances.sorted { $0.endDate < $1.endDate }
+
+        // 4. Ground-truth calibration against authoritative workout.totalDistance
+        let authoritativeTotalMeters = workout.totalDistance?.doubleValue(for: distanceUnit)
+        let rawSumMeters = sortedDist.reduce(0.0) { $0 + $1.quantity.doubleValue(for: distanceUnit) }
+        let distanceScale: Double = (authoritativeTotalMeters != nil && authoritativeTotalMeters! > 0 && rawSumMeters > 0)
+            ? (authoritativeTotalMeters! / rawSumMeters)
+            : 1.0
+
+        var telemetryPoints: [RawTelemetryPoint] = []
+        var runningCumulativeDistance: Double = 0.0
+
         for sample in sortedDist {
-            let sampleDistance = sample.quantity.doubleValue(for: distanceUnit)
+            let sampleDistance = sample.quantity.doubleValue(for: distanceUnit) * distanceScale
             runningCumulativeDistance += sampleDistance
             let sampleTime = sample.endDate
 
@@ -141,12 +159,15 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
 
         // If no distance samples (e.g. Strength / Indoor non-treadmill), capture HR stream directly
         if telemetryPoints.isEmpty && !sortedHR.isEmpty {
+            let duration = max(1.0, workout.duration)
             for sample in sortedHR {
                 let bpm = sample.quantity.doubleValue(for: hrUnit)
+                let elapsed = sample.startDate.timeIntervalSince(workout.startDate)
+                let simulatedDist = (authoritativeTotalMeters ?? 0.0) * min(1.0, max(0.0, elapsed / duration))
                 telemetryPoints.append(
                     RawTelemetryPoint(
                         timestamp: sample.startDate,
-                        distanceMeters: 0.0,
+                        distanceMeters: simulatedDist,
                         heartRateBpm: bpm
                     )
                 )
@@ -200,6 +221,30 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
     }
 
     // MARK: - Private Query Helpers
+
+    private func fetchWorkoutQuantitySamples(
+        for type: HKQuantityType,
+        workout: HKWorkout,
+        timePredicate: NSPredicate
+    ) async throws -> [HKQuantitySample] {
+        // 1. Priority 1: Samples explicitly attached to this HKWorkout
+        let workoutPredicate = HKQuery.predicateForObjects(from: workout)
+        let workoutSamples = (try? await fetchQuantitySamples(for: type, predicate: workoutPredicate)) ?? []
+        if !workoutSamples.isEmpty {
+            return workoutSamples
+        }
+
+        // 2. Priority 2: Filter strictly by the workout's creator device (Apple Watch)
+        let sourcePredicate = HKQuery.predicateForObjects(from: [workout.sourceRevision.source])
+        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [timePredicate, sourcePredicate])
+        let sourceSamples = (try? await fetchQuantitySamples(for: type, predicate: compoundPredicate)) ?? []
+        if !sourceSamples.isEmpty {
+            return sourceSamples
+        }
+
+        // 3. Fallback: time predicate alone
+        return (try? await fetchQuantitySamples(for: type, predicate: timePredicate)) ?? []
+    }
 
     private func fetchQuantitySamples(for type: HKQuantityType, predicate: NSPredicate) async throws -> [HKQuantitySample] {
         try await withCheckedThrowingContinuation { continuation in

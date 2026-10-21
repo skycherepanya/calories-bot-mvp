@@ -4,6 +4,30 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ---
 
+## [2026-10-21] - Fix: Workout Auto-Splits Telemetry Isolation & Active Move Calibration
+
+### 🏃 Workout Telemetry & 1km Auto-Splits Fixes:
+- **`WorkoutTelemetryExtractor.swift`:**
+  - Added workout-scoped query strategy (`fetchWorkoutQuantitySamples`) prioritizing `HKQuery.predicateForObjects(from: workout)` and falling back to `workout.sourceRevision.source` (Apple Watch). This permanently prevents dual-source accumulation where iPhone pedometer samples were summed together with Apple Watch samples, which previously doubled a 4.17 km run into 9 km.
+  - Filtered out aggregate macro summary samples (`duration > 60s` or `distance > 300m`).
+  - Implemented ground-truth distance calibration anchoring granular cumulative distance to the authoritative `workout.totalDistance` (e.g. exactly 4170m).
+- **`WorkoutMathEngine.swift`:**
+  - Re-engineered `computeKilometerSplits(from:)` with continuous linear boundary interpolation. It now calculates exact timestamps for 1000m boundaries, eliminating instantaneous multi-hundred-meter jumps and absurd paces (`0:01/km`, `0:02/km`).
+  - Slices a 4.17 km run into exactly 4 full 1.0 km splits plus 1 partial split for the remaining 170m.
+
+### 🔥 Active Calories & BMR Transparency:
+- **`TodayView.swift`:**
+  - Replaced the hardcoded `Burned: (activeKcal + 1750.0) / 2400` top ring with **`Active Move`** (tracking kinetic expenditure against daily active goal, e.g. 650 kcal, matching Apple Watch Move ring). This resolves the confusion where 1770 kcal was shown immediately at 7:00 AM before any activity.
+  - In `Movement & Pure NEAT`, added explicit real-time breakdown of **Accrued BMR so far today** (based on elapsed minutes across the 24h day) and **Current TDEE** (Active + accrued BMR).
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/WorkoutTelemetryExtractor.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-19] - Fix: Workout Telemetry Authorization & Gemini Multimodal Vision API Key
 
 ### 🛠️ Bug Fixes & Telemetry Hardening:

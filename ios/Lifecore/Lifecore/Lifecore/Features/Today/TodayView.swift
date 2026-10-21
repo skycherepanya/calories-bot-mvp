@@ -88,15 +88,15 @@ public struct TodayView: View {
                 ringColor: Color(red: 0.0, green: 0.85, blue: 1.0)
             )
 
-            // Nutrition / Energy Balance Ring
-            let burnedKcal = (snapshot?.dailyActivity.activeKcal ?? 850.0) + 1750.0 // BMR ~1750
-            let targetKcal = 2400.0 // Example target
-            let balanceRatio = min(1.2, burnedKcal / targetKcal)
+            // Active Move Ring (Kinetic Expenditure matching Apple Watch Move goal)
+            let activeKcal = snapshot?.dailyActivity.activeKcal ?? 0.0
+            let targetMoveKcal = 650.0 // Standard athletic active move goal
+            let moveRatio = min(1.2, activeKcal / targetMoveKcal)
             BevelRingView(
-                title: "Burned",
-                value: "\(Int(burnedKcal))",
-                subtitle: "Target: \(Int(targetKcal))",
-                progress: balanceRatio,
+                title: "Active Move",
+                value: "\(Int(activeKcal))",
+                subtitle: "Goal: \(Int(targetMoveKcal)) kcal",
+                progress: moveRatio,
                 ringColor: Color(red: 1.0, green: 0.65, blue: 0.0)
             )
         }
@@ -248,7 +248,33 @@ public struct TodayView: View {
                         .foregroundStyle(.green)
                 }
 
-                Text("Apple Health total energy includes workouts. Pure NEAT is isolated to prevent double-counting.")
+                let elapsedMinutes = max(1.0, Date().timeIntervalSince(Calendar.current.startOfDay(for: Date())) / 60.0)
+                let accruedBMR = 1750.0 * min(1.0, elapsedMinutes / 1440.0)
+                let currentTDEE = (act?.activeKcal ?? 0.0) + accruedBMR
+
+                HStack {
+                    Text("Accrued BMR (so far today)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(Int(accruedBMR)) kcal")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.cyan)
+                }
+
+                HStack {
+                    Text("Current TDEE (Active + BMR)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(Int(currentTDEE)) kcal")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                }
+
+                Text("Apple Health active energy tracks kinetic movement. Basal Metabolic Rate (~1750 kcal/day) accrues continuously across 24h.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)

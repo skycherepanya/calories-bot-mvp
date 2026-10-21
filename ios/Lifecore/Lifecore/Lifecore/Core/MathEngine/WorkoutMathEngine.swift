@@ -166,57 +166,119 @@ public struct WorkoutAnalysisResult: Sendable, Codable {
 
 public enum WorkoutMathEngine {
 
-    /// Slices raw telemetry stream into 1-kilometer incremental splits.
+    /// Slices raw telemetry stream into 1-kilometer incremental splits with linear boundary interpolation.
     public static func computeKilometerSplits(from samples: [RawTelemetryPoint]) -> [SplitMetric] {
-        guard !samples.isEmpty else { return [] }
+        guard samples.count >= 2 else { return [] }
+        guard let firstSample = samples.first, let lastSample = samples.last else { return [] }
+
+        let totalDistance = lastSample.distanceMeters
+        guard totalDistance >= 500.0 else {
+            // Under 500m - not enough continuous distance for meaningful splits
+            return []
+        }
 
         var splits: [SplitMetric] = []
-        var currentKmTarget = 1000.0
-        var segmentStartIndex = 0
-        var kmIndex = 1
+        var previousTargetMeters = 0.0
+        var previousTargetDate = firstSample.timestamp
+        var currentKmIndex = 1
 
-        for i in 0..<samples.count {
-            let point = samples[i]
+        let totalKmTargets = Int(floor(totalDistance / 1000.0))
 
-            if point.distanceMeters >= currentKmTarget || (i == samples.count - 1 && point.distanceMeters > currentKmTarget - 1000.0) {
-                let startPoint = samples[segmentStartIndex]
-                let endPoint = point
+        // 1. Calculate each full 1.0 km split using linear interpolation
+        for km in 1...max(1, totalKmTargets) {
+            let targetMeters = Double(km) * 1000.0
+            guard targetMeters <= totalDistance else { break }
 
-                let segmentDuration = max(1.0, endPoint.timestamp.timeIntervalSince(startPoint.timestamp))
-                let segmentDistance = max(1.0, endPoint.distanceMeters - startPoint.distanceMeters)
+            // Find samples bounding targetMeters
+            var targetDate: Date?
+            var boundingIndex = 0
 
-                // Pace in decimal minutes per kilometer: (duration_s / distance_m) * (1000 / 60)
-                let paceMinPerKm = (segmentDuration / segmentDistance) * (1000.0 / 60.0)
+            for i in 0..<(samples.count - 1) {
+                let p1 = samples[i]
+                let p2 = samples[i + 1]
 
-                // Sub-slice for HR and Elevation
-                let segmentSamples = samples[segmentStartIndex...i]
-                let hrValues = segmentSamples.compactMap { $0.heartRateBpm }
-                let avgHr = hrValues.isEmpty ? nil : (hrValues.reduce(0.0, +) / Double(hrValues.count))
-                let maxHr = hrValues.max()
-
-                let startAlt = startPoint.altitudeMeters ?? 0.0
-                let endAlt = endPoint.altitudeMeters ?? 0.0
-                let elevationDiff = round((endAlt - startAlt) * 10) / 10
-
-                let cadenceValues = segmentSamples.compactMap { $0.cadenceRpm }
-                let avgCadence = cadenceValues.isEmpty ? nil : (cadenceValues.reduce(0.0, +) / Double(cadenceValues.count))
-
-                splits.append(
-                    SplitMetric(
-                        km: kmIndex,
-                        durationSeconds: round(segmentDuration * 10) / 10,
-                        paceMinPerKm: round(paceMinPerKm * 100) / 100,
-                        avgHeartRate: avgHr != nil ? round(avgHr! * 10) / 10 : nil,
-                        maxHeartRate: maxHr != nil ? round(maxHr! * 10) / 10 : nil,
-                        elevationDiffMeters: elevationDiff,
-                        avgCadence: avgCadence != nil ? round(avgCadence!) : nil
-                    )
-                )
-
-                kmIndex += 1
-                currentKmTarget += 1000.0
-                segmentStartIndex = i
+                if p1.distanceMeters <= targetMeters && targetMeters <= p2.distanceMeters {
+                    let distDiff = p2.distanceMeters - p1.distanceMeters
+                    if distDiff > 0 {
+                        let fraction = (targetMeters - p1.distanceMeters) / distDiff
+                        let timeDiff = p2.timestamp.timeIntervalSince(p1.timestamp)
+                        targetDate = p1.timestamp.addingTimeInterval(fraction * timeDiff)
+                    } else {
+                        targetDate = p2.timestamp
+                    }
+                    boundingIndex = i + 1
+                    break
+                }
             }
+
+            let splitEndDate = targetDate ?? samples[min(boundingIndex, samples.count - 1)].timestamp
+            let durationSeconds = max(1.0, splitEndDate.timeIntervalSince(previousTargetDate))
+            let distanceMeters = targetMeters - previousTargetMeters // exactly 1000m
+
+            let paceMinPerKm = (durationSeconds / distanceMeters) * (1000.0 / 60.0)
+
+            // Extract heart rate, altitude, cadence for this segment
+            let segmentSamples = samples.filter {
+                $0.timestamp >= previousTargetDate && $0.timestamp <= splitEndDate
+            }
+            let hrValues = segmentSamples.compactMap { $0.heartRateBpm }
+            let avgHr = hrValues.isEmpty ? nil : (hrValues.reduce(0.0, +) / Double(hrValues.count))
+            let maxHr = hrValues.max()
+
+            let startAlt = segmentSamples.first?.altitudeMeters ?? 0.0
+            let endAlt = segmentSamples.last?.altitudeMeters ?? 0.0
+            let elevationDiff = round((endAlt - startAlt) * 10) / 10
+
+            let cadenceValues = segmentSamples.compactMap { $0.cadenceRpm }
+            let avgCadence = cadenceValues.isEmpty ? nil : (cadenceValues.reduce(0.0, +) / Double(cadenceValues.count))
+
+            splits.append(
+                SplitMetric(
+                    km: currentKmIndex,
+                    durationSeconds: round(durationSeconds * 10) / 10,
+                    paceMinPerKm: round(paceMinPerKm * 100) / 100,
+                    avgHeartRate: avgHr != nil ? round(avgHr! * 10) / 10 : nil,
+                    maxHeartRate: maxHr != nil ? round(maxHr! * 10) / 10 : nil,
+                    elevationDiffMeters: elevationDiff,
+                    avgCadence: avgCadence != nil ? round(avgCadence!) : nil
+                )
+            )
+
+            previousTargetMeters = targetMeters
+            previousTargetDate = splitEndDate
+            currentKmIndex += 1
+        }
+
+        // 2. Partial final split if remaining distance >= 100m (e.g. 170m on a 4.17km run)
+        let remainingDistance = totalDistance - previousTargetMeters
+        if remainingDistance >= 100.0 {
+            let finalDate = lastSample.timestamp
+            let durationSeconds = max(1.0, finalDate.timeIntervalSince(previousTargetDate))
+            let paceMinPerKm = (durationSeconds / remainingDistance) * (1000.0 / 60.0)
+
+            let segmentSamples = samples.filter { $0.timestamp >= previousTargetDate }
+            let hrValues = segmentSamples.compactMap { $0.heartRateBpm }
+            let avgHr = hrValues.isEmpty ? nil : (hrValues.reduce(0.0, +) / Double(hrValues.count))
+            let maxHr = hrValues.max()
+
+            let startAlt = segmentSamples.first?.altitudeMeters ?? 0.0
+            let endAlt = segmentSamples.last?.altitudeMeters ?? 0.0
+            let elevationDiff = round((endAlt - startAlt) * 10) / 10
+
+            let cadenceValues = segmentSamples.compactMap { $0.cadenceRpm }
+            let avgCadence = cadenceValues.isEmpty ? nil : (cadenceValues.reduce(0.0, +) / Double(cadenceValues.count))
+
+            splits.append(
+                SplitMetric(
+                    km: currentKmIndex,
+                    durationSeconds: round(durationSeconds * 10) / 10,
+                    paceMinPerKm: round(paceMinPerKm * 100) / 100,
+                    avgHeartRate: avgHr != nil ? round(avgHr! * 10) / 10 : nil,
+                    maxHeartRate: maxHr != nil ? round(maxHr! * 10) / 10 : nil,
+                    elevationDiffMeters: elevationDiff,
+                    avgCadence: avgCadence != nil ? round(avgCadence!) : nil
+                )
+            )
         }
 
         return splits
