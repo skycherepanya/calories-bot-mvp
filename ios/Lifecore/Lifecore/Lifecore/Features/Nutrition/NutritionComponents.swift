@@ -273,7 +273,6 @@ public struct MealItemCard: View {
     public let onDelete: () -> Void
 
     @State private var showingDetails = false
-    @State private var showingDeleteAlert = false
 
     public init(meal: MealRecord, onDelete: @escaping () -> Void) {
         self.meal = meal
@@ -324,19 +323,22 @@ public struct MealItemCard: View {
                         Image(systemName: "info.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .padding(6)
+                            .padding(8)
                             .background(Color.white.opacity(0.06))
                             .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
 
-                    Button(role: .destructive, action: { showingDeleteAlert = true }) {
+                    Button(role: .destructive, action: onDelete) {
                         Image(systemName: "trash")
                             .font(.caption)
-                            .foregroundStyle(.red.opacity(0.85))
-                            .padding(6)
-                            .background(Color.red.opacity(0.12))
+                            .foregroundStyle(.red.opacity(0.9))
+                            .padding(8)
+                            .background(Color.red.opacity(0.14))
                             .clipShape(Circle())
+                            .contentShape(Circle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -353,23 +355,9 @@ public struct MealItemCard: View {
         .background(Color(red: 0.1, green: 0.11, blue: 0.15))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .contextMenu {
-            Button(role: .destructive, action: { showingDeleteAlert = true }) {
+            Button(role: .destructive, action: onDelete) {
                 Label("Видалити страву", systemImage: "trash")
             }
-        }
-        .confirmationDialog(
-            "Видалити цей прийом їжі?",
-            isPresented: $showingDeleteAlert,
-            titleVisibility: .visible
-        ) {
-            Button("Видалити \"\(meal.name)\"", role: .destructive) {
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-                onDelete()
-            }
-            Button("Скасувати", role: .cancel) {}
-        } message: {
-            Text("Цей запис буде вилучено з вашого щоденника харчування.")
         }
         .sheet(isPresented: $showingDetails) {
             MealDetailSheet(meal: meal, onDelete: onDelete)
@@ -580,7 +568,9 @@ public struct MealDetailSheet: View {
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.success)
                     dismiss()
-                    onDelete?()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        onDelete?()
+                    }
                 }
                 Button("Скасувати", role: .cancel) {}
             } message: {

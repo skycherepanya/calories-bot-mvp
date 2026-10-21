@@ -7,13 +7,16 @@ public final class MealStorageService: ObservableObject {
     public static let shared = MealStorageService()
 
     private let storageKey = "LIFECORE_SAVED_MEALS_V1"
+    private let hasSeededKey = "LIFECORE_HAS_SEEDED_MEALS_V1"
 
     @Published public private(set) var allMeals: [MealRecord] = []
 
     private init() {
         loadMeals()
-        if allMeals.isEmpty {
+        let hasSeeded = UserDefaults.standard.bool(forKey: hasSeededKey)
+        if allMeals.isEmpty && !hasSeeded {
             seedSampleMeals()
+            UserDefaults.standard.set(true, forKey: hasSeededKey)
         }
     }
 
@@ -132,8 +135,17 @@ public final class MealStorageService: ObservableObject {
     }
 
     public func deleteMeal(id: UUID) {
+        objectWillChange.send()
         allMeals.removeAll(where: { $0.id == id })
         saveMeals()
+    }
+
+    public func restoreMeal(_ meal: MealRecord) {
+        objectWillChange.send()
+        if !allMeals.contains(where: { $0.id == meal.id }) {
+            allMeals.insert(meal, at: 0)
+            saveMeals()
+        }
     }
 
     // MARK: - Persistence

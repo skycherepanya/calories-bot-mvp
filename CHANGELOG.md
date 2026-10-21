@@ -8,11 +8,16 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 
 ### 🥗 Nutrition UI:
 - **`NutritionComponents.swift`:**
-  - Added a dedicated, visible trash icon button (`Image(systemName: "trash")`) to each `MealItemCard` alongside the info button, eliminating reliance on hidden context menus.
-  - Attached a native `.confirmationDialog("Видалити цей прийом їжі?")` with haptic feedback to prevent accidental deletions.
-  - Added a destructive "Видалити цей прийом їжі" button at the bottom of `MealDetailSheet` with confirmation.
-  - Added a cancel/delete button (`xmark.circle.fill`) to `OptimisticAnalyzingCard` allowing users to cancel an optimistic entry immediately.
-- **`NutritionView.swift`:** Wired `onCancel` closure on `OptimisticAnalyzingCard` to `storage.deleteMeal(id:)`.
+  - Added a dedicated, visible trash icon button (`Image(systemName: "trash")`) to each `MealItemCard` with `.buttonStyle(.plain)` and `contentShape(Circle())`.
+  - Removed nested child-level `confirmationDialog` from `MealItemCard` which caused UIKit presentation hierarchy collisions when the final remaining meal was deleted and the parent `LazyVStack` unmounted.
+  - Added safe sequencing with slight delay in `MealDetailSheet` so sheet dismissal initiates before collection removal.
+  - Added a cancel/delete button (`xmark.circle.fill`) to `OptimisticAnalyzingCard`.
+- **`NutritionView.swift`:**
+  - Lifted `confirmationDialog` to the screen root (`NutritionView`), ensuring the dialog persists even when the last meal is deleted and `currentMeals` transitions to `emptyDayView`.
+  - Added a floating Undo toast banner (`undoBanner`) allowing instant restoration of accidentally deleted meals with full macros and timestamps.
+- **`MealStorageService.swift`:**
+  - Added persistent `hasSeededKey` to prevent sample meals from resurrecting when all meals in the day/store are deleted.
+  - Added `objectWillChange.send()` in `deleteMeal` to guarantee synchronous state dispatch to SwiftUI.
 
 ### Affected Files
 `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionComponents.swift`,

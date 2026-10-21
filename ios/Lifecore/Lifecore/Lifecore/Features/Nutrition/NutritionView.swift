@@ -9,6 +9,9 @@ public struct NutritionView: View {
     @State private var isYesterdayFastMode = false
     @State private var statusToast: String?
 
+    @State private var mealPendingDeletion: MealRecord?
+    @State private var recentlyDeletedMeal: MealRecord?
+
     public init() {
         _selectedDietaryDate = State(initialValue: FoodPrompt.dietaryDate(for: Date(), offsetDays: 0))
     }
@@ -23,36 +26,43 @@ public struct NutritionView: View {
 
     public var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Date Navigation & Fast Yesterday Toggle
-                    dateNavigationHeader
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Date Navigation & Fast Yesterday Toggle
+                        dateNavigationHeader
 
-                    // Fast Action Bar
-                    fastActionBar
+                        // Fast Action Bar
+                        fastActionBar
 
-                    // Daily Macro Summary Card
-                    let totals = dailyTotals
-                    MacroSummaryCard(
-                        consumedKcal: totals.kcal,
-                        proteinG: totals.protein,
-                        fatG: totals.fat,
-                        carbsG: totals.carbs
-                    )
+                        // Daily Macro Summary Card
+                        let totals = dailyTotals
+                        MacroSummaryCard(
+                            consumedKcal: totals.kcal,
+                            proteinG: totals.protein,
+                            fatG: totals.fat,
+                            carbsG: totals.carbs
+                        )
 
-                    // Dietary Quality & Micronutrients Card
-                    DietaryQualityCard(
-                        wholeFoodCount: totals.wholeFoodCount,
-                        ultraProcessedCount: totals.ultraProcessedCount,
-                        totalSodiumMg: totals.sodiumMg,
-                        totalLeucineG: totals.leucineG
-                    )
+                        // Dietary Quality & Micronutrients Card
+                        DietaryQualityCard(
+                            wholeFoodCount: totals.wholeFoodCount,
+                            ultraProcessedCount: totals.ultraProcessedCount,
+                            totalSodiumMg: totals.sodiumMg,
+                            totalLeucineG: totals.leucineG
+                        )
 
-                    // Meals Log List
-                    mealsListSection
+                        // Meals Log List
+                        mealsListSection
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+
+                // Undo Toast Floating Banner
+                if let deleted = recentlyDeletedMeal {
+                    undoBanner(deleted)
+                }
             }
             .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
             .navigationTitle("Nutrition")
@@ -68,6 +78,27 @@ public struct NutritionView: View {
             .sheet(isPresented: $showingInputSheet) {
                 FoodInputSheet { imageJpegData, textDescription in
                     processFoodLog(imageJpegData: imageJpegData, textDescription: textDescription)
+                }
+            }
+            .confirmationDialog(
+                "Видалити цей прийом їжі?",
+                isPresented: Binding(
+                    get: { mealPendingDeletion != nil },
+                    set: { if !$0 { mealPendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let meal = mealPendingDeletion {
+                    Button("Видалити \"\(meal.name)\"", role: .destructive) {
+                        deleteMealConfirmed(meal)
+                    }
+                }
+                Button("Скасувати", role: .cancel) {
+                    mealPendingDeletion = nil
+                }
+            } message: {
+                if let meal = mealPendingDeletion {
+                    Text("Запис \"\(meal.name)\" буде вилучено з вашого щоденника харчування.")
                 }
             }
         }
@@ -207,24 +238,24 @@ public struct NutritionView: View {
 
             if currentMeals.isEmpty {
                 emptyDayView
+                    .transition(.opacity)
             } else {
                 LazyVStack(spacing: 10) {
                     ForEach(currentMeals) { meal in
                         if meal.isOptimisticPending {
                             OptimisticAnalyzingCard(pendingName: meal.name) {
-                                withAnimation {
+                                withAnimation(.easeInOut(duration: 0.25)) {
                                     storage.deleteMeal(id: meal.id)
                                 }
                             }
                         } else {
                             MealItemCard(meal: meal) {
-                                withAnimation {
-                                    storage.deleteMeal(id: meal.id)
-                                }
+                                mealPendingDeletion = meal
                             }
                         }
                     }
                 }
+                .transition(.opacity)
             }
         }
     }
@@ -246,6 +277,63 @@ public struct NutritionView: View {
         .padding(.vertical, 36)
         .background(Color(red: 0.1, green: 0.11, blue: 0.15))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Deletion & Undo Helpers
+
+    private func deleteMealConfirmed(_ meal: MealRecord) {
+        let impact = UINotificationFeedbackGenerator()
+        impact.prepare()
+        impact.notificationOccurred(.success)
+        recentlyDeletedMeal = meal
+
+        withAnimation(.easeInOut(duration: 0.25)) {
+            storage.deleteMeal(id: meal.id)
+        }
+        mealPendingDeletion = nil
+
+        Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if recentlyDeletedMeal?.id == meal.id {
+                withAnimation {
+                    recentlyDeletedMeal = nil
+                }
+            }
+        }
+    }
+
+    private func undoBanner(_ meal: MealRecord) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "trash.fill")
+                .foregroundStyle(.red)
+            Text("Вилучено: \(meal.name)")
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button("Відновити") {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    storage.restoreMeal(meal)
+                    recentlyDeletedMeal = nil
+                }
+            }
+            .font(.subheadline)
+            .fontWeight(.bold)
+            .foregroundStyle(.orange)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(red: 0.14, green: 0.15, blue: 0.2))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Optimistic Food Logging Flow
