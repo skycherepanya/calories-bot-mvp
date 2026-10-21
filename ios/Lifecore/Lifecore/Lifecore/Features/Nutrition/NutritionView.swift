@@ -48,6 +48,7 @@ public struct NutritionView: View {
                             carbsG: totals.carbs,
                             targetCarbsG: athleteStore.profile.targetCarbsG
                         )
+                        .accessibilityIdentifier("card_nutrition_summary")
 
                         // Dietary Quality & Micronutrients Card
                         DietaryQualityCard(
@@ -78,6 +79,7 @@ public struct NutritionView: View {
                             .font(.title3)
                             .foregroundStyle(.orange)
                     }
+                    .accessibilityIdentifier("btn_add_meal")
                 }
             }
             .sheet(isPresented: $showingInputSheet) {

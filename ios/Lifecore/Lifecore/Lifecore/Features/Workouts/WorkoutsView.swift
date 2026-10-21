@@ -115,6 +115,7 @@ public struct WorkoutsView: View {
                                 .foregroundStyle(.cyan)
                         }
                     }
+                    .accessibilityIdentifier("btn_refresh_workouts")
                 }
             }
             .refreshable {
@@ -150,6 +151,7 @@ public struct WorkoutsView: View {
                         .foregroundStyle(selectedCategory == cat ? Color.black : Color.white)
                         .clipShape(Capsule())
                     }
+                    .accessibilityIdentifier("filter_workout_\(cat.rawValue.lowercased())")
                 }
             }
             .padding(.vertical, 2)

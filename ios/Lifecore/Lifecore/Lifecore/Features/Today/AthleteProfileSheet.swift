@@ -37,6 +37,7 @@ public struct AthleteProfileSheet: View {
                         TextField("78.6", value: $weightKg, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("input_athlete_weight")
                     }
                     HStack {
                         Text("Зріст (см)")
@@ -173,16 +174,19 @@ public struct AthleteProfileSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Скасувати") { dismiss() }
+                        .accessibilityIdentifier("btn_close_profile")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Зберегти") {
                         saveProfile()
                         dismiss()
                     }
+                    .accessibilityIdentifier("btn_save_profile")
                     .fontWeight(.bold)
                     .foregroundColor(LifecoreTheme.electricTeal)
                 }
             }
+            .accessibilityIdentifier("sheet_athlete_profile")
             .onAppear { loadCurrentProfile() }
         }
     }

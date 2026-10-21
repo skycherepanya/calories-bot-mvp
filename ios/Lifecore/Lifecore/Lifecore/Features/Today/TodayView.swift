@@ -31,9 +31,11 @@ public struct TodayView: View {
 
                     // 2. Overnight Vitals Corridor & Pre-Symptomatic Illness Radar
                     OvernightVitalsCard(evaluation: snapshot?.vitalsEvaluation)
+                        .accessibilityIdentifier("card_overnight_vitals")
 
                     // 3. 24h Energy Bank (Body Battery & Sleep Debt)
                     EnergyBankCard(energyBank: snapshot?.energyBank)
+                        .accessibilityIdentifier("card_body_battery")
 
                     // 4. Bento Section: Sleep Architecture & Metabolism (Pure NEAT + Adaptive TDEE)
                     sleepAndMetabolismBentoSection
@@ -47,6 +49,7 @@ public struct TodayView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .accessibilityIdentifier("today_scroll_view")
             .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
             .navigationTitle("Lifecore")
             .toolbar {
@@ -55,6 +58,7 @@ public struct TodayView: View {
                         Image(systemName: "person.crop.circle")
                             .foregroundStyle(LifecoreTheme.electricTeal)
                     }
+                    .accessibilityIdentifier("btn_open_profile")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {

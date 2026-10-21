@@ -17,26 +17,34 @@ public struct MainTabView: View {
             TodayView()
                 .tabItem {
                     Label("Сьогодні", systemImage: "bolt.heart.fill")
+                        .accessibilityIdentifier("tab_today")
                 }
                 .tag(AppTab.today)
+                .accessibilityIdentifier("screen_today")
 
             WorkoutsView()
                 .tabItem {
                     Label("Тренування", systemImage: "figure.run")
+                        .accessibilityIdentifier("tab_workouts")
                 }
                 .tag(AppTab.workouts)
+                .accessibilityIdentifier("screen_workouts")
 
             NutritionView()
                 .tabItem {
                     Label("Харчування", systemImage: "fork.knife")
+                        .accessibilityIdentifier("tab_nutrition")
                 }
                 .tag(AppTab.nutrition)
+                .accessibilityIdentifier("screen_nutrition")
 
             TrendsView()
                 .tabItem {
                     Label("Тренди", systemImage: "chart.line.uptrend.xyaxis")
+                        .accessibilityIdentifier("tab_trends")
                 }
                 .tag(AppTab.trends)
+                .accessibilityIdentifier("screen_trends")
         }
         .tint(.cyan)
     }

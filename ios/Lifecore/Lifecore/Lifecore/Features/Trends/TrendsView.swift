@@ -86,6 +86,7 @@ public struct TrendsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .accessibilityIdentifier("trends_scroll_view")
             .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
             .navigationTitle("Тренди та Аналітика")
             .toolbar {
@@ -142,6 +143,14 @@ public struct TrendsView: View {
                             .stroke(selectedCategory == cat ? LifecoreTheme.electricTeal.opacity(0.4) : Color.clear, lineWidth: 0.8)
                     )
                 }
+                .accessibilityIdentifier({
+                    switch cat {
+                    case .adaptation: return "tab_trend_adaptation"
+                    case .workload: return "tab_trend_workload"
+                    case .body: return "tab_trend_body"
+                    case .cardio: return "tab_trend_cardio"
+                    }
+                }())
                 .buttonStyle(.plain)
             }
         }

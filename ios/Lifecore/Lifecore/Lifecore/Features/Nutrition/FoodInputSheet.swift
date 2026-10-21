@@ -37,6 +37,7 @@ public struct FoodInputSheet: View {
                             .background(Color(red: 0.1, green: 0.11, blue: 0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                             .foregroundStyle(.white)
+                            .accessibilityIdentifier("input_food_text")
                     }
 
                     // Quick Presets
@@ -67,17 +68,20 @@ public struct FoodInputSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .shadow(color: canSubmit ? Color.orange.opacity(0.3) : .clear, radius: 8, y: 3)
                     }
+                    .accessibilityIdentifier("btn_submit_food")
                     .disabled(!canSubmit || isProcessingImage)
                     .padding(.top, 10)
                 }
                 .padding(20)
             }
+            .accessibilityIdentifier("sheet_food_input")
             .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
             .navigationTitle("Новий прийом їжі")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Скасувати") { dismiss() }
+                        .accessibilityIdentifier("btn_close_food_input")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -231,6 +235,7 @@ public struct FoodInputSheet: View {
                 .foregroundStyle(.white)
                 .clipShape(Capsule())
         }
+        .accessibilityIdentifier(text == "Вівсянка з ягодами" ? "preset_oatmeal" : "preset_\(text)")
     }
 
     private func handleLog() {
