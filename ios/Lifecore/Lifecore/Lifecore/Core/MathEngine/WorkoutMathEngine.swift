@@ -42,8 +42,10 @@ public struct SplitMetric: Sendable, Codable, Identifiable {
 
     /// Formatted pace string like "5:45/km"
     public var formattedPace: String {
-        let minutes = Int(paceMinPerKm)
-        let seconds = Int(round((paceMinPerKm - Double(minutes)) * 60.0))
+        guard paceMinPerKm.isFinite && paceMinPerKm > 0 else { return "--:--/km" }
+        let totalSeconds = max(0, Int(round(paceMinPerKm * 60.0)))
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
         return String(format: "%d:%02d/km", minutes, seconds)
     }
 }
@@ -128,6 +130,15 @@ public struct WorkoutAnalysisResult: Sendable, Codable {
     public let splits: [SplitMetric]
     public let laps: [LapIntervalMetric]
     public let benchmarkDelta: BenchmarkDelta?
+
+    /// Formatted average pace string like "5:45/km"
+    public var formattedAvgPace: String {
+        guard avgPaceMinKm.isFinite && avgPaceMinKm > 0 else { return "--:--/km" }
+        let totalSeconds = max(0, Int(round(avgPaceMinKm * 60.0)))
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%d:%02d/km", minutes, seconds)
+    }
 
     public init(
         workoutUUID: UUID,
@@ -391,7 +402,10 @@ public enum WorkoutMathEngine {
         history: [(distanceKm: Double, paceMinKm: Double, avgHr: Double?, ef: Double?)],
         distanceTolerancePct: Double = 0.20
     ) -> BenchmarkDelta? {
+        guard current.distanceKm > 0 else { return nil }
+
         let matching = history.filter { past in
+            guard past.distanceKm > 0 else { return false }
             let diff = abs(past.distanceKm - current.distanceKm) / current.distanceKm
             return diff <= distanceTolerancePct
         }

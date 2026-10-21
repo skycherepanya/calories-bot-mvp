@@ -157,7 +157,8 @@ public final class SupabaseSyncService: @unchecked Sendable {
     public func syncTelemetry(
         dailyActivity: DailyActivity? = nil,
         sleep: SleepLog? = nil,
-        workout: WorkoutLog? = nil
+        workout: WorkoutLog? = nil,
+        pureNEATKcal: Double? = nil
     ) async throws {
         // 1. Sync daily activity to daily_metrics
         if let act = dailyActivity {
@@ -169,7 +170,9 @@ public final class SupabaseSyncService: @unchecked Sendable {
                 "distance_km": act.distanceKm,
                 "created_at": isoFormatter.string(from: Date())
             ]
-            if let w = workout {
+            if let neat = pureNEATKcal {
+                payload["neat_kcal"] = neat
+            } else if let w = workout {
                 let neat = max(0.0, act.activeKcal - (w.activeCalories ?? 0.0))
                 payload["neat_kcal"] = neat
             }

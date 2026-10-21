@@ -370,6 +370,9 @@ public struct NutritionView: View {
                     fiberG: nutrition.micronutrients?.fiberG
                 )
 
+                // 5. Asynchronous cloud sync to Supabase
+                _ = try? await SupabaseSyncService.shared.syncPendingMeals()
+
                 let impact = UINotificationFeedbackGenerator()
                 impact.prepare()
                 impact.notificationOccurred(.success)
@@ -378,6 +381,7 @@ public struct NutritionView: View {
                 print("[NutritionView] AI analysis failed with error: \(error.localizedDescription)")
                 let fallback = GeminiService.shared.generateOfflineMeal(textDescription: textDescription)
                 storage.resolvePending(id: pendingRecord.id, nutrition: fallback)
+                _ = try? await SupabaseSyncService.shared.syncPendingMeals()
             }
         }
     }

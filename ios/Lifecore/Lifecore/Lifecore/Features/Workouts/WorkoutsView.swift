@@ -215,7 +215,7 @@ public struct WorkoutsView: View {
                     value: String(format: "%.0f хв", durationMin)
                 )
 
-                if let dist = distanceKm {
+                if let dist = distanceKm, dist > 0.01 {
                     metricColumn(
                         title: "Дистанція",
                         value: String(format: "%.2f км", dist),
@@ -223,13 +223,16 @@ public struct WorkoutsView: View {
                     )
 
                     let pace = durationMin / dist
-                    let mins = Int(pace)
-                    let secs = Int(round((pace - Double(mins)) * 60.0))
-                    metricColumn(
-                        title: "Темп",
-                        value: String(format: "%d:%02d", mins, secs),
-                        color: .green
-                    )
+                    if pace.isFinite && pace > 0 {
+                        let totalSecs = max(0, Int(round(pace * 60.0)))
+                        let mins = totalSecs / 60
+                        let secs = totalSecs % 60
+                        metricColumn(
+                            title: "Темп",
+                            value: String(format: "%d:%02d", mins, secs),
+                            color: .green
+                        )
+                    }
                 }
 
                 if let kcal = calories {

@@ -76,7 +76,7 @@ public final class MealEntity {
             fatG: record.fatG,
             carbsG: record.carbsG,
             weightG: record.weightG,
-            confidence: nil,
+            confidence: record.confidence,
             tags: record.tags,
             micronutrientsJson: microJson,
             aminoAcidsJson: aminoJson,
@@ -107,6 +107,7 @@ public final class MealEntity {
             fatG: fatG,
             carbsG: carbsG,
             weightG: weightG,
+            confidence: confidence,
             tags: tags,
             micronutrients: micronutrients,
             aminoAcids: aminoAcids,
@@ -284,6 +285,9 @@ public enum WorkoutStorageService {
             existing.updatedAt = Date()
             existing.syncedToCloud = false
             try? context.save()
+            Task {
+                _ = try? await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
+            }
             return existing
         } else {
             let newEntity = WorkoutAnalysisEntity(
@@ -307,6 +311,9 @@ public enum WorkoutStorageService {
             )
             context.insert(newEntity)
             try? context.save()
+            Task {
+                _ = try? await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
+            }
             return newEntity
         }
     }
@@ -318,6 +325,9 @@ public enum WorkoutStorageService {
             existing.updatedAt = Date()
             existing.syncedToCloud = false
             try? context.save()
+            Task {
+                _ = try? await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
+            }
         }
     }
 
@@ -337,5 +347,3 @@ public enum WorkoutStorageService {
         }
     }
 }
-
-

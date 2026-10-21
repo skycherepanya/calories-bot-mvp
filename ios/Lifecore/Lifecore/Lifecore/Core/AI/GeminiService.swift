@@ -541,7 +541,7 @@ public final class GeminiService: @unchecked Sendable {
         report += "### 🏃 Як пройшов забіг\n"
         let dist = String(format: "%.2f", analysis.distanceKm)
         let dur = String(format: "%.0f", analysis.durationMin)
-        let pace = analysis.splits.first?.formattedPace ?? String(format: "%.2f", analysis.avgPaceMinKm)
+        let pace = analysis.formattedAvgPace
         report += "Ти подолав \(dist) км за \(dur) хв (середній темп \(pace)). "
 
         if analysis.splits.count >= 2 {

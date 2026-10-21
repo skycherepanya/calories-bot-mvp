@@ -146,6 +146,7 @@ public final class MealStorageService: ObservableObject {
         entity.fatG = nutrition.fat
         entity.carbsG = nutrition.carbs
         entity.weightG = nutrition.weightG
+        entity.confidence = nutrition.confidence
         entity.tags = nutrition.tags
 
         if let micro = nutrition.micronutrients, let data = try? JSONEncoder().encode(micro) {
@@ -182,7 +183,7 @@ public final class MealStorageService: ObservableObject {
             fatG: nutrition.fat,
             carbsG: nutrition.carbs,
             weightG: nutrition.weightG,
-            confidence: nil,
+            confidence: nutrition.confidence,
             tags: nutrition.tags,
             micronutrientsJson: microJson,
             aminoAcidsJson: aminoJson,

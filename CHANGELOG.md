@@ -2,6 +2,50 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Fix: Audit Reconcile, Model Cascade Restoration & Math Edge-Case Hardening
+
+### 🤖 Gemini AI Cascade & Integrity:
+- **`GeminiService.swift`:**
+  - Restored model cascade to canonical modern high-speed vision stack: `["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.8-flash"]`.
+  - Upgraded offline coach debrief summary to use workout-wide average pace (`formattedAvgPace`) rather than first split pace.
+- **`FoodPrompt.swift`:**
+  - Added `confidence: Double?` to `MealRecord` DTO to prevent confidence drop during persistence.
+  - Corrected prompt text typo (removed unmatched closing parenthesis in Rule 3).
+- **Cleanup:**
+  - Deleted redundant untracked `ios/Lifecore/Lifecore/README.md` to preserve English-only documentation integrity (Rule 1.1).
+
+### 🏃 Math Engine & Edge-Case Protection:
+- **`WorkoutMathEngine.swift`:**
+  - Fixed pace rounding rollover bug where fraction values rounding to 60 seconds rendered as `5:60/km` instead of `6:00/km` using total seconds integer division/modulo.
+  - Added `formattedAvgPace` on `WorkoutAnalysisResult`.
+  - Added zero-distance guards in `computeHistoricalBenchmark` to prevent division-by-zero crashes.
+- **`WorkoutsView.swift`:**
+  - Protected against crash (`Double to Int` on `+inf`) when distance is 0.0km (treadmill or uncalibrated session) with `dist > 0.01` and `pace.isFinite`.
+  - Applied 60-second pace rollover formatting to workout list view.
+
+### ☁️ Storage & Cloud Telemetry:
+- **`MealStorageService.swift` & `SwiftDataModels.swift`:**
+  - Propagated AI `confidence` score through `MealNutrition` -> `MealEntity` -> `MealRecord` -> Supabase `meals` table.
+  - Added automatic background sync task `syncPendingWorkoutAnalyses()` on SwiftData save/update.
+- **`SupabaseSyncService.swift` & `TodayView.swift`:**
+  - Added `pureNEATKcal` parameter to `syncTelemetry()` to send true isolated NEAT rather than single-workout subtraction.
+- **`NutritionView.swift`:**
+  - Added automated background sync to Supabase after UI meal logging and offline fallback resolve.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/FoodPrompt.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/SupabaseSyncService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Feature: Phase 2.6 Local Storage & Cloud Backup (SwiftData + Supabase + LogMealIntent)
 
 ### 💾 Lean SwiftData Architecture:

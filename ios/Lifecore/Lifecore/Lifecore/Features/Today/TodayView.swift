@@ -494,7 +494,8 @@ public struct TodayView: View {
             try await SupabaseSyncService.shared.syncTelemetry(
                 dailyActivity: snap.dailyActivity,
                 sleep: snap.sleepLog,
-                workout: snap.workouts.first
+                workout: snap.workouts.first,
+                pureNEATKcal: snap.pureNEATKcal
             )
             let result = await SupabaseSyncService.shared.syncAll()
             cloudSyncMessage = "✅ Хмара оновлена (страв: \(result.mealsSynced), тренувань: \(result.analysesSynced))"

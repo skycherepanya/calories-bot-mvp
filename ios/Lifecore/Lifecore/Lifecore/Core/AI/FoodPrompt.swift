@@ -160,6 +160,7 @@ public struct MealRecord: Codable, Sendable, Identifiable {
     public let fatG: Double
     public let carbsG: Double
     public let weightG: Double?
+    public let confidence: Double?
     public let tags: [String]
     public let micronutrients: Micronutrients?
     public let aminoAcids: AminoAcids?
@@ -175,6 +176,7 @@ public struct MealRecord: Codable, Sendable, Identifiable {
         fatG: Double,
         carbsG: Double,
         weightG: Double? = nil,
+        confidence: Double? = nil,
         tags: [String] = [],
         micronutrients: Micronutrients? = nil,
         aminoAcids: AminoAcids? = nil,
@@ -189,6 +191,7 @@ public struct MealRecord: Codable, Sendable, Identifiable {
         self.fatG = fatG
         self.carbsG = carbsG
         self.weightG = weightG
+        self.confidence = confidence
         self.tags = tags
         self.micronutrients = micronutrients
         self.aminoAcids = aminoAcids
