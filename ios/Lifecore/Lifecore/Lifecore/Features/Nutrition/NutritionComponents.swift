@@ -36,22 +36,22 @@ public struct MacroSummaryCard: View {
         VStack(alignment: .leading, spacing: 14) {
             // Header with Buffer Badge
             HStack {
-                Label("Daily Energy & Macros", systemImage: "flame.fill")
+                Label("Енергетичний баланс та Макроси", systemImage: "flame.fill")
                     .font(.headline)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(LifecoreTheme.strainOrange)
 
                 Spacer()
 
                 HStack(spacing: 4) {
                     Image(systemName: "shield.lefthalf.filled")
-                    Text("+12.5% Deficit Buffer")
+                    Text("+12.5% Буфер дефіциту")
                 }
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.orange.opacity(0.18))
-                .foregroundStyle(.orange)
+                .background(LifecoreTheme.strainOrange.opacity(0.18))
+                .foregroundStyle(LifecoreTheme.strainOrange)
                 .clipShape(Capsule())
             }
 
@@ -60,7 +60,7 @@ public struct MacroSummaryCard: View {
                 Text("\(Int(consumedKcal))")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                Text("/ \(Int(targetKcal)) kcal")
+                Text("/ \(Int(targetKcal)) ккал")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -120,9 +120,7 @@ public struct MacroSummaryCard: View {
                 )
             }
         }
-        .padding(18)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard(cornerRadius: 20, borderColor: LifecoreTheme.strainOrange.opacity(0.25))
     }
 
     private func macroItem(title: String, current: Double, target: Double, color: Color, unit: String) -> some View {
@@ -184,7 +182,7 @@ public struct DietaryQualityCard: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("Dietary Quality & Biomarkers", systemImage: "sparkles")
+                Label("Якість харчування та біомаркери", systemImage: "sparkles")
                     .font(.headline)
                     .foregroundStyle(.green)
                 Spacer()
@@ -228,8 +226,9 @@ public struct DietaryQualityCard: View {
                         .foregroundStyle(totalSodiumMg > 2300 ? .orange : .white)
 
                     if totalSodiumMg > 2300 {
-                        Text("Тимчасова затримка води")
-                            .font(.system(size: 9))
+                        let waterRetentionKg = max(0.0, (totalSodiumMg - 2000.0) / 1000.0 * 0.32)
+                        Text("Прогноз затримки води на завтра: +\(String(format: "%.2f", waterRetentionKg)) кг")
+                            .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(.orange)
                     } else {
                         Text("Норма (<2300 мг)")
@@ -260,9 +259,7 @@ public struct DietaryQualityCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(18)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard()
     }
 }
 
@@ -351,9 +348,7 @@ public struct MealItemCard: View {
                 }
             }
         }
-        .padding(14)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .lifecoreGlassCard(cornerRadius: 16)
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label("Видалити страву", systemImage: "trash")

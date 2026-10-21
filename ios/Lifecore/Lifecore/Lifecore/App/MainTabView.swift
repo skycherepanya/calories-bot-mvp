@@ -16,25 +16,25 @@ public struct MainTabView: View {
         TabView(selection: $selectedTab) {
             TodayView()
                 .tabItem {
-                    Label("Today", systemImage: "bolt.heart.fill")
+                    Label("Сьогодні", systemImage: "bolt.heart.fill")
                 }
                 .tag(AppTab.today)
 
             WorkoutsView()
                 .tabItem {
-                    Label("Workouts", systemImage: "figure.run")
+                    Label("Тренування", systemImage: "figure.run")
                 }
                 .tag(AppTab.workouts)
 
             NutritionView()
                 .tabItem {
-                    Label("Nutrition", systemImage: "fork.knife")
+                    Label("Харчування", systemImage: "fork.knife")
                 }
                 .tag(AppTab.nutrition)
 
             TrendsView()
                 .tabItem {
-                    Label("Trends", systemImage: "chart.line.uptrend.xyaxis")
+                    Label("Тренди", systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(AppTab.trends)
         }

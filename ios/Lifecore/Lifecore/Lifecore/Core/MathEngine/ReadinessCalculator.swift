@@ -223,9 +223,10 @@ public enum ReadinessCalculator {
         totalSleepHours: Double,
         deepSleepHours: Double,
         remSleepHours: Double,
-        baseline: Baseline = .sasha
+        baseline: Baseline = .sasha,
+        weights: ReadinessWeightVector = ReadinessWeightVector()
     ) -> RecoveryEvaluation {
-        // 1. HRV Score (Weight: 40%)
+        // 1. HRV Score (Weight: weights.hrvWeight)
         let hrvZ: Double?
         let hrvScore: Double
         if let hrv = morningHrv {
@@ -239,7 +240,7 @@ public enum ReadinessCalculator {
             hrvScore = 75.0 // Neutral fallback
         }
 
-        // 2. RHR Score (Weight: 30%)
+        // 2. RHR Score (Weight: weights.rhrWeight)
         let rhrDelta: Double?
         let rhrScore: Double
         if let rhr = morningRhr {
@@ -262,17 +263,17 @@ public enum ReadinessCalculator {
             rhrScore = 75.0
         }
 
-        // 3. Sleep Duration Score (Weight: 15%)
+        // 3. Sleep Duration Score (Weight: weights.sleepDurationWeight)
         let durationRatio = min(1.2, totalSleepHours / max(1.0, baseline.targetSleepHours))
         let sleepDurationScore = min(100.0, durationRatio * 85.0)
 
-        // 4. Sleep Architecture Score (Weight: 15%)
+        // 4. Sleep Architecture Score (Weight: weights.sleepArchitectureWeight)
         let deepRatio = min(1.5, deepSleepHours / max(0.1, baseline.targetDeepHours))
         let remRatio = min(1.5, remSleepHours / max(0.1, baseline.targetRemHours))
         let architectureScore = min(100.0, ((deepRatio + remRatio) / 2.0) * 100.0)
 
         // Composite Weighted Score
-        let rawComposite = (hrvScore * 0.40) + (rhrScore * 0.30) + (sleepDurationScore * 0.15) + (architectureScore * 0.15)
+        let rawComposite = (hrvScore * weights.hrvWeight) + (rhrScore * weights.rhrWeight) + (sleepDurationScore * weights.sleepDurationWeight) + (architectureScore * weights.sleepArchitectureWeight)
         let finalScore = Int(min(100, max(0, round(rawComposite))))
 
         let state: RecoveryEvaluation.RecoveryState
@@ -303,6 +304,27 @@ public enum ReadinessCalculator {
             deepSleepHours: round(deepSleepHours * 10) / 10,
             remSleepHours: round(remSleepHours * 10) / 10,
             narrative: narrative
+        )
+    }
+
+    /// Alias for computeRecovery
+    public static func evaluateRecovery(
+        morningHrv: Double?,
+        morningRhr: Double?,
+        totalSleepHours: Double,
+        deepSleepHours: Double,
+        remSleepHours: Double,
+        baseline: Baseline = .sasha,
+        weights: ReadinessWeightVector = ReadinessWeightVector()
+    ) -> RecoveryEvaluation {
+        return computeRecovery(
+            morningHrv: morningHrv,
+            morningRhr: morningRhr,
+            totalSleepHours: totalSleepHours,
+            deepSleepHours: deepSleepHours,
+            remSleepHours: remSleepHours,
+            baseline: baseline,
+            weights: weights
         )
     }
 

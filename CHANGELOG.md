@@ -2,6 +2,59 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Feature: Lifecore v3.1 (Phase 3.1) Self-Learning Adaptive Physiology Engine & Complete Liquid Glass Bento UI Overhaul Implementation
+
+### 🧠 Self-Learning Adaptive Physiology Engine (`AdaptivePhysiologyEngine.swift`):
+- **Bayesian Shrinkage & Confidence (`confidencePct`):**
+  - Implemented dynamic weighting $w_N = \frac{N}{N + 14}$ smoothly blending athlete priors (`AthleteProfile`) into empirical biometrics as valid history $N$ grows, surfacing live confidence percentage (0–99%).
+- **MacroFactor-Style Dynamic TDEE & Adaptive BMR (`computeDynamicTDEE`):**
+  - Built continuous expenditure calibration tracking 14-day smoothed weight slope ($\Delta W_{\text{trend, 14d}} \times 7700\text{ kcal/kg}$) against logged caloric intake and isolated Pure NEAT, isolating metabolic adaptation ($\text{kcal}$).
+- **Online Ridge OLS $\beta$-Sensitivities (`computeLearnedSensitivities`):**
+  - Built L2-regularized personal sensitivity regressions: $\beta_{\text{Na}\to\text{H2O}}$ (kg water retention per 1g Na), $\beta_{\text{TRIMP}\to\text{Battery}}$ (elasticity factor), $\beta_{\text{LateMeal}\to\text{RHR}}$ (+bpm resting HR penalty), and $\beta_{\text{Carbs}\to\text{Drift}}$ (% cardiac drift mitigation per 100g carbs).
+- **60-Day EWMA Corridors & 1-Tap Subjective RPE Calibration:**
+  - Implemented rolling 60-day EWMA corridors for 5 nocturnal vitals and bounded simplex updates to `ReadinessWeightVector` via 1-tap RPE feedback in the Hero Cockpit.
+- **Verification Suite (`MathEngineVerification.swift`):**
+  - Implemented `verifyAdaptivePhysiologyEngine()` testing Bayesian shrinkage, dynamic TDEE BMR recalibration, and normalized readiness weights; integrated into `runAllVerifications()`.
+
+### 🎨 Complete Liquid Glass Bento UI v3.1 Overhaul & Localization:
+- **`LifecoreDesignSystem.swift`:**
+  - Added theme tokens (`deepVoidBackground`, `recoveryGreen`, `strainOrange`), extended `.lifecoreGlassCard` with dynamic `borderColor`, and created reusable components (`AdaptiveEngineBadgeBar`, `RPEQuickCalibrationRow`, `AdaptiveEngineStatusCard`).
+- **`MainTabView.swift`:**
+  - Localized 4 tabs to 100% Ukrainian: `"Сьогодні"`, `"Тренування"`, `"Харчування"`, `"Тренди"`.
+- **`TodayView.swift`:**
+  - Overhauled into a 5-block Liquid Glass Bento Cockpit: removed redundant `autonomicCard`, embedded `AdaptiveEngineBadgeBar` and `RPEQuickCalibrationRow` into Hero Cockpit card, converted Sleep Architecture and Pure NEAT Activity cards into Bento glass blocks using learned dynamic BMR.
+- **`TrendsView.swift` & `TrendsComponents.swift`:**
+  - Implemented 4-way Liquid Glass Segmented Category Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`), integrated `AdaptiveEngineStatusCard` and `CorrelationInsightsCard`, upgraded all legacy trend cards to `.lifecoreGlassCard()` with Ukrainian localization.
+- **`WorkoutsView.swift`:**
+  - Upgraded workout session cards with `.lifecoreGlassCard(cornerRadius: 18, borderColor: typeColor.opacity(0.25))` and live Banister TRIMP badges.
+- **`NutritionView.swift` & `NutritionComponents.swift`:**
+  - Bound dynamic profile targets to `MacroSummaryCard`, added Tomorrow's Sodium Water Retention Forecast banner, localized 04:00 AM cutoff banner and macro headers to Ukrainian, styled meal action buttons and list items with `.lifecoreGlassCard()`.
+- **`CoachPrompt.swift`:**
+  - Injected self-learning physiology calibration block (`[SELF-LEARNING PHYSIOLOGY CALIBRATION]`) into Gemini AI coach prompt.
+
+### Affected Files
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/AdaptivePhysiologyEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/AthleteProfileStore.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingLoadAndBatteryEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/ReadinessCalculator.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/UI/LifecoreDesignSystem.swift`,
+`ios/Lifecore/Lifecore/Lifecore/App/MainTabView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsComponents.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/CorrelationInsightsCard.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionComponents.swift`,
+`docs/ROADMAP.md`,
+`PROJECT_KNOWLEDGE.md`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Architecture & Spec: Lifecore v3.1 (Phase 3.1) Self-Learning Adaptive Physiology Engine & Complete Liquid Glass Bento UI Overhaul Plan
 
 ### 🧠 Self-Learning Mathematical Architecture (`AdaptivePhysiologyEngine.swift`):

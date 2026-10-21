@@ -174,9 +174,11 @@ ios/Lifecore/
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
 ```
 
-> **Phase 3 Architectural Spec & Implementation Plan:**
-> - **Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)
-> - **Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
+> **Phase 3 & Phase 3.1 Architectural Specs & Implementation Plans:**
+> - **Phase 3 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)
+> - **Phase 3 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
+> - **Phase 3.1 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md)
+> - **Phase 3.1 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md)
 
 ---
 

@@ -1,13 +1,34 @@
 import SwiftUI
 import HealthKit
 
+public enum TrendsCategory: String, CaseIterable, Identifiable {
+    case adaptation = "Адаптація"
+    case workload = "Навантаження"
+    case body = "Тіло & Вага"
+    case cardio = "Кардіо & ВНС"
+
+    public var id: String { rawValue }
+
+    public var systemIcon: String {
+        switch self {
+        case .adaptation: return "brain.head.profile"
+        case .workload: return "flame.fill"
+        case .body: return "scalemass.fill"
+        case .cardio: return "waveform.path.ecg"
+        }
+    }
+}
+
 public struct TrendsView: View {
     @State private var selectedRange: TrendsTimeRange = .days30
+    @State private var selectedCategory: TrendsCategory = .adaptation
+    @State private var adaptiveSnapshot: AdaptivePhysiologySnapshot?
     @State private var weightPoints: [TrendWeightPoint] = []
     @State private var autonomicSamples: [DateAutonomicSample] = []
     @State private var efSamples: [AerobicEfficiencyTrendSample] = []
     @State private var correlationInsights: [CorrelationInsight] = []
     @State private var acwrEvaluation: ACWREvaluation?
+    @State private var dailyTrimpLoads: [(date: Date, trimp: Double)] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -16,50 +37,57 @@ public struct TrendsView: View {
     public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     // 1. Time Range Selector
                     TrendsRangePickerView(selectedRange: $selectedRange)
                         .padding(.top, 4)
 
-                    if isLoading && weightPoints.isEmpty {
+                    // 2. Liquid Glass Category Segmented Switcher
+                    categorySwitcher
+
+                    if isLoading && weightPoints.isEmpty && adaptiveSnapshot == nil {
                         VStack(spacing: 12) {
                             ProgressView()
-                                .tint(.cyan)
+                                .tint(LifecoreTheme.electricTeal)
                             Text("Завантаження фізіологічних трендів...")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(LifecoreTheme.textMuted)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 60)
                     } else {
-                        // 2. Garmin EWMA ACWR Workload Sweet-Spot
-                        ACWRWorkloadTrendCard(acwr: acwrEvaluation)
+                        // 3. Category Content View
+                        switch selectedCategory {
+                        case .adaptation:
+                            if let snapshot = adaptiveSnapshot {
+                                AdaptiveEngineStatusCard(snapshot: snapshot)
+                            }
+                            CorrelationInsightsCard(insights: correlationInsights)
 
-                        // 3. Confounder-Controlled Time-Lagged Correlations Hub (T+0, T+1, T+2)
-                        CorrelationInsightsCard(insights: correlationInsights)
+                        case .workload:
+                            ACWRWorkloadTrendCard(evaluation: acwrEvaluation, dailyLoads: dailyTrimpLoads)
 
-                        // 4. Body Weight Trend & Water Noise Filter
-                        WeightTrendCard(points: weightPoints)
+                        case .body:
+                            WeightTrendCard(points: weightPoints)
 
-                        // 5. Autonomic Stability & Baselines Corridor
-                        AutonomicTrendCard(samples: autonomicSamples)
-
-                        // 6. Aerobic Efficiency & Cardiac Drift
-                        AerobicEfficiencyTrendCard(samples: efSamples)
+                        case .cardio:
+                            AutonomicTrendCard(samples: autonomicSamples)
+                            AerobicEfficiencyTrendCard(samples: efSamples)
+                        }
                     }
 
                     if let error = errorMessage {
                         Text(error)
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(LifecoreTheme.coralDanger)
                             .padding(.horizontal)
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
-            .navigationTitle("Trends")
+            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .navigationTitle("Тренди та Аналітика")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
@@ -67,10 +95,10 @@ public struct TrendsView: View {
                     }) {
                         if isLoading {
                             ProgressView()
-                                .tint(.cyan)
+                                .tint(LifecoreTheme.electricTeal)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .foregroundStyle(.cyan)
+                                .foregroundStyle(LifecoreTheme.electricTeal)
                         }
                     }
                 }
@@ -82,6 +110,46 @@ public struct TrendsView: View {
                 await loadData(forceRefresh: false)
             }
         }
+    }
+
+    // MARK: - Category Switcher
+
+    private var categorySwitcher: some View {
+        HStack(spacing: 6) {
+            ForEach(TrendsCategory.allCases) { cat in
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedCategory = cat
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: cat.systemIcon)
+                            .font(.system(size: 10, weight: .bold))
+                        Text(cat.rawValue)
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 4)
+                    .frame(maxWidth: .infinity)
+                    .foregroundColor(selectedCategory == cat ? .white : LifecoreTheme.textMuted)
+                    .background(
+                        selectedCategory == cat ?
+                            LifecoreTheme.cardSurfaceSecondary : Color.clear
+                    )
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(selectedCategory == cat ? LifecoreTheme.electricTeal.opacity(0.4) : Color.clear, lineWidth: 0.8)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(
+            Capsule()
+                .fill(LifecoreTheme.cardSurface)
+        )
     }
 
     // MARK: - Data Pipeline
@@ -180,12 +248,32 @@ public struct TrendsView: View {
         }
         let computedAcwr = TrainingLoadAndBatteryEngine.computeEWMAWorkload(dailyLoads: dailyLoads)
 
+        let profile = AthleteProfileStore.shared.profile
+        let evaluatedAdaptive = AdaptivePhysiologyEngine.evaluateAdaptiveSnapshot(
+            records: dailyJoined,
+            priorBmrKcal: profile.bmrKcalPerDay,
+            priorTargetKcal: profile.targetCaloriesKcal,
+            priorBaseline: NocturnalVitalsBaseline(
+                hrvMeanMs: profile.hrvBaselineMs,
+                rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+                wristTempMeanCelsius: profile.wristTempBaselineCelsius,
+                respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
+                spo2MeanPct: profile.spo2BaselinePct
+            ),
+            currentWeights: profile.readinessWeights,
+            rpeCheckinsCount: profile.rpeCalibrationCount,
+            todayNeatKcal: 450.0,
+            todayWorkoutKcal: 200.0
+        )
+
         withAnimation(.easeInOut(duration: 0.25)) {
+            self.adaptiveSnapshot = evaluatedAdaptive
             self.weightPoints = computedPoints
             self.autonomicSamples = fetchedAutonomic
             self.efSamples = fetchedEf
             self.correlationInsights = computedInsights
             self.acwrEvaluation = computedAcwr
+            self.dailyTrimpLoads = dailyLoads
             self.isLoading = false
         }
     }

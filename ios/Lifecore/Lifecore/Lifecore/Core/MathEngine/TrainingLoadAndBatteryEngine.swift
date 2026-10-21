@@ -201,7 +201,8 @@ public enum TrainingLoadAndBatteryEngine {
         pureNeatKcal: Double = 450.0,
         workouts: [(hour: Int, trimp: Double)] = [],
         immuneState: ImmuneSystemState = .optimal,
-        currentHour: Int = Calendar.current.component(.hour, from: Date())
+        currentHour: Int = Calendar.current.component(.hour, from: Date()),
+        trimpDrainFactor: Double = 0.32
     ) -> EnergyBankEvaluation {
         // Morning Wake Battery (25 - 100%)
         let sleepRatio = min(1.0, max(0.4, sleepHours / max(5.0, targetSleepHours)))
@@ -259,7 +260,7 @@ public enum TrainingLoadAndBatteryEngine {
             // Workouts occurring at this hour
             let hourWorkouts = workouts.filter { $0.hour == hour }
             for w in hourWorkouts {
-                let workoutDrop = min(38.0, w.trimp * 0.32)
+                let workoutDrop = min(38.0, w.trimp * trimpDrainFactor)
                 hourlyDrop += workoutDrop
                 totalWorkoutDrain += workoutDrop
             }

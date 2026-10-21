@@ -123,15 +123,15 @@
 - [x] Upgrade `TrendsView.swift` with `CorrelationInsightsCard` (ranked personal habits/nutrition impacts with $r$ and $T+1/T+2$ badges) and `ACWRWorkloadTrendCard`.
 - [x] Inject Overnight Vitals confluence state, EWMA ACWR, and personal correlation insights into `CoachPrompt.swift`.
 
-### 3.5. Phase 3.1 (Lifecore v3.1) — Self-Learning Adaptive Physiology Engine & Complete Liquid Glass Bento UI Overhaul (Active Focus)
+### 3.5. Phase 3.1 (Lifecore v3.1) — Self-Learning Adaptive Physiology Engine & Complete Liquid Glass Bento UI Overhaul (Completed)
 > **v3.1 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md)  
 > **v3.1 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md)
-- [ ] **AdaptivePhysiologyEngine (`AdaptivePhysiologyEngine.swift`):**
+- [x] **AdaptivePhysiologyEngine (`AdaptivePhysiologyEngine.swift`):**
   - Loop 1: Bayesian Shrinkage ($w_N = \frac{N}{N+14}$) & Model Confidence score (`confidencePct` 0–99%).
   - Loop 2: MacroFactor-style Dynamic TDEE & Adaptive BMR calibration ($\Delta W_{\text{trend, 14d}} \times 7700\text{ kcal/kg}$ vs caloric intake and Pure NEAT).
   - Loop 3: Online Ridge OLS $\beta$-Sensitivities ($\beta_{\text{Na}\to\text{H2O}}$ kg water per 1g sodium, $\beta_{\text{TRIMP}\to\text{Battery}}$ drain factor, $\beta_{\text{LateMeal}\to\text{RHR}}$ penalty, $\beta_{\text{Carbs}\to\text{Drift}}$ slope).
   - Loop 4: 60-day EWMA dynamic Vitals baseline corridors + 1-Tap RPE subjective feedback weight calibration (`ReadinessWeightVector`).
-- [ ] **Complete Liquid Glass Bento UI v3.1 Overhaul (All 4 Tabs):**
+- [x] **Complete Liquid Glass Bento UI v3.1 Overhaul (All 4 Tabs):**
   - `MainTabView.swift`: 100% Ukrainian tab labels (`Сьогодні`, `Тренування`, `Харчування`, `Тренди`).
   - `TodayView.swift`: Remove duplicate `autonomicCard`, integrate `AdaptiveEngineBadgeBar` & `RPEQuickCalibrationRow` into Hero Cockpit, convert Sleep + Pure NEAT + Adaptive TDEE into Liquid Glass Bento cards, replace hardcoded `1750` BMR with `learnedBmrKcal`.
   - `TrendsView.swift` & `TrendsComponents.swift`: Add Segmented Glass Category Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`), add `AdaptiveEngineStatusCard`, upgrade all legacy trend cards to `.lifecoreGlassCard()`.

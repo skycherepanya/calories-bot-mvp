@@ -3,6 +3,7 @@ import HealthKit
 
 public struct NutritionView: View {
     @StateObject private var storage = MealStorageService.shared
+    @ObservedObject private var athleteStore = AthleteProfileStore.shared
 
     @State private var selectedDietaryDate: String
     @State private var showingInputSheet = false
@@ -39,9 +40,13 @@ public struct NutritionView: View {
                         let totals = dailyTotals
                         MacroSummaryCard(
                             consumedKcal: totals.kcal,
+                            targetKcal: athleteStore.profile.targetCaloriesKcal,
                             proteinG: totals.protein,
+                            targetProteinG: athleteStore.profile.targetProteinG,
                             fatG: totals.fat,
-                            carbsG: totals.carbs
+                            targetFatG: athleteStore.profile.targetFatG,
+                            carbsG: totals.carbs,
+                            targetCarbsG: athleteStore.profile.targetCarbsG
                         )
 
                         // Dietary Quality & Micronutrients Card
@@ -64,8 +69,8 @@ public struct NutritionView: View {
                     undoBanner(deleted)
                 }
             }
-            .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
-            .navigationTitle("Nutrition")
+            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .navigationTitle("Харчування")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingInputSheet = true }) {
@@ -125,7 +130,7 @@ public struct NutritionView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
 
-                Text("04:00 AM cutoff")
+                Text("Зміна доби о 04:00")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
@@ -182,13 +187,7 @@ public struct NutritionView: View {
                         .foregroundStyle(.white)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
+                .lifecoreGlassCard(cornerRadius: 14, padding: 12)
             }
 
             Button(action: toggleYesterdayFastLog) {
@@ -200,9 +199,13 @@ public struct NutritionView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(isYesterdaySelected ? Color.orange : Color(red: 0.1, green: 0.11, blue: 0.15))
+                .background(isYesterdaySelected ? Color.orange : LifecoreTheme.cardSurface)
                 .foregroundStyle(isYesterdaySelected ? Color.black : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(isYesterdaySelected ? AnyShapeStyle(Color.orange) : AnyShapeStyle(LifecoreTheme.specularBorderGradient), lineWidth: 1)
+                )
             }
         }
     }

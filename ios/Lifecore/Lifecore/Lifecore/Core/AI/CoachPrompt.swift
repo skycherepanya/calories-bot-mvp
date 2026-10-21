@@ -87,7 +87,8 @@ public enum CoachPrompt {
     /// Formats pre-calculated workout telemetry and physiological context into an optimized user prompt.
     public static func buildUserPrompt(
         analysis: WorkoutAnalysisResult,
-        recoveryContext: RecentRecoveryContext? = nil
+        recoveryContext: RecentRecoveryContext? = nil,
+        adaptiveSummaryUk: String? = nil
     ) -> String {
         var lines: [String] = []
 
@@ -173,6 +174,12 @@ public enum CoachPrompt {
             if let insight = rec.topCorrelationInsightUk {
                 lines.append("- Key Time-Lagged Physiological Habit Correlation: \(insight)")
             }
+        }
+
+        // Self-Learning Physiology Calibration
+        if let adaptive = adaptiveSummaryUk, !adaptive.isEmpty {
+            lines.append("\n[SELF-LEARNING PHYSIOLOGY CALIBRATION]:")
+            lines.append("- \(adaptive)")
         }
 
         lines.append("\nINSTRUCTION: Generate a simple, motivating, and human coach breakdown in Ukrainian following the 3 sections above. Talk directly to the runner in plain, athletic terms without robotic jargon or percentage tags.")

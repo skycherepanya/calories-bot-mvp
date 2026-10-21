@@ -273,9 +273,7 @@ public struct WeightTrendCard: View {
                 }
             }
         }
-        .padding(18)
-        .background(Color(red: 0.09, green: 0.10, blue: 0.14))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard()
     }
 
     private var weightChart: some View {
@@ -443,7 +441,7 @@ public struct AutonomicTrendCard: View {
                     Text(status.text)
                         .font(.system(.title3, design: .rounded, weight: .bold))
                         .foregroundStyle(status.color)
-                    Text("Mean ± 0.5σ")
+                    Text("Середня ± 0.5σ")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -521,9 +519,7 @@ public struct AutonomicTrendCard: View {
                 }
             }
         }
-        .padding(18)
-        .background(Color(red: 0.09, green: 0.10, blue: 0.14))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard()
     }
 
     private var autonomicChart: some View {
@@ -798,9 +794,7 @@ public struct AerobicEfficiencyTrendCard: View {
                     .lineSpacing(2)
             }
         }
-        .padding(18)
-        .background(Color(red: 0.09, green: 0.10, blue: 0.14))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard()
     }
 
     private var efChart: some View {

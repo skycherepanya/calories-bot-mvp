@@ -102,6 +102,10 @@ public struct CorrelationInsightsCard: View {
 public struct ACWRWorkloadTrendCard: View {
     public let acwr: ACWREvaluation?
 
+    public init(acwr: ACWREvaluation? = nil, evaluation: ACWREvaluation? = nil, dailyLoads: [(date: Date, trimp: Double)] = []) {
+        self.acwr = evaluation ?? acwr
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {

@@ -27,6 +27,11 @@ public enum LifecoreTheme {
     public static let recoveryPurple = Color(red: 0.68, green: 0.40, blue: 0.98)
     public static let textMuted = Color(white: 0.65)
     public static let textSubtle = Color(white: 0.45)
+
+    // Liquid Glass v3.1 Theme Aliases
+    public static let deepVoidBackground = backgroundDark
+    public static let recoveryGreen = athleticEmerald
+    public static let strainOrange = amberWarning
 }
 
 // MARK: - View Modifiers
@@ -34,6 +39,7 @@ public enum LifecoreTheme {
 public struct LifecoreGlassCardModifier: ViewModifier {
     public var cornerRadius: CGFloat = 18
     public var padding: CGFloat = 16
+    public var borderColor: Color? = nil
 
     public func body(content: Content) -> some View {
         content
@@ -48,15 +54,18 @@ public struct LifecoreGlassCardModifier: ViewModifier {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(LifecoreTheme.specularBorderGradient, lineWidth: 1.0)
+                    .stroke(
+                        borderColor != nil ? AnyShapeStyle(borderColor!) : AnyShapeStyle(LifecoreTheme.specularBorderGradient),
+                        lineWidth: 1.0
+                    )
             )
             .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 5)
     }
 }
 
 public extension View {
-    func lifecoreGlassCard(cornerRadius: CGFloat = 18, padding: CGFloat = 16) -> some View {
-        modifier(LifecoreGlassCardModifier(cornerRadius: cornerRadius, padding: padding))
+    func lifecoreGlassCard(cornerRadius: CGFloat = 18, padding: CGFloat = 16, borderColor: Color? = nil) -> some View {
+        modifier(LifecoreGlassCardModifier(cornerRadius: cornerRadius, padding: padding, borderColor: borderColor))
     }
 }
 
@@ -247,5 +256,294 @@ public struct VitalsCorridorPill: View {
         }
         let clamped = max(0.05, min(0.95, ratio))
         return clamped * (width - 8)
+    }
+}
+
+// MARK: - Phase 3.1 Adaptive Engine UI Components
+
+public struct AdaptiveEngineBadgeBar: View {
+    public let snapshot: AdaptivePhysiologySnapshot
+
+    public init(snapshot: AdaptivePhysiologySnapshot) {
+        self.snapshot = snapshot
+    }
+
+    public var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(LifecoreTheme.electricTeal)
+            Text("Адаптивне ядро • \(snapshot.confidencePct)% точності")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white)
+            Spacer()
+            Text("BMR \(Int(snapshot.dynamicTDEE.learnedBmrKcal)) ккал (\(String(format: "%+.0f", snapshot.dynamicTDEE.metabolicAdaptationKcal)))")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(LifecoreTheme.textMuted)
+            Text("•")
+                .font(.system(size: 10))
+                .foregroundColor(LifecoreTheme.textSubtle)
+            Text("Na→H₂O +\(String(format: "%.2f", snapshot.sensitivities.sodiumWaterKgPerGram)) кг")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(LifecoreTheme.athleticEmerald)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(LifecoreTheme.cardSurfaceSecondary)
+        )
+        .overlay(
+            Capsule()
+                .stroke(LifecoreTheme.electricTeal.opacity(0.3), lineWidth: 0.8)
+        )
+    }
+}
+
+public struct RPEQuickCalibrationRow: View {
+    public let isCalibratedToday: Bool
+    public let onSelect: (Int) -> Void
+
+    public init(isCalibratedToday: Bool, onSelect: @escaping (Int) -> Void) {
+        self.isCalibratedToday = isCalibratedToday
+        self.onSelect = onSelect
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Як ти реально почуваєшся сьогодні?")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(LifecoreTheme.textMuted)
+                Spacer()
+                if isCalibratedToday {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 11))
+                        Text("Враховано у вагах ядра ✓")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(LifecoreTheme.athleticEmerald)
+                }
+            }
+
+            if !isCalibratedToday {
+                HStack(spacing: 8) {
+                    Button(action: { onSelect(-1) }) {
+                        Text("Нижче прогнозу")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(LifecoreTheme.coralDanger)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                Capsule()
+                                    .fill(LifecoreTheme.coralDanger.opacity(0.12))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(LifecoreTheme.coralDanger.opacity(0.3), lineWidth: 0.8)
+                            )
+                    }
+
+                    Button(action: { onSelect(0) }) {
+                        Text("Точно")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(LifecoreTheme.athleticEmerald)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                Capsule()
+                                    .fill(LifecoreTheme.athleticEmerald.opacity(0.12))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(LifecoreTheme.athleticEmerald.opacity(0.3), lineWidth: 0.8)
+                            )
+                    }
+
+                    Button(action: { onSelect(1) }) {
+                        Text("Краще прогнозу")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(LifecoreTheme.electricTeal)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                Capsule()
+                                    .fill(LifecoreTheme.electricTeal.opacity(0.12))
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(LifecoreTheme.electricTeal.opacity(0.3), lineWidth: 0.8)
+                            )
+                    }
+                }
+            }
+        }
+    }
+}
+
+public struct AdaptiveEngineStatusCard: View {
+    public let snapshot: AdaptivePhysiologySnapshot
+
+    public init(snapshot: AdaptivePhysiologySnapshot) {
+        self.snapshot = snapshot
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(LifecoreTheme.electricTeal)
+                        Text("Адаптивне самонавчання ядра")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    Text(snapshot.statusTitleUk)
+                        .font(.system(size: 12))
+                        .foregroundColor(LifecoreTheme.textMuted)
+                }
+                Spacer()
+                LifecoreGlowPill(
+                    text: "\(snapshot.confidencePct)% точності",
+                    systemIcon: "sparkles",
+                    color: snapshot.confidencePct >= 70 ? LifecoreTheme.athleticEmerald : LifecoreTheme.electricTeal
+                )
+            }
+
+            // Loop 1: Confidence progress bar
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Калібрування профілю (N = \(snapshot.sampleDaysCount) днів)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(LifecoreTheme.textMuted)
+                    Spacer()
+                    Text("\(snapshot.confidencePct)%")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 6)
+                        Capsule()
+                            .fill(LinearGradient(
+                                colors: [LifecoreTheme.electricTeal, LifecoreTheme.athleticEmerald],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                            .frame(width: max(8, geo.size.width * CGFloat(snapshot.confidencePct) / 100.0), height: 6)
+                    }
+                }
+                .frame(height: 6)
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
+            // Loop 2: MacroFactor Dynamic TDEE
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Динамічний TDEE & BMR (MacroFactor Loop)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(LifecoreTheme.amberWarning)
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Реальний TDEE")
+                            .font(.system(size: 10))
+                            .foregroundColor(LifecoreTheme.textSubtle)
+                        Text("\(Int(snapshot.dynamicTDEE.learnedDailyTdeeKcal)) ккал")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Адаптивний BMR")
+                            .font(.system(size: 10))
+                            .foregroundColor(LifecoreTheme.textSubtle)
+                        Text("\(Int(snapshot.dynamicTDEE.learnedBmrKcal)) ккал")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Метаболічна дельта")
+                            .font(.system(size: 10))
+                            .foregroundColor(LifecoreTheme.textSubtle)
+                        Text(String(format: "%+.0f ккал", snapshot.dynamicTDEE.metabolicAdaptationKcal))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(snapshot.dynamicTDEE.metabolicAdaptationKcal >= 0 ? LifecoreTheme.athleticEmerald : LifecoreTheme.coralDanger)
+                    }
+                }
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
+            // Loop 3: Sensitivities Grid
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Індивідуальні β-чутливості (Ridge OLS)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(LifecoreTheme.electricTeal)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    sensitivityCell(
+                        title: "Na→H₂O затримка",
+                        value: String(format: "+%.2f кг/1г", snapshot.sensitivities.sodiumWaterKgPerGram),
+                        desc: "натрієвий водяний пік"
+                    )
+                    sensitivityCell(
+                        title: "TRIMP розрядка",
+                        value: String(format: "%.2f%%/1 TRIMP", snapshot.sensitivities.trimpBatteryDrainFactor),
+                        desc: "витрата батареї тіла"
+                    )
+                    sensitivityCell(
+                        title: "Пізня вечеря RHR",
+                        value: String(format: "+%.1f уд/хв", snapshot.sensitivities.lateMealRhrPenaltyBpm),
+                        desc: "штраф пульсу сну"
+                    )
+                    sensitivityCell(
+                        title: "Вуглеводи → Дрифт",
+                        value: String(format: "%.1f%%/100г", snapshot.sensitivities.carbCardiacDriftSlopePctPer100g),
+                        desc: "стабільність темпу"
+                    )
+                }
+            }
+
+            Divider().background(Color.white.opacity(0.1))
+
+            // Loop 4: Readiness Weight Allocation
+            VStack(alignment: .leading, spacing: 4) {
+                let w = snapshot.readinessWeights
+                Text("Персональні ваги готовності (1-Tap RPE Feedback)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                Text("HRV \(Int(w.hrvWeight * 100))% • RHR \(Int(w.rhrWeight * 100))% • Сон \(Int((w.sleepDurationWeight + w.sleepArchitectureWeight) * 100))%")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundColor(LifecoreTheme.athleticEmerald)
+            }
+        }
+        .lifecoreGlassCard(cornerRadius: 20)
+    }
+
+    private func sensitivityCell(title: String, value: String, desc: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(LifecoreTheme.textSubtle)
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+            Text(desc)
+                .font(.system(size: 9))
+                .foregroundColor(LifecoreTheme.textMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(LifecoreTheme.cardSurfaceSecondary)
+        )
     }
 }

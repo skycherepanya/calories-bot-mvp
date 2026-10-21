@@ -571,7 +571,11 @@ public final class HealthKitManager: @unchecked Sendable {
     }
 
     // MARK: - 5. Complete Today Snapshot
-    public func fetchTodaySnapshot() async throws -> TodaySnapshot {
+    public func fetchTodaySnapshot(
+        readinessWeights: ReadinessWeightVector = .default,
+        vitalsBaseline: NocturnalVitalsBaseline? = nil,
+        trimpDrainFactor: Double = 0.32
+    ) async throws -> TodaySnapshot {
         async let actTask = fetchDailyActivity()
         async let sleepTask = fetchLastNightSleep()
         async let workoutsTask = fetchAllWorkoutsToday()
@@ -589,7 +593,8 @@ public final class HealthKitManager: @unchecked Sendable {
             totalSleepHours: sleep.totalHours,
             deepSleepHours: sleep.deepHours,
             remSleepHours: sleep.remHours,
-            baseline: baseline
+            baseline: baseline,
+            weights: readinessWeights
         )
 
         // Compute Strain & Pure NEAT
@@ -617,14 +622,14 @@ public final class HealthKitManager: @unchecked Sendable {
             respiratoryRateBpm: sleep.respiratoryRate ?? profile.respiratoryRateBaselineBpm,
             spo2Pct: sleep.spo2Pct ?? profile.spo2BaselinePct
         )
-        let vitalsBaseline = NocturnalVitalsBaseline(
+        let resolvedBaseline = vitalsBaseline ?? NocturnalVitalsBaseline(
             hrvMeanMs: profile.hrvBaselineMs,
             rhrMeanBpm: profile.restingHeartRateBaselineBpm,
             wristTempMeanCelsius: profile.wristTempBaselineCelsius,
             respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
             spo2MeanPct: profile.spo2BaselinePct
         )
-        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: vitalsBaseline)
+        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: resolvedBaseline)
 
         // 2. Garmin Firstbeat TRIMP & EWMA ACWR
         var workoutHours: [(hour: Int, trimp: Double)] = []
@@ -656,7 +661,8 @@ public final class HealthKitManager: @unchecked Sendable {
             pureNeatKcal: neatKcal,
             workouts: workoutHours,
             immuneState: vitalsEval.state,
-            currentHour: currentHour
+            currentHour: currentHour,
+            trimpDrainFactor: trimpDrainFactor
         )
 
         let enrichedAct = DailyActivity(

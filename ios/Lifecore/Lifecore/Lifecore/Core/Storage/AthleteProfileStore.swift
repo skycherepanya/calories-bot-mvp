@@ -24,6 +24,77 @@ public struct AthleteProfile: Codable, Sendable, Equatable {
     public var targetCarbsG: Double
     public var targetSleepHours: Double
     public var hrvMethod: HRVCalculationMethod
+    public var readinessWeights: ReadinessWeightVector = ReadinessWeightVector()
+    public var rpeCalibrationCount: Int = 0
+    public var lastRpeCalibrationDate: String? = nil
+
+    public init(
+        weightKg: Double,
+        heightCm: Double,
+        ageYears: Int,
+        maxHeartRateBpm: Double,
+        restingHeartRateBaselineBpm: Double,
+        hrvBaselineMs: Double,
+        wristTempBaselineCelsius: Double,
+        respiratoryRateBaselineBpm: Double,
+        spo2BaselinePct: Double,
+        bmrKcalPerDay: Double,
+        activeMoveGoalKcal: Double,
+        targetCaloriesKcal: Double,
+        targetProteinG: Double,
+        targetFatG: Double,
+        targetCarbsG: Double,
+        targetSleepHours: Double,
+        hrvMethod: HRVCalculationMethod,
+        readinessWeights: ReadinessWeightVector = ReadinessWeightVector(),
+        rpeCalibrationCount: Int = 0,
+        lastRpeCalibrationDate: String? = nil
+    ) {
+        self.weightKg = weightKg
+        self.heightCm = heightCm
+        self.ageYears = ageYears
+        self.maxHeartRateBpm = maxHeartRateBpm
+        self.restingHeartRateBaselineBpm = restingHeartRateBaselineBpm
+        self.hrvBaselineMs = hrvBaselineMs
+        self.wristTempBaselineCelsius = wristTempBaselineCelsius
+        self.respiratoryRateBaselineBpm = respiratoryRateBaselineBpm
+        self.spo2BaselinePct = spo2BaselinePct
+        self.bmrKcalPerDay = bmrKcalPerDay
+        self.activeMoveGoalKcal = activeMoveGoalKcal
+        self.targetCaloriesKcal = targetCaloriesKcal
+        self.targetProteinG = targetProteinG
+        self.targetFatG = targetFatG
+        self.targetCarbsG = targetCarbsG
+        self.targetSleepHours = targetSleepHours
+        self.hrvMethod = hrvMethod
+        self.readinessWeights = readinessWeights
+        self.rpeCalibrationCount = rpeCalibrationCount
+        self.lastRpeCalibrationDate = lastRpeCalibrationDate
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.weightKg = try container.decode(Double.self, forKey: .weightKg)
+        self.heightCm = try container.decode(Double.self, forKey: .heightCm)
+        self.ageYears = try container.decode(Int.self, forKey: .ageYears)
+        self.maxHeartRateBpm = try container.decode(Double.self, forKey: .maxHeartRateBpm)
+        self.restingHeartRateBaselineBpm = try container.decode(Double.self, forKey: .restingHeartRateBaselineBpm)
+        self.hrvBaselineMs = try container.decode(Double.self, forKey: .hrvBaselineMs)
+        self.wristTempBaselineCelsius = try container.decode(Double.self, forKey: .wristTempBaselineCelsius)
+        self.respiratoryRateBaselineBpm = try container.decode(Double.self, forKey: .respiratoryRateBaselineBpm)
+        self.spo2BaselinePct = try container.decode(Double.self, forKey: .spo2BaselinePct)
+        self.bmrKcalPerDay = try container.decode(Double.self, forKey: .bmrKcalPerDay)
+        self.activeMoveGoalKcal = try container.decode(Double.self, forKey: .activeMoveGoalKcal)
+        self.targetCaloriesKcal = try container.decode(Double.self, forKey: .targetCaloriesKcal)
+        self.targetProteinG = try container.decode(Double.self, forKey: .targetProteinG)
+        self.targetFatG = try container.decode(Double.self, forKey: .targetFatG)
+        self.targetCarbsG = try container.decode(Double.self, forKey: .targetCarbsG)
+        self.targetSleepHours = try container.decode(Double.self, forKey: .targetSleepHours)
+        self.hrvMethod = try container.decodeIfPresent(HRVCalculationMethod.self, forKey: .hrvMethod) ?? .hybridRMSSD
+        self.readinessWeights = try container.decodeIfPresent(ReadinessWeightVector.self, forKey: .readinessWeights) ?? ReadinessWeightVector()
+        self.rpeCalibrationCount = try container.decodeIfPresent(Int.self, forKey: .rpeCalibrationCount) ?? 0
+        self.lastRpeCalibrationDate = try container.decodeIfPresent(String.self, forKey: .lastRpeCalibrationDate)
+    }
 
     public static let sashaDefault = AthleteProfile(
         weightKg: 78.6,
@@ -42,7 +113,10 @@ public struct AthleteProfile: Codable, Sendable, Equatable {
         targetFatG: 70.0,
         targetCarbsG: 215.0,
         targetSleepHours: 7.5,
-        hrvMethod: .hybridRMSSD
+        hrvMethod: .hybridRMSSD,
+        readinessWeights: ReadinessWeightVector(),
+        rpeCalibrationCount: 0,
+        lastRpeCalibrationDate: nil
     )
 }
 
@@ -62,6 +136,19 @@ public final class AthleteProfileStore: ObservableObject {
         } else {
             self.profile = .sashaDefault
         }
+    }
+
+    public func recordRPEFeedback(_ feedback: Int, hrvWasLow: Bool, sleepWasLow: Bool, dietaryDate: String) {
+        let newWeights = AdaptivePhysiologyEngine.calibrateReadinessWeights(
+            currentWeights: profile.readinessWeights,
+            rpeFeedback: feedback,
+            hrvWasLow: hrvWasLow,
+            sleepWasLow: sleepWasLow
+        )
+        profile.readinessWeights = newWeights
+        profile.rpeCalibrationCount += 1
+        profile.lastRpeCalibrationDate = dietaryDate
+        save()
     }
 
     public func save() {

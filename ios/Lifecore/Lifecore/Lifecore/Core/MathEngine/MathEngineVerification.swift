@@ -41,6 +41,9 @@ public enum MathEngineVerification {
         // Test 10: Confounder-Controlled Time-Lagged Correlations
         results.append(verifyCorrelationEngine())
 
+        // Test 11: Self-Learning Adaptive Physiology Engine (Phase 3.1)
+        results.append(verifyAdaptivePhysiologyEngine())
+
         return results
     }
 
@@ -432,6 +435,67 @@ public enum MathEngineVerification {
             testName: "Confounder-Controlled Time-Lagged Correlations",
             passed: true,
             details: "Generated \(insights.count) insights, SodiumWater r=\(sInsight.pearsonR) (N=\(sInsight.sampleCount))"
+        )
+    }
+
+    private static func verifyAdaptivePhysiologyEngine() -> VerificationResult {
+        // 1. Bayesian Shrinkage: N=14, kappa=14.0 -> 14 / (14 + 14) = 0.5
+        let w = AdaptivePhysiologyEngine.bayesianShrinkageWeight(sampleCount: 14, kappa: 14.0)
+        let wPassed = abs(w - 0.5) < 0.001
+
+        // 2. Dynamic TDEE: rapid weight drop with steady intake shifts learned BMR upward
+        let baseDate = Date(timeIntervalSince1970: 1729300000)
+        var dropRecords: [DailyJoinedPhysiologyRecord] = []
+        for i in 0..<14 {
+            let dayDate = baseDate.addingTimeInterval(Double(i) * 86400.0)
+            let weight = 80.0 - (Double(i) * 0.15) // Dropping 2.1kg in 14 days
+            dropRecords.append(DailyJoinedPhysiologyRecord(
+                dateString: "2026-10-\(10 + i)",
+                date: dayDate,
+                weightKg: weight,
+                rollingWeight7dKg: weight,
+                sodiumMg: 2000.0,
+                carbsG: 250.0,
+                proteinG: 170.0,
+                fatG: 70.0,
+                wholeFoodRatio: 0.9,
+                ultraProcessedRatio: 0.1,
+                hasLateMealAfter2130: false,
+                hasHighSodiumMeal: false,
+                overnightHrvMs: 100.0,
+                overnightRhrBpm: 48.0,
+                deepSleepHours: 1.5,
+                remSleepHours: 1.5,
+                workoutTrimp: 40.0,
+                runningCardiacDriftPct: 4.0,
+                runningEf: 1.2
+            ))
+        }
+
+        let tdee = AdaptivePhysiologyEngine.computeDynamicTDEE(
+            records: dropRecords,
+            priorBmrKcal: 1750.0,
+            priorTargetKcal: 2150.0
+        )
+        let bmrIncreased = tdee.learnedBmrKcal > 1750.0 && tdee.metabolicAdaptationKcal > 0
+
+        // 3. Calibrate Readiness Weights sum == 1.0
+        let initialWeights = ReadinessWeightVector()
+        let calibrated = AdaptivePhysiologyEngine.calibrateReadinessWeights(
+            currentWeights: initialWeights,
+            rpeFeedback: -1,
+            hrvWasLow: false,
+            sleepWasLow: true
+        )
+        let weightSum = calibrated.hrvWeight + calibrated.rhrWeight + calibrated.sleepDurationWeight + calibrated.sleepArchitectureWeight
+        let weightsNormalized = abs(weightSum - 1.0) < 0.005
+
+        let passed = wPassed && bmrIncreased && weightsNormalized
+
+        return VerificationResult(
+            testName: "Self-Learning Adaptive Physiology Engine",
+            passed: passed,
+            details: "BayesianWeight=\(w) (expected 0.5), LearnedBMR=\(tdee.learnedBmrKcal) (adaptation: \(tdee.metabolicAdaptationKcal)), WeightsSum=\(weightSum)"
         )
     }
 }

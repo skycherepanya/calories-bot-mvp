@@ -101,8 +101,8 @@ public struct WorkoutsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
-            .navigationTitle("Workouts")
+            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .navigationTitle("Тренування")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
@@ -182,8 +182,16 @@ public struct WorkoutsView: View {
         let calories = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie())
         let avgHr = workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
 
+        let profile = AthleteProfileStore.shared.profile
+        let trimp = TrainingLoadAndBatteryEngine.computeBanisterTRIMP(
+            durationMin: durationMin,
+            avgHr: avgHr ?? 130.0,
+            restingHr: profile.restingHeartRateBaselineBpm,
+            maxHr: profile.maxHeartRateBpm
+        )
+
         return VStack(alignment: .leading, spacing: 12) {
-            // Header: Type + Date + Arrow
+            // Header: Type + TRIMP badge + Date + Arrow
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: iconName(for: workout.workoutActivityType))
@@ -196,6 +204,8 @@ public struct WorkoutsView: View {
                 }
 
                 Spacer()
+
+                LifecoreGlowPill(text: "TRIMP \(Int(trimp))", systemIcon: "flame.fill", color: typeColor)
 
                 Text(formattedDate(workout.startDate))
                     .font(.caption2)
@@ -252,9 +262,7 @@ public struct WorkoutsView: View {
                 }
             }
         }
-        .padding(16)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .lifecoreGlassCard(cornerRadius: 18, borderColor: typeColor.opacity(0.25))
     }
 
     private func metricColumn(title: String, value: String, color: Color = .white) -> some View {
