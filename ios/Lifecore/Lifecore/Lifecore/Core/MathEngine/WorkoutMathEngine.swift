@@ -462,7 +462,14 @@ public enum WorkoutMathEngine {
         }
 
         let allHrs = series.samples.compactMap { $0.heartRateBpm }
-        let avgHr = allHrs.isEmpty ? nil : round((allHrs.reduce(0.0, +) / Double(allHrs.count)) * 10) / 10
+        let avgHr: Double?
+        if !allHrs.isEmpty {
+            let sumHr = allHrs.reduce(0.0, +)
+            let mean = sumHr / Double(allHrs.count)
+            avgHr = round(mean * 10.0) / 10.0
+        } else {
+            avgHr = nil
+        }
         let maxHr = allHrs.max()
 
         // 1km splits

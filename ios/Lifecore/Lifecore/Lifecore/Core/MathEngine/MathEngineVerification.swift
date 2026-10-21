@@ -32,6 +32,15 @@ public enum MathEngineVerification {
         // Test 7: SwiftData Models & Serialization
         results.append(verifySwiftDataModels())
 
+        // Test 8: Overnight Vitals & Illness Prodrome
+        results.append(verifyVitalsAndIllnessEngine())
+
+        // Test 9: Garmin Firstbeat Workload (TRIMP, EWMA ACWR) & Body Battery
+        results.append(verifyTrainingLoadAndBatteryEngine())
+
+        // Test 10: Confounder-Controlled Time-Lagged Correlations
+        results.append(verifyCorrelationEngine())
+
         return results
     }
 
@@ -39,7 +48,9 @@ public enum MathEngineVerification {
 
     private static func verifyKilometerSplits() -> VerificationResult {
         let baseDate = Date(timeIntervalSince1970: 1729300000)
-        var samples: [RawTelemetryPoint] = []
+        var samples: [RawTelemetryPoint] = [
+            RawTelemetryPoint(timestamp: baseDate, distanceMeters: 0.0, heartRateBpm: 140.0, altitudeMeters: 50.0)
+        ]
 
         // Generate 3000m running data (3 kilometers)
         // km 1: 360 seconds (pace 6:00/km)
@@ -244,6 +255,184 @@ public enum MathEngineVerification {
         }
 
         return VerificationResult(testName: "SwiftData Models & Serialization", passed: true, details: "MealEntity & WorkoutAnalysisEntity 100% verified")
+    }
+
+    private static func verifyVitalsAndIllnessEngine() -> VerificationResult {
+        // 1. Beat-to-beat RMSSD with 20% filter
+        // Realistic normal intervals ~800ms with ~30-50ms physiological variations + 1 ectopic spike (+450ms)
+        let intervals = [0.80, 0.84, 0.79, 0.83, 0.78, 0.82, 0.81, 0.85, 0.80, 0.79, 1.35, 0.80, 0.83, 0.78, 0.82, 0.80, 0.84, 0.81, 0.79, 0.83]
+        var beatTimestamps: [(timeSinceStart: TimeInterval, precededByGap: Bool)] = []
+        var t = 0.0
+        for interval in intervals {
+            t += interval
+            beatTimestamps.append((timeSinceStart: t, precededByGap: false))
+        }
+        guard let cleanRmssd = VitalsAndIllnessEngine.computeCleanRMSSD(beats: beatTimestamps) else {
+            return VerificationResult(testName: "Overnight Vitals & Illness Prodrome", passed: false, details: "computeCleanRMSSD returned nil")
+        }
+        guard cleanRmssd > 20.0 && cleanRmssd < 60.0 else {
+            return VerificationResult(testName: "Overnight Vitals & Illness Prodrome", passed: false, details: "computeCleanRMSSD value out of expected range: \(cleanRmssd)")
+        }
+
+        // 2. Log-HRV Z-score test
+        let zZero = VitalsAndIllnessEngine.computeLogHRVZScore(currentHrvMs: 102.0, fallbackMeanMs: 102.0)
+        let zDepressed = VitalsAndIllnessEngine.computeLogHRVZScore(currentHrvMs: 60.0, fallbackMeanMs: 102.0)
+        guard abs(zZero) < 0.01 && zDepressed < -1.5 else {
+            return VerificationResult(testName: "Overnight Vitals & Illness Prodrome", passed: false, details: "computeLogHRVZScore failed: zZero=\(zZero), zDepressed=\(zDepressed)")
+        }
+
+        // 3. Confluence state machine: Optimal vs Training Fatigue vs Illness Prodrome
+        let baseline = NocturnalVitalsBaseline(hrvMeanMs: 102.0, rhrMeanBpm: 49.0, wristTempMeanCelsius: 36.40, respiratoryRateMeanBpm: 14.2, spo2MeanPct: 97.8)
+
+        // Optimal: all normal
+        let optimalInput = NocturnalVitalsInput(hrvMs: 104.0, rhrBpm: 48.5, wristTempCelsius: 36.45, wristTempDeltaCelsius: 0.05, respiratoryRateBpm: 14.1, spo2Pct: 98.0)
+        let evalOptimal = VitalsAndIllnessEngine.evaluateOvernightVitals(input: optimalInput, baseline: baseline)
+
+        // Fatigue: 1 outlier (low HRV), temp normal -> trainingFatigue, NOT illness
+        let fatigueInput = NocturnalVitalsInput(hrvMs: 70.0, rhrBpm: 49.5, wristTempCelsius: 36.48, wristTempDeltaCelsius: 0.08, respiratoryRateBpm: 14.3, spo2Pct: 97.6)
+        let evalFatigue = VitalsAndIllnessEngine.evaluateOvernightVitals(input: fatigueInput, baseline: baseline)
+
+        // Illness: elevated temp (+0.46) + elevated RHR (56) + depressed HRV (58) -> illnessProdrome
+        let illnessInput = NocturnalVitalsInput(hrvMs: 58.0, rhrBpm: 56.0, wristTempCelsius: 36.86, wristTempDeltaCelsius: 0.46, respiratoryRateBpm: 16.5, spo2Pct: 95.0)
+        let evalIllness = VitalsAndIllnessEngine.evaluateOvernightVitals(input: illnessInput, baseline: baseline)
+
+        let passed = (evalOptimal.state == .optimal) &&
+                     (evalFatigue.state == .trainingFatigue) &&
+                     (evalIllness.state == .illnessProdrome)
+
+        return VerificationResult(
+            testName: "Overnight Vitals & Illness Prodrome",
+            passed: passed,
+            details: "Optimal=\(evalOptimal.state.rawValue), Fatigue=\(evalFatigue.state.rawValue), Illness=\(evalIllness.state.rawValue), RMSSD=\(String(format: "%.1f", cleanRmssd))ms"
+        )
+    }
+
+    private static func verifyTrainingLoadAndBatteryEngine() -> VerificationResult {
+        // 1. Banister TRIMP test: 60 min, avg HR 150, rest 49, max 192 -> expected ~105 TRIMP
+        let trimp = TrainingLoadAndBatteryEngine.computeBanisterTRIMP(
+            durationMin: 60.0,
+            avgHr: 150.0,
+            restingHr: 49.0,
+            maxHr: 192.0
+        )
+        let trimpMatches = trimp >= 100.0 && trimp <= 110.0
+
+        // 2. EWMA ACWR:
+        // Case A: Steady 14 days of 100 TRIMP -> ratio ~ 1.0 (sweetSpot)
+        let baseDate = Date(timeIntervalSince1970: 1729300000)
+        var steadyLoads: [(date: Date, trimp: Double)] = []
+        for d in 0..<14 {
+            steadyLoads.append((date: baseDate.addingTimeInterval(Double(d) * 86400.0), trimp: 100.0))
+        }
+        let steadyEval = TrainingLoadAndBatteryEngine.computeEWMAWorkload(dailyLoads: steadyLoads)
+        let steadyMatches = steadyEval.zone == .sweetSpot && abs(steadyEval.ratio - 1.0) < 0.15
+
+        // Case B: Spike: 21 days of 40 TRIMP, then 4 days of 180 TRIMP -> ratio should ramp into caution/dangerSpike (> 1.30)
+        var spikeLoads: [(date: Date, trimp: Double)] = []
+        for d in 0..<21 {
+            spikeLoads.append((date: baseDate.addingTimeInterval(Double(d) * 86400.0), trimp: 40.0))
+        }
+        for d in 21..<25 {
+            spikeLoads.append((date: baseDate.addingTimeInterval(Double(d) * 86400.0), trimp: 180.0))
+        }
+        let spikeEval = TrainingLoadAndBatteryEngine.computeEWMAWorkload(dailyLoads: spikeLoads)
+        let spikeMatches = spikeEval.ratio >= 1.30 && (spikeEval.zone == .caution || spikeEval.zone == .dangerSpike)
+
+        // 3. Body Battery 24h timeline
+        let batteryEval = TrainingLoadAndBatteryEngine.computeEnergyBankTimeline(
+            wakeRecoveryScore: 90,
+            sleepHours: 7.5,
+            targetSleepHours: 7.5,
+            pureNeatKcal: 450.0,
+            workouts: [(hour: 17, trimp: 100.0)],
+            immuneState: .optimal,
+            currentHour: 18
+        )
+        let batteryMatches = batteryEval.wakeBattery >= 88 &&
+                             batteryEval.timeline.count == 24 &&
+                             batteryEval.currentBattery < batteryEval.wakeBattery &&
+                             batteryEval.currentBattery >= 15
+
+        let passed = trimpMatches && steadyMatches && spikeMatches && batteryMatches
+
+        return VerificationResult(
+            testName: "Garmin Firstbeat Workload & Body Battery",
+            passed: passed,
+            details: "TRIMP=\(trimp), SteadyACWR=\(steadyEval.ratio) (\(steadyEval.zone.rawValue)), SpikeACWR=\(spikeEval.ratio) (\(spikeEval.zone.rawValue)), WakeBattery=\(batteryEval.wakeBattery)%"
+        )
+    }
+
+    private static func verifyCorrelationEngine() -> VerificationResult {
+        // 1. Basic Pearson r sanity check
+        let x = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        let yPos = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
+        let yNeg = [12.0, 10.0, 8.0, 6.0, 4.0, 2.0]
+
+        guard let rPos = CorrelationEngine.pearsonR(x, yPos),
+              let rNeg = CorrelationEngine.pearsonR(x, yNeg),
+              abs(rPos - 1.0) < 0.01,
+              abs(rNeg - (-1.0)) < 0.01 else {
+            return VerificationResult(testName: "Confounder-Controlled Time-Lagged Correlations", passed: false, details: "Basic Pearson r calculation failed")
+        }
+
+        // 2. Multi-day synthetic history with sodium-water spike & high TRIMP confounder
+        let baseDate = Date(timeIntervalSince1970: 1729300000)
+        var records: [DailyJoinedPhysiologyRecord] = []
+
+        for i in 0..<10 {
+            let dayDate = baseDate.addingTimeInterval(Double(i) * 86400.0)
+            let isSodiumSpikeDay = (i % 2 == 1) // Days 1, 3, 5, 7, 9
+            let sodium = isSodiumSpikeDay ? 4200.0 : 1800.0
+
+            // Day T+1 water retention: +1.2kg on high sodium, -0.2kg on normal
+            let prevDayWasSodium = (i > 0) && ((i - 1) % 2 == 1)
+            let waterRetention = prevDayWasSodium ? 1.2 : -0.2
+            let weight = 78.0 + waterRetention
+
+            // Confounder test: Day 4 has late meal BUT high TRIMP (160) -> must be excluded from late-meal RHR analysis
+            let isDay4 = (i == 4)
+            let hasLateMeal = isDay4 || (i == 2) || (i == 6)
+            let trimp = isDay4 ? 160.0 : 40.0
+            let rhr = hasLateMeal ? 53.0 : 48.0
+
+            records.append(DailyJoinedPhysiologyRecord(
+                dateString: "2026-10-\(10 + i)",
+                date: dayDate,
+                weightKg: weight,
+                rollingWeight7dKg: 78.0,
+                sodiumMg: sodium,
+                carbsG: 220.0,
+                proteinG: 160.0,
+                fatG: 65.0,
+                wholeFoodRatio: 0.85,
+                ultraProcessedRatio: 0.15,
+                hasLateMealAfter2130: hasLateMeal,
+                hasHighSodiumMeal: isSodiumSpikeDay,
+                overnightHrvMs: 95.0,
+                overnightRhrBpm: rhr,
+                deepSleepHours: 1.4,
+                remSleepHours: 1.6,
+                workoutTrimp: trimp,
+                runningCardiacDriftPct: 4.5,
+                runningEf: 1.15
+            ))
+        }
+
+        let insights = CorrelationEngine.computeInsights(records: records)
+        guard !insights.isEmpty else {
+            return VerificationResult(testName: "Confounder-Controlled Time-Lagged Correlations", passed: false, details: "computeInsights returned empty array")
+        }
+
+        let sodiumInsight = insights.first { $0.category == .hydrationWater }
+        guard let sInsight = sodiumInsight, sInsight.pearsonR > 0.50 else {
+            return VerificationResult(testName: "Confounder-Controlled Time-Lagged Correlations", passed: false, details: "Sodium water retention correlation missing or weak: r=\(sodiumInsight?.pearsonR ?? 0.0)")
+        }
+
+        return VerificationResult(
+            testName: "Confounder-Controlled Time-Lagged Correlations",
+            passed: true,
+            details: "Generated \(insights.count) insights, SodiumWater r=\(sInsight.pearsonR) (N=\(sInsight.sampleCount))"
+        )
     }
 }
 

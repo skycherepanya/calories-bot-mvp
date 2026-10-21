@@ -80,9 +80,10 @@ lifecore/
 │           ├── App/           # LifecoreApp.swift, MainTabView.swift
 │           ├── Core/
 │           │   ├── HealthKit/ # HealthKitManager.swift, WorkoutTelemetryExtractor.swift
-│           │   ├── MathEngine/# ReadinessCalculator.swift, WorkoutMathEngine.swift
+│           │   ├── MathEngine/# ReadinessCalculator.swift, WorkoutMathEngine.swift, VitalsAndIllnessEngine.swift, TrainingLoadAndBatteryEngine.swift, CorrelationEngine.swift
+│           │   ├── UI/        # LifecoreDesignSystem.swift (Liquid Glass Dark, Glow Pills)
 │           │   ├── AI/        # GeminiService.swift, FoodPrompt.swift, CoachPrompt.swift
-│           │   └── Storage/   # SwiftDataModels.swift, SupabaseSyncService.swift
+│           │   └── Storage/   # SwiftDataModels.swift, AthleteProfileStore.swift, SupabaseSyncService.swift
 │           ├── Features/      # Today/, Workouts/, Nutrition/, Trends/
 │           └── Intents/       # LifecoreSyncIntent.swift, LogMealIntent.swift
 │

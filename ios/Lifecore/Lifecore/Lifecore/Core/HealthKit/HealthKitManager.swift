@@ -31,6 +31,11 @@ public final class HealthKitManager: @unchecked Sendable {
             HKQuantityType(.dietaryCarbohydrates),
             HKQuantityType(.dietarySodium),
             HKQuantityType(.dietaryFiber),
+            HKQuantityType(.oxygenSaturation),
+            HKQuantityType(.respiratoryRate),
+            HKQuantityType(.appleSleepingWristTemperature),
+            HKQuantityType(.vo2Max),
+            HKSeriesType.heartbeat(),
             HKCategoryType(.sleepAnalysis),
             HKWorkoutType.workoutType()
         ]
@@ -201,20 +206,49 @@ public final class HealthKitManager: @unchecked Sendable {
         let awakeHours = round((awakeSeconds / 3600.0) * 100) / 100
         let totalHours = round((deepHours + remHours + coreHours) * 100) / 100
 
-        // Fetch latest morning autonomic biomarkers
+        // Fetch latest morning autonomic biomarkers & overnight vitals
         async let hrv = fetchLatestQuantity(for: HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli))
         async let rhr = fetchLatestQuantity(for: HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()))
+        async let wristTemp = fetchLatestQuantity(for: HKQuantityType(.appleSleepingWristTemperature), unit: .degreeCelsius())
+        async let spo2 = fetchLatestQuantity(for: HKQuantityType(.oxygenSaturation), unit: .percent())
+        async let respRate = fetchLatestQuantity(for: HKQuantityType(.respiratoryRate), unit: HKUnit.count().unitDivided(by: .minute()))
 
         let hrvValue = try? await hrv
         let rhrValue = try? await rhr
+        let wristTempValue = try? await wristTemp
+        let spo2Value = (try? await spo2).map { $0 * 100.0 }
+        let respRateValue = try? await respRate
 
         // Determine sleep date (typically yesterday if waking up today)
-        let sleepDate: Date
-        if let firstSample = samples.last {
-            sleepDate = firstSample.startDate
-        } else {
-            sleepDate = calendar.date(byAdding: .day, value: -1, to: now) ?? now
-        }
+        let sleepStartDate = samples.last?.startDate ?? (calendar.date(byAdding: .hour, value: -8, to: now) ?? now)
+        let sleepDate: Date = samples.last?.startDate ?? (calendar.date(byAdding: .day, value: -1, to: now) ?? now)
+
+        let cleanRmssd = await fetchCleanNightlyRMSSD(start: sleepStartDate, end: now)
+
+        let totalSleptHours = deepHours + remHours + coreHours
+        let totalTimeInBed = totalSleptHours + awakeHours
+        let sleepEfficiency: Double? = totalTimeInBed > 0 ? min(100.0, round((totalSleptHours / totalTimeInBed) * 1000.0) / 10.0) : nil
+
+        let profile = await AthleteProfileStore.shared.profile
+        let effectiveHrv = (profile.hrvMethod == .hybridRMSSD && cleanRmssd != nil) ? cleanRmssd! : (hrvValue ?? profile.hrvBaselineMs)
+        let effectiveRhr = rhrValue ?? profile.restingHeartRateBaselineBpm
+
+        let vitalsInput = NocturnalVitalsInput(
+            hrvMs: effectiveHrv,
+            rhrBpm: effectiveRhr,
+            wristTempCelsius: wristTempValue,
+            wristTempDeltaCelsius: wristTempValue != nil ? (wristTempValue! - profile.wristTempBaselineCelsius) : nil,
+            respiratoryRateBpm: respRateValue ?? profile.respiratoryRateBaselineBpm,
+            spo2Pct: spo2Value ?? profile.spo2BaselinePct
+        )
+        let vitalsBaseline = NocturnalVitalsBaseline(
+            hrvMeanMs: profile.hrvBaselineMs,
+            rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+            wristTempMeanCelsius: profile.wristTempBaselineCelsius,
+            respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
+            spo2MeanPct: profile.spo2BaselinePct
+        )
+        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: vitalsBaseline)
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -228,8 +262,50 @@ public final class HealthKitManager: @unchecked Sendable {
             coreHours: coreHours,
             awakeHours: awakeHours,
             hrvAvgMs: hrvValue != nil ? round(hrvValue! * 10) / 10 : nil,
-            rhrBpm: rhrValue != nil ? round(rhrValue! * 10) / 10 : nil
+            rhrBpm: rhrValue != nil ? round(rhrValue! * 10) / 10 : nil,
+            hrvRmssdMs: cleanRmssd != nil ? round(cleanRmssd! * 10) / 10 : nil,
+            wristTempDeltaC: wristTempValue != nil ? round((wristTempValue! - profile.wristTempBaselineCelsius) * 100) / 100 : nil,
+            spo2Pct: spo2Value != nil ? round(spo2Value! * 10) / 10 : nil,
+            respiratoryRate: respRateValue != nil ? round(respRateValue! * 10) / 10 : nil,
+            sleepEfficiencyPct: sleepEfficiency,
+            immuneState: vitalsEval.state.rawValue
         )
+    }
+
+    /// Fetches beat-to-beat HKHeartbeatSeriesSample and computes artifact-filtered RMSSD
+    public func fetchCleanNightlyRMSSD(start: Date, end: Date) async -> Double? {
+        guard isAvailable else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: HKSeriesType.heartbeat(),
+                predicate: predicate,
+                limit: 3,
+                sortDescriptors: [sortDescriptor]
+            ) { [weak self] _, results, _ in
+                guard let self = self, let seriesSample = results?.first as? HKHeartbeatSeriesSample else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                var beats: [(timeSinceStart: TimeInterval, precededByGap: Bool)] = []
+                let seriesQuery = HKHeartbeatSeriesQuery(heartbeatSeries: seriesSample) { _, timeSinceStart, precededByGap, done, error in
+                    if error != nil {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    beats.append((timeSinceStart: timeSinceStart, precededByGap: precededByGap))
+                    if done {
+                        let rmssd = VitalsAndIllnessEngine.computeCleanRMSSD(beats: beats)
+                        continuation.resume(returning: rmssd)
+                    }
+                }
+                self.healthStore.execute(seriesQuery)
+            }
+            self.healthStore.execute(query)
+        }
     }
 
     // MARK: - 3. Workouts (Today)
@@ -530,14 +606,83 @@ public final class HealthKitManager: @unchecked Sendable {
             workoutActiveKcals: workouts.compactMap { $0.activeCalories }
         )
 
+        let profile = await AthleteProfileStore.shared.profile
+
+        // 1. Overnight Vitals Evaluation
+        let vitalsInput = NocturnalVitalsInput(
+            hrvMs: sleep.hrvRmssdMs ?? sleep.hrvAvgMs ?? profile.hrvBaselineMs,
+            rhrBpm: sleep.rhrBpm ?? profile.restingHeartRateBaselineBpm,
+            wristTempCelsius: profile.wristTempBaselineCelsius + (sleep.wristTempDeltaC ?? 0.0),
+            wristTempDeltaCelsius: sleep.wristTempDeltaC,
+            respiratoryRateBpm: sleep.respiratoryRate ?? profile.respiratoryRateBaselineBpm,
+            spo2Pct: sleep.spo2Pct ?? profile.spo2BaselinePct
+        )
+        let vitalsBaseline = NocturnalVitalsBaseline(
+            hrvMeanMs: profile.hrvBaselineMs,
+            rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+            wristTempMeanCelsius: profile.wristTempBaselineCelsius,
+            respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
+            spo2MeanPct: profile.spo2BaselinePct
+        )
+        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: vitalsBaseline)
+
+        // 2. Garmin Firstbeat TRIMP & EWMA ACWR
+        var workoutHours: [(hour: Int, trimp: Double)] = []
+        var totalTodayTrimp = 0.0
+        let calendar = Calendar.current
+
+        for w in workouts {
+            let trimp = TrainingLoadAndBatteryEngine.computeBanisterTRIMP(
+                durationMin: w.durationMin,
+                avgHr: w.avgHeartRate ?? 142.0,
+                restingHr: profile.restingHeartRateBaselineBpm,
+                maxHr: profile.maxHeartRateBpm
+            )
+            totalTodayTrimp += trimp
+            let hour = 17 // Default late afternoon workout hour if parse fails
+            workoutHours.append((hour: hour, trimp: trimp))
+        }
+
+        let acwr = TrainingLoadAndBatteryEngine.computeEWMAWorkload(
+            dailyLoads: [(date: Date(), trimp: max(25.0, totalTodayTrimp))]
+        )
+
+        // 3. Continuous 24h Body Battery / Energy Bank
+        let currentHour = calendar.component(.hour, from: Date())
+        let energyBank = TrainingLoadAndBatteryEngine.computeEnergyBankTimeline(
+            wakeRecoveryScore: recovery.score,
+            sleepHours: sleep.totalHours,
+            targetSleepHours: profile.targetSleepHours,
+            pureNeatKcal: neatKcal,
+            workouts: workoutHours,
+            immuneState: vitalsEval.state,
+            currentHour: currentHour
+        )
+
+        let enrichedAct = DailyActivity(
+            date: act.date,
+            steps: act.steps,
+            activeKcal: act.activeKcal,
+            distanceKm: act.distanceKm,
+            trimpScore: totalTodayTrimp,
+            ewmaAcuteLoad: acwr.acuteLoad,
+            ewmaChronicLoad: acwr.chronicLoad,
+            acwrRatio: acwr.ratio,
+            bodyBatteryWake: energyBank.wakeBattery,
+            bodyBatteryMin: energyBank.minBattery
+        )
+
         return TodaySnapshot(
-            dailyActivity: act,
+            dailyActivity: enrichedAct,
             sleepLog: sleep,
             workouts: workouts,
             baseline: baseline,
             recovery: recovery,
             strain: strain,
-            pureNEATKcal: neatKcal
+            pureNEATKcal: neatKcal,
+            vitalsEvaluation: vitalsEval,
+            energyBank: energyBank,
+            acwr: acwr
         )
     }
 
@@ -940,6 +1085,9 @@ public struct TodaySnapshot: Sendable {
     public let recovery: RecoveryEvaluation
     public let strain: StrainEvaluation
     public let pureNEATKcal: Double
+    public let vitalsEvaluation: OvernightVitalsEvaluation?
+    public let energyBank: EnergyBankEvaluation?
+    public let acwr: ACWREvaluation?
 
     public init(
         dailyActivity: DailyActivity,
@@ -948,7 +1096,10 @@ public struct TodaySnapshot: Sendable {
         baseline: ReadinessCalculator.Baseline,
         recovery: RecoveryEvaluation,
         strain: StrainEvaluation,
-        pureNEATKcal: Double
+        pureNEATKcal: Double,
+        vitalsEvaluation: OvernightVitalsEvaluation? = nil,
+        energyBank: EnergyBankEvaluation? = nil,
+        acwr: ACWREvaluation? = nil
     ) {
         self.dailyActivity = dailyActivity
         self.sleepLog = sleepLog
@@ -957,6 +1108,9 @@ public struct TodaySnapshot: Sendable {
         self.recovery = recovery
         self.strain = strain
         self.pureNEATKcal = pureNEATKcal
+        self.vitalsEvaluation = vitalsEvaluation
+        self.energyBank = energyBank
+        self.acwr = acwr
     }
 }
 

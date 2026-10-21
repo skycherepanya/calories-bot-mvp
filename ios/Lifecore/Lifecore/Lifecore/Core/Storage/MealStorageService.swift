@@ -227,6 +227,18 @@ public final class MealStorageService: ObservableObject {
 
     // MARK: - Cloud Sync Helpers
 
+    public func fetchAllMeals() -> [MealRecord] {
+        allMeals
+    }
+
+    public func insertHydratedMeal(_ record: MealRecord, syncedToCloud: Bool = true, remoteId: Int64? = nil) {
+        objectWillChange.send()
+        let entity = MealEntity(record: record, syncedToCloud: syncedToCloud, remoteId: remoteId)
+        context.insert(entity)
+        try? context.save()
+        loadMealsFromSwiftData()
+    }
+
     public func fetchUnsyncedMeals() -> [MealEntity] {
         let descriptor = FetchDescriptor<MealEntity>(
             predicate: #Predicate { !$0.syncedToCloud && !$0.isOptimisticPending }

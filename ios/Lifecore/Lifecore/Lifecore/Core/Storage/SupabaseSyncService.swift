@@ -176,6 +176,12 @@ public final class SupabaseSyncService: @unchecked Sendable {
                 let neat = max(0.0, act.activeKcal - (w.activeCalories ?? 0.0))
                 payload["neat_kcal"] = neat
             }
+            if let t = act.trimpScore { payload["trimp_score"] = t }
+            if let a = act.ewmaAcuteLoad { payload["ewma_acute_load"] = a }
+            if let c = act.ewmaChronicLoad { payload["ewma_chronic_load"] = c }
+            if let r = act.acwrRatio { payload["acwr_ratio"] = r }
+            if let w = act.bodyBatteryWake { payload["body_battery_wake"] = w }
+            if let m = act.bodyBatteryMin { payload["body_battery_min"] = m }
 
             var components = URLComponents(url: supabaseURL.appendingPathComponent("rest/v1/daily_metrics"), resolvingAgainstBaseURL: false)!
             components.queryItems = [URLQueryItem(name: "on_conflict", value: "user_id,metric_date")]
@@ -199,6 +205,12 @@ public final class SupabaseSyncService: @unchecked Sendable {
             ]
             if let hrv = s.hrvAvgMs { payload["hrv_avg_ms"] = hrv }
             if let rhr = s.rhrBpm { payload["rhr_bpm"] = rhr }
+            if let rmssd = s.hrvRmssdMs { payload["hrv_rmssd_ms"] = rmssd }
+            if let temp = s.wristTempDeltaC { payload["wrist_temp_delta_c"] = temp }
+            if let spo2 = s.spo2Pct { payload["spo2_pct"] = spo2 }
+            if let rr = s.respiratoryRate { payload["respiratory_rate"] = rr }
+            if let eff = s.sleepEfficiencyPct { payload["sleep_efficiency_pct"] = eff }
+            if let im = s.immuneState { payload["immune_state"] = im }
 
             var components = URLComponents(url: supabaseURL.appendingPathComponent("rest/v1/sleep_logs"), resolvingAgainstBaseURL: false)!
             components.queryItems = [URLQueryItem(name: "on_conflict", value: "user_id,sleep_date")]
@@ -222,6 +234,151 @@ public final class SupabaseSyncService: @unchecked Sendable {
             let body = String(data: data, encoding: .utf8) ?? "Unknown"
             print("⚠️ Supabase sync error on \(url.path): \(body)")
             return
+        }
+    }
+
+    // MARK: - Two-Way Cloud Hydration
+
+    /// Pulls historical meals and workout analyses from Supabase if local SwiftData store is empty
+    @MainActor
+    public func pullHistoricalDataIfNeeded() async {
+        let existingMeals = MealStorageService.shared.fetchAllMeals()
+        if existingMeals.isEmpty {
+            await pullHistoricalMeals()
+        }
+
+        let existingAnalyses = WorkoutStorageService.fetchAllAnalyses()
+        if existingAnalyses.isEmpty {
+            await pullHistoricalWorkoutAnalyses()
+        }
+    }
+
+    @MainActor
+    private func pullHistoricalMeals() async {
+        guard var components = URLComponents(url: supabaseURL.appendingPathComponent("rest/v1/meals"), resolvingAgainstBaseURL: false) else { return }
+        components.queryItems = [
+            URLQueryItem(name: "user_id", value: "eq.\(userId)"),
+            URLQueryItem(name: "order", value: "created_at.desc"),
+            URLQueryItem(name: "limit", value: "60")
+        ]
+        guard let url = components.url else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode),
+              let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return
+        }
+
+        for item in jsonArray {
+            guard let name = item["meal_name"] as? String,
+                  let kcal = item["kcal"] as? Double,
+                  let protein = item["protein"] as? Double,
+                  let fat = item["fat"] as? Double,
+                  let carbs = item["carbs"] as? Double,
+                  let dietaryDate = item["dietary_date"] as? String else { continue }
+
+            let tags = (item["tags"] as? [String]) ?? []
+            let weight = item["weight_g"] as? Double
+            let remoteId = item["id"] as? Int64
+
+            let createdAt: Date
+            if let dateStr = item["created_at"] as? String, let parsed = isoFormatter.date(from: dateStr) {
+                createdAt = parsed
+            } else {
+                createdAt = Date()
+            }
+
+            let record = MealRecord(
+                name: name,
+                kcal: kcal,
+                proteinG: protein,
+                fatG: fat,
+                carbsG: carbs,
+                weightG: weight,
+                tags: tags,
+                dietaryDate: dietaryDate,
+                createdAt: createdAt,
+                isOptimisticPending: false
+            )
+            MealStorageService.shared.insertHydratedMeal(record, syncedToCloud: true, remoteId: remoteId)
+        }
+    }
+
+    @MainActor
+    private func pullHistoricalWorkoutAnalyses() async {
+        guard var components = URLComponents(url: supabaseURL.appendingPathComponent("rest/v1/workout_analyses"), resolvingAgainstBaseURL: false) else { return }
+        components.queryItems = [
+            URLQueryItem(name: "user_id", value: "eq.\(userId)"),
+            URLQueryItem(name: "order", value: "started_at.desc"),
+            URLQueryItem(name: "limit", value: "30")
+        ]
+        guard let url = components.url else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode),
+              let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return
+        }
+
+        for item in jsonArray {
+            guard let uuidStr = item["workout_uuid"] as? String,
+                  let workoutUUID = UUID(uuidString: uuidStr),
+                  let workoutType = item["workout_type"] as? String,
+                  let duration = item["duration_seconds"] as? Double else { continue }
+
+            let distance = item["distance_meters"] as? Double
+            let avgHr = item["avg_heart_rate"] as? Double
+            let maxHr = item["max_heart_rate"] as? Double
+            let ef = item["efficiency_factor"] as? Double
+            let drift = item["cardiac_drift_pct"] as? Double
+            let coachReport = item["ai_coach_report"] as? String
+
+            let splitsJson: String = {
+                if let splitsObj = item["splits"], let data = try? JSONSerialization.data(withJSONObject: splitsObj) {
+                    return String(data: data, encoding: .utf8) ?? "[]"
+                }
+                return "[]"
+            }()
+
+            let lapsJson: String = {
+                if let lapsObj = item["laps"], let data = try? JSONSerialization.data(withJSONObject: lapsObj) {
+                    return String(data: data, encoding: .utf8) ?? "[]"
+                }
+                return "[]"
+            }()
+
+            let startedAt: Date
+            if let dateStr = item["started_at"] as? String, let parsed = isoFormatter.date(from: dateStr) {
+                startedAt = parsed
+            } else {
+                startedAt = Date()
+            }
+
+            WorkoutStorageService.insertHydratedAnalysis(
+                workoutUUID: workoutUUID,
+                workoutType: workoutType,
+                startedAt: startedAt,
+                distanceMeters: distance,
+                durationSeconds: duration,
+                avgHeartRate: avgHr,
+                maxHeartRate: maxHr,
+                efficiencyFactor: ef,
+                cardiacDriftPct: drift,
+                splitsJson: splitsJson,
+                lapsJson: lapsJson,
+                aiCoachReport: coachReport,
+                syncedToCloud: true
+            )
         }
     }
 

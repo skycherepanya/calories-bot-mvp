@@ -37,12 +37,35 @@ public struct DailyActivity: Codable {
     public let steps: Int
     public let activeKcal: Double
     public let distanceKm: Double
+    public let trimpScore: Double?
+    public let ewmaAcuteLoad: Double?
+    public let ewmaChronicLoad: Double?
+    public let acwrRatio: Double?
+    public let bodyBatteryWake: Int?
+    public let bodyBatteryMin: Int?
 
-    public init(date: String, steps: Int, activeKcal: Double, distanceKm: Double) {
+    public init(
+        date: String,
+        steps: Int,
+        activeKcal: Double,
+        distanceKm: Double,
+        trimpScore: Double? = nil,
+        ewmaAcuteLoad: Double? = nil,
+        ewmaChronicLoad: Double? = nil,
+        acwrRatio: Double? = nil,
+        bodyBatteryWake: Int? = nil,
+        bodyBatteryMin: Int? = nil
+    ) {
         self.date = date
         self.steps = steps
         self.activeKcal = activeKcal
         self.distanceKm = distanceKm
+        self.trimpScore = trimpScore
+        self.ewmaAcuteLoad = ewmaAcuteLoad
+        self.ewmaChronicLoad = ewmaChronicLoad
+        self.acwrRatio = acwrRatio
+        self.bodyBatteryWake = bodyBatteryWake
+        self.bodyBatteryMin = bodyBatteryMin
     }
 
     enum CodingKeys: String, CodingKey {
@@ -50,6 +73,12 @@ public struct DailyActivity: Codable {
         case steps
         case activeKcal = "active_kcal"
         case distanceKm = "distance_km"
+        case trimpScore = "trimp_score"
+        case ewmaAcuteLoad = "ewma_acute_load"
+        case ewmaChronicLoad = "ewma_chronic_load"
+        case acwrRatio = "acwr_ratio"
+        case bodyBatteryWake = "body_battery_wake"
+        case bodyBatteryMin = "body_battery_min"
     }
 }
 
@@ -63,6 +92,12 @@ public struct SleepLog: Codable {
     public let awakeHours: Double
     public let hrvAvgMs: Double?
     public let rhrBpm: Double?
+    public let hrvRmssdMs: Double?
+    public let wristTempDeltaC: Double?
+    public let spo2Pct: Double?
+    public let respiratoryRate: Double?
+    public let sleepEfficiencyPct: Double?
+    public let immuneState: String?
 
     public init(
         sleepDate: String,
@@ -72,7 +107,13 @@ public struct SleepLog: Codable {
         coreHours: Double,
         awakeHours: Double,
         hrvAvgMs: Double?,
-        rhrBpm: Double?
+        rhrBpm: Double?,
+        hrvRmssdMs: Double? = nil,
+        wristTempDeltaC: Double? = nil,
+        spo2Pct: Double? = nil,
+        respiratoryRate: Double? = nil,
+        sleepEfficiencyPct: Double? = nil,
+        immuneState: String? = nil
     ) {
         self.sleepDate = sleepDate
         self.totalHours = totalHours
@@ -82,6 +123,12 @@ public struct SleepLog: Codable {
         self.awakeHours = awakeHours
         self.hrvAvgMs = hrvAvgMs
         self.rhrBpm = rhrBpm
+        self.hrvRmssdMs = hrvRmssdMs
+        self.wristTempDeltaC = wristTempDeltaC
+        self.spo2Pct = spo2Pct
+        self.respiratoryRate = respiratoryRate
+        self.sleepEfficiencyPct = sleepEfficiencyPct
+        self.immuneState = immuneState
     }
 
     enum CodingKeys: String, CodingKey {
@@ -93,6 +140,12 @@ public struct SleepLog: Codable {
         case awakeHours = "awake_hours"
         case hrvAvgMs = "hrv_avg_ms"
         case rhrBpm = "rhr_bpm"
+        case hrvRmssdMs = "hrv_rmssd_ms"
+        case wristTempDeltaC = "wrist_temp_delta_c"
+        case spo2Pct = "spo2_pct"
+        case respiratoryRate = "respiratory_rate"
+        case sleepEfficiencyPct = "sleep_efficiency_pct"
+        case immuneState = "immune_state"
     }
 }
 

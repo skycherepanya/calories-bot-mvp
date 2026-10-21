@@ -339,6 +339,63 @@ public enum WorkoutStorageService {
         return (try? context.fetch(descriptor)) ?? []
     }
 
+    public static func fetchAllAnalyses() -> [WorkoutAnalysisEntity] {
+        let context = LifecoreDataStore.shared.context
+        let descriptor = FetchDescriptor<WorkoutAnalysisEntity>(
+            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    public static func insertHydratedAnalysis(
+        workoutUUID: UUID,
+        workoutType: String,
+        startedAt: Date,
+        distanceMeters: Double?,
+        durationSeconds: Double,
+        avgHeartRate: Double?,
+        maxHeartRate: Double?,
+        efficiencyFactor: Double?,
+        cardiacDriftPct: Double?,
+        splitsJson: String,
+        lapsJson: String,
+        aiCoachReport: String?,
+        syncedToCloud: Bool = true
+    ) {
+        let context = LifecoreDataStore.shared.context
+        if let existing = fetchAnalysis(for: workoutUUID) {
+            existing.distanceMeters = distanceMeters ?? existing.distanceMeters
+            existing.durationSeconds = durationSeconds
+            existing.avgHeartRate = avgHeartRate
+            existing.maxHeartRate = maxHeartRate
+            existing.efficiencyFactor = efficiencyFactor
+            existing.cardiacDriftPercentage = cardiacDriftPct
+            existing.splitsJson = splitsJson
+            existing.lapsJson = lapsJson
+            if let report = aiCoachReport { existing.aiCoachReport = report }
+            existing.syncedToCloud = syncedToCloud
+            try? context.save()
+        } else {
+            let entity = WorkoutAnalysisEntity(
+                workoutUUID: workoutUUID,
+                workoutType: workoutType,
+                startedAt: startedAt,
+                distanceMeters: distanceMeters ?? 0.0,
+                durationSeconds: durationSeconds,
+                avgHeartRate: avgHeartRate,
+                maxHeartRate: maxHeartRate,
+                efficiencyFactor: efficiencyFactor,
+                cardiacDriftPercentage: cardiacDriftPct,
+                splitsJson: splitsJson,
+                lapsJson: lapsJson,
+                aiCoachReport: aiCoachReport,
+                syncedToCloud: syncedToCloud
+            )
+            context.insert(entity)
+            try? context.save()
+        }
+    }
+
     public static func markAnalysisSynced(workoutUUID: UUID) {
         let context = LifecoreDataStore.shared.context
         if let existing = fetchAnalysis(for: workoutUUID) {

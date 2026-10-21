@@ -7,6 +7,8 @@ public struct TodayView: View {
     @State private var errorMessage: String?
     @State private var isSyncingWithCloud = false
     @State private var cloudSyncMessage: String?
+    @State private var isShowingProfileSheet = false
+    @ObservedObject private var athleteStore = AthleteProfileStore.shared
 
     public init() {}
 
@@ -17,19 +19,25 @@ public struct TodayView: View {
                     // 1. Top Readiness & Strain Rings
                     ringsHeaderView
 
-                    // 2. Recovery & Autonomic Biomarkers Card
+                    // 2. Overnight Vitals Corridor & Pre-Symptomatic Illness Radar
+                    OvernightVitalsCard(evaluation: snapshot?.vitalsEvaluation)
+
+                    // 3. 24h Energy Bank (Body Battery & Sleep Debt)
+                    EnergyBankCard(energyBank: snapshot?.energyBank)
+
+                    // 4. Recovery & Autonomic Biomarkers Card
                     autonomicCard
 
-                    // 3. Sleep Architecture Breakdown Card
+                    // 5. Sleep Architecture Breakdown Card
                     sleepArchitectureCard
 
-                    // 4. Daily Movement & Pure NEAT Isolation Card
+                    // 6. Daily Movement & Pure NEAT Isolation Card
                     activityAndNeatCard
 
-                    // 5. Today's Workouts Card
+                    // 7. Today's Workouts Card
                     todayWorkoutsCard
 
-                    // 6. Cloud Sync Action
+                    // 8. Cloud Sync Action
                     cloudSyncSection
                 }
                 .padding(.horizontal, 16)
@@ -38,6 +46,12 @@ public struct TodayView: View {
             .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
             .navigationTitle("Today")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: { isShowingProfileSheet = true }) {
+                        Image(systemName: "person.crop.circle")
+                            .foregroundStyle(.cyan)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
                         Task { await loadData(forceRefresh: true) }
@@ -52,6 +66,9 @@ public struct TodayView: View {
                     }
                 }
             }
+            .sheet(isPresented: $isShowingProfileSheet) {
+                AthleteProfileSheet()
+            }
             .refreshable {
                 await loadData(forceRefresh: true)
             }
@@ -64,43 +81,78 @@ public struct TodayView: View {
     // MARK: - 1. Top Rings Area (Bevel Aesthetic)
 
     private var ringsHeaderView: some View {
-        HStack(spacing: 14) {
-            // Readiness Ring
-            let recoveryScore = snapshot?.recovery.score ?? 85
-            let recoveryColor: Color = recoveryScore >= 80 ? Color(red: 0.0, green: 0.9, blue: 0.45) :
-                                       (recoveryScore >= 60 ? Color.orange : Color(red: 1.0, green: 0.3, blue: 0.3))
-            BevelRingView(
-                title: "Readiness",
-                value: "\(recoveryScore)%",
-                subtitle: snapshot?.recovery.state.rawValue.replacingOccurrences(of: "_", with: " ").capitalized ?? "Optimal",
-                progress: Double(recoveryScore) / 100.0,
-                ringColor: recoveryColor
-            )
+        VStack(spacing: 8) {
+            HStack(spacing: 14) {
+                // Readiness Ring
+                let recoveryScore = snapshot?.recovery.score ?? 85
+                let recoveryColor: Color = recoveryScore >= 80 ? Color(red: 0.0, green: 0.9, blue: 0.45) :
+                                           (recoveryScore >= 60 ? Color.orange : Color(red: 1.0, green: 0.3, blue: 0.3))
+                BevelRingView(
+                    title: "Readiness",
+                    value: "\(recoveryScore)%",
+                    subtitle: snapshot?.recovery.state.rawValue.replacingOccurrences(of: "_", with: " ").capitalized ?? "Optimal",
+                    progress: Double(recoveryScore) / 100.0,
+                    ringColor: recoveryColor
+                )
 
-            // Strain Ring
-            let strain21 = snapshot?.strain.whoopScale21 ?? 11.2
-            let strainPercent = (snapshot?.strain.score100 ?? 53.0) / 100.0
-            BevelRingView(
-                title: "Day Strain",
-                value: String(format: "%.1f", strain21),
-                subtitle: "Scale 0-21",
-                progress: strainPercent,
-                ringColor: Color(red: 0.0, green: 0.85, blue: 1.0)
-            )
+                // Strain Ring
+                let strain21 = snapshot?.strain.whoopScale21 ?? 11.2
+                let strainPercent = (snapshot?.strain.score100 ?? 53.0) / 100.0
+                BevelRingView(
+                    title: "Day Strain",
+                    value: String(format: "%.1f", strain21),
+                    subtitle: "Scale 0-21",
+                    progress: strainPercent,
+                    ringColor: Color(red: 0.0, green: 0.85, blue: 1.0)
+                )
 
-            // Active Move Ring (Kinetic Expenditure matching Apple Watch Move goal)
-            let activeKcal = snapshot?.dailyActivity.activeKcal ?? 0.0
-            let targetMoveKcal = 650.0 // Standard athletic active move goal
-            let moveRatio = min(1.2, activeKcal / targetMoveKcal)
-            BevelRingView(
-                title: "Active Move",
-                value: "\(Int(activeKcal))",
-                subtitle: "Goal: \(Int(targetMoveKcal)) kcal",
-                progress: moveRatio,
-                ringColor: Color(red: 1.0, green: 0.65, blue: 0.0)
-            )
+                // Active Move Ring (Kinetic Expenditure matching Apple Watch Move goal)
+                let activeKcal = snapshot?.dailyActivity.activeKcal ?? 0.0
+                let targetMoveKcal = athleteStore.profile.activeMoveGoalKcal
+                let moveRatio = min(1.2, activeKcal / max(100.0, targetMoveKcal))
+                BevelRingView(
+                    title: "Active Move",
+                    value: "\(Int(activeKcal))",
+                    subtitle: "Goal: \(Int(targetMoveKcal)) kcal",
+                    progress: moveRatio,
+                    ringColor: Color(red: 1.0, green: 0.65, blue: 0.0)
+                )
+            }
+            .padding(.vertical, 4)
+
+            if let acwr = snapshot?.acwr {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(acwrColor(acwr.zone))
+                    Text("ACWR \(String(format: "%.2f", acwr.ratio)):")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(acwr.titleUk)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(acwrColor(acwr.zone))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(acwrColor(acwr.zone).opacity(0.14))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(acwrColor(acwr.zone).opacity(0.35), lineWidth: 0.8)
+                )
+            }
         }
-        .padding(.vertical, 8)
+    }
+
+    private func acwrColor(_ zone: ACWRZone) -> Color {
+        switch zone {
+        case .undertraining: return LifecoreTheme.electricTeal
+        case .sweetSpot: return LifecoreTheme.athleticEmerald
+        case .caution: return LifecoreTheme.amberWarning
+        case .dangerSpike: return LifecoreTheme.coralDanger
+        }
     }
 
     // MARK: - 2. Autonomic Biomarkers Card

@@ -12,6 +12,11 @@ public struct RecentRecoveryContext: Sendable, Codable {
     public let baselineRhrBpm: Double?
     public let yesterdayActiveKcal: Double?
     public let recoveryScore: Int?
+    public let vitalsConfluenceState: String?
+    public let acwrRatio: Double?
+    public let acwrZoneTitleUk: String?
+    public let wristTempDeltaC: Double?
+    public let topCorrelationInsightUk: String?
 
     public init(
         lastNightSleepHours: Double? = nil,
@@ -22,7 +27,12 @@ public struct RecentRecoveryContext: Sendable, Codable {
         morningRhrBpm: Double? = nil,
         baselineRhrBpm: Double? = nil,
         yesterdayActiveKcal: Double? = nil,
-        recoveryScore: Int? = nil
+        recoveryScore: Int? = nil,
+        vitalsConfluenceState: String? = nil,
+        acwrRatio: Double? = nil,
+        acwrZoneTitleUk: String? = nil,
+        wristTempDeltaC: Double? = nil,
+        topCorrelationInsightUk: String? = nil
     ) {
         self.lastNightSleepHours = lastNightSleepHours
         self.lastNightDeepHours = lastNightDeepHours
@@ -33,6 +43,11 @@ public struct RecentRecoveryContext: Sendable, Codable {
         self.baselineRhrBpm = baselineRhrBpm
         self.yesterdayActiveKcal = yesterdayActiveKcal
         self.recoveryScore = recoveryScore
+        self.vitalsConfluenceState = vitalsConfluenceState
+        self.acwrRatio = acwrRatio
+        self.acwrZoneTitleUk = acwrZoneTitleUk
+        self.wristTempDeltaC = wristTempDeltaC
+        self.topCorrelationInsightUk = topCorrelationInsightUk
     }
 }
 
@@ -145,6 +160,18 @@ public enum CoachPrompt {
             }
             if let score = rec.recoveryScore {
                 lines.append("- Recovery Readiness Score: \(score)%")
+            }
+            if let state = rec.vitalsConfluenceState {
+                lines.append("- Overnight Vitals Confluence State: \(state)")
+            }
+            if let acwr = rec.acwrRatio {
+                lines.append("- EWMA Acute:Chronic Workload Ratio (ACWR): \(String(format: "%.2f", acwr)) (\(rec.acwrZoneTitleUk ?? "Sweet Spot"))")
+            }
+            if let temp = rec.wristTempDeltaC {
+                lines.append("- Sleeping Wrist Temperature Delta: \(String(format: "%+.2f", temp))°C")
+            }
+            if let insight = rec.topCorrelationInsightUk {
+                lines.append("- Key Time-Lagged Physiological Habit Correlation: \(insight)")
             }
         }
 

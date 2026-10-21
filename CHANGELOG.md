@@ -2,6 +2,77 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Feature: Lifecore 3.0 (Phase 3) Physiological Intelligence, Overnight Vitals, Illness Prodrome, EWMA ACWR, Energy Bank & UI 3.0 Implementation
+
+### 🧬 Physiological Math Engines (`VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `CorrelationEngine`):
+- **`VitalsAndIllnessEngine.swift`:**
+  - Implemented 20% ectopic beat artifact filter for raw R-R intervals (`HKHeartbeatSeriesSample`) to compute beat-to-beat RMSSD with graceful fallback to Apple nocturnal SDNN.
+  - Implemented logarithmic HRV normalization ($Z_{\text{HRV}} = (\ln\text{HRV} - \mu_{\ln, 60d}) / \sigma_{\ln, 60d}$).
+  - Built 5-metric personal baseline corridor evaluator (HRV, sleeping RHR, sleeping wrist temp $\Delta T^\circ\text{C}$, $\text{SpO}_2\%$, respiratory rate).
+  - Implemented 4-tier Stanford NightSignal + Apple Vitals confluence state machine (`optimal`, `trainingFatigue`, `immuneWatch`, `illnessProdrome`) eliminating single-metric false alarms.
+- **`TrainingLoadAndBatteryEngine.swift`:**
+  - Implemented Banister's TRIMP formula with heart rate reserve ($\Delta\text{HR}_r$).
+  - Implemented Exponentially Weighted Moving Average (EWMA) Acute (7d, $\lambda_a = 0.25$) and Chronic (28d, $\lambda_c \approx 0.069$) workload calculation with ACWR ratio and sweet-spot ($0.80\text{--}1.30$) classification.
+  - Implemented 24h continuous Body Battery / Energy Bank curve (0–100%) from wake-up to bedtime with sleep recharge and hourly daytime drain.
+- **`CorrelationEngine.swift`:**
+  - Implemented Pearson correlation coefficient ($r$) and Point-Biserial correlation coefficient ($r_{pb}$).
+  - Implemented time-lagged correlations across $T+0, T+1, T+2$ days (Sodium $\to$ scale water weight spike, Late meal/UPF $\to$ HRV suppression, Pre-run carbs $\to$ cardiac drift %) with high-TRIMP confounder filtering.
+- **`MathEngineVerification.swift`:**
+  - Added deterministic test suites (Tests 8, 9, 10) verifying all Phase 3 mathematical algorithms. All 10 verification suites pass with 100% success rate (10/10 PASS).
+
+### 🍏 HealthKit & Supabase Cloud Integration:
+- **`HealthKitManager.swift`:**
+  - Extended permissions for `HKQuantityType(.oxygenSaturation)`, `HKQuantityType(.respiratoryRate)`, `HKQuantityType(.appleSleepingWristTemperature)`, `HKQuantityType(.vo2Max)`, and `HKDataType.heartbeatSeries()`.
+  - Added `fetchCleanNightlyRMSSD()` using `HKHeartbeatSeriesQuery` with 20% ectopic jump filtering.
+  - Enriched `fetchLastNightSleep()` and `fetchTodaySnapshot()` with the complete 5-metric nocturnal telemetry payload.
+- **`AthleteProfileStore.swift` & `AthleteProfileSheet.swift`:**
+  - Implemented persistent user calibration store (`UserDefaults`) replacing hardcoded BMR, Active Move, Max HR, and macro constants.
+  - Added user toggle between `hybridRMSSD` and `appleSDNN` HRV calculation methods.
+- **`SupabaseSyncService.swift` & Migration `007_lifecore_v3_vitals_and_correlations.sql`:**
+  - Added database migration 007 and deployed to Supabase cloud via `supabase db push --include-all`.
+  - Added `pullHistoricalDataIfNeeded()` for two-way cloud-to-SwiftData hydration.
+  - Updated cloud payload serialization for `sleep_logs` and `daily_metrics` with Phase 3 fields.
+
+### 🎨 Lifecore UI 3.0 (Liquid Glass Dark & Specular Gradients):
+- **`LifecoreDesignSystem.swift`:**
+  - Implemented reusable dark glass surface modifiers, specular gradient strokes, `LifecoreGlowPill`, and `VitalsCorridorPill`.
+- **`OvernightVitalsCard.swift` & `TodayView.swift`:**
+  - Built 5-pillar nocturnal vitals bar with personal baseline corridor indicator pills.
+  - Integrated `IllnessRadarBanner` that displays actionable guidance upon illness prodrome or immune watch.
+  - Integrated Swift Charts `EnergyBankCard` displaying the 24-hour Body Battery curve.
+  - Added EWMA ACWR workload badge to Cardiovascular Strain ring and integrated `AthleteProfileSheet` modal.
+- **`CorrelationInsightsCard.swift` & `TrendsView.swift`:**
+  - Built `CorrelationInsightsCard` displaying discovered lifestyle-to-biometric correlations with $T+1/T+2$ badges and sample size counters.
+  - Built `ACWRWorkloadTrendCard` with Swift Charts showing acute vs chronic workload curves and sweet-spot corridor.
+- **`CoachPrompt.swift`:**
+  - Injected 5-metric Overnight Vitals status, ACWR ratio, and discovered physiological correlations directly into AI Coach system context.
+
+### Affected Files
+`supabase/migrations/007_lifecore_v3_vitals_and_correlations.sql`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/VitalsAndIllnessEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingLoadAndBatteryEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/CorrelationEngine.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/AthleteProfileStore.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/HealthPayload.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/Storage/SupabaseSyncService.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/UI/LifecoreDesignSystem.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/OvernightVitalsCard.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/AthleteProfileSheet.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/CorrelationInsightsCard.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`,
+`ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`,
+`docs/ROADMAP.md`,
+`docs/DATABASE.md`,
+`docs/ARCHITECTURE.md`,
+`PROJECT_KNOWLEDGE.md`,
+`README.md`,
+`CHANGELOG.md`
+
+---
+
 ## [2026-10-21] - Architecture & Spec: Lifecore 3.0 (Phase 3) Physiological Engine, Overnight Vitals, Illness Prodrome, Time-Lagged Correlations & UI 3.0 Master Plan
 
 ### 🧬 Scientific Research & Mathematical Specifications (`VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `CorrelationEngine`):
