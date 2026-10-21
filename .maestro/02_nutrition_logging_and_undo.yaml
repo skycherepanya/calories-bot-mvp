@@ -1,0 +1,42 @@
+appId: com.skycherepanya.Lifecore
+---
+# Flow 02: Nutrition Optimistic Logging & Macro Tracking Loop
+- launchApp:
+    clearState: false
+
+# 1. Switch to Nutrition Tab
+- tapOn:
+    id: "tab_nutrition"
+
+- assertVisible:
+    id: "card_nutrition_summary"
+
+- assertVisible:
+    id: "btn_add_meal"
+
+# 2. Open Food Logging Sheet
+- tapOn:
+    id: "btn_add_meal"
+
+- assertVisible:
+    id: "sheet_food_input"
+
+- assertVisible:
+    id: "btn_close_food_input"
+
+# 3. Select Oatmeal Preset or Enter Meal Text
+- tapOn:
+    id: "preset_oatmeal"
+
+- assertVisible:
+    id: "btn_submit_food"
+
+# 4. Trigger Food Logging & Assert Modal Dismissal
+- tapOn:
+    id: "btn_submit_food"
+
+- assertNotVisible:
+    id: "sheet_food_input"
+
+- assertVisible:
+    id: "card_nutrition_summary"

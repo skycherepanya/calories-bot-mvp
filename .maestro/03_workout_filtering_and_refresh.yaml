@@ -1,0 +1,32 @@
+appId: com.skycherepanya.Lifecore
+---
+# Flow 03: Workouts Category Filtering & HealthKit Telemetry Refresh
+- launchApp:
+    clearState: false
+
+# 1. Switch to Workouts Tab
+- tapOn:
+    id: "tab_workouts"
+
+- assertVisible:
+    id: "btn_refresh_workouts"
+
+# 2. Cycle Through Activity Filters
+- assertVisible:
+    id: "filter_workout_all"
+
+- tapOn:
+    id: "filter_workout_running"
+
+- tapOn:
+    id: "filter_workout_strength"
+
+- tapOn:
+    id: "filter_workout_all"
+
+# 3. Trigger Workout Telemetry Refresh
+- tapOn:
+    id: "btn_refresh_workouts"
+
+- assertVisible:
+    id: "tab_workouts"

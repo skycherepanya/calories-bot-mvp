@@ -1,0 +1,35 @@
+appId: com.skycherepanya.Lifecore
+---
+# Flow 04: Trends Analytics & Multi-Horizon Physiology Calculations
+- launchApp:
+    clearState: false
+
+# 1. Switch to Trends Tab
+- tapOn:
+    id: "tab_trends"
+
+- assertVisible:
+    id: "trends_scroll_view"
+
+# 2. Cycle Analytical Categories
+- assertVisible:
+    id: "tab_trend_adaptation"
+
+# Switch to Workload (ACWR & Banister TRIMP)
+- tapOn:
+    id: "tab_trend_workload"
+
+# Switch to Body & Weight (7d/14d Rolling Averages)
+- tapOn:
+    id: "tab_trend_body"
+
+# Switch to Cardio & ANS (Autonomic RMSSD + Decoupling)
+- tapOn:
+    id: "tab_trend_cardio"
+
+# Return to Self-Learning Adaptive Engine
+- tapOn:
+    id: "tab_trend_adaptation"
+
+- assertVisible:
+    id: "trends_scroll_view"

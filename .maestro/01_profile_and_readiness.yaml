@@ -1,0 +1,49 @@
+appId: com.skycherepanya.Lifecore
+---
+# Flow 01: Athlete Profile Calibration & Nocturnal Vitals Display
+- launchApp:
+    clearState: false
+
+# 1. Assert Today View & Core Physiological Cards
+- assertVisible:
+    id: "tab_today"
+
+- tapOn:
+    id: "tab_today"
+
+- assertVisible:
+    id: "today_scroll_view"
+
+- assertVisible:
+    id: "card_overnight_vitals"
+
+- assertVisible:
+    id: "card_body_battery"
+
+# 2. Open Athlete Profile Calibration Sheet
+- tapOn:
+    id: "btn_open_profile"
+
+- assertVisible:
+    id: "sheet_athlete_profile"
+
+- assertVisible:
+    id: "btn_save_profile"
+
+# 3. Modify Weight Anthropometry
+- tapOn:
+    id: "input_athlete_weight"
+
+- eraseText: 5
+
+- inputText: "79.5"
+
+# 4. Save and Assert State Persistence
+- tapOn:
+    id: "btn_save_profile"
+
+- assertNotVisible:
+    id: "sheet_athlete_profile"
+
+- assertVisible:
+    id: "card_body_battery"

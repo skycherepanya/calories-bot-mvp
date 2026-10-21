@@ -1,0 +1,9 @@
+appId: com.skycherepanya.Lifecore
+---
+# Lifecore High-Leverage E2E Regression Suite
+# Executes all 4 core physiological and user interaction flows in sequence.
+
+- runFlow: 01_profile_and_readiness.yaml
+- runFlow: 02_nutrition_logging_and_undo.yaml
+- runFlow: 03_workout_filtering_and_refresh.yaml
+- runFlow: 04_trends_adaptive_analytics.yaml
