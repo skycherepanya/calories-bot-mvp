@@ -137,7 +137,21 @@
   - `TrendsView.swift` & `TrendsComponents.swift`: Add Segmented Glass Category Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`), add `AdaptiveEngineStatusCard`, upgrade all legacy trend cards to `.lifecoreGlassCard()`.
   - `WorkoutsView.swift`, `NutritionView.swift` & `NutritionComponents.swift`: Full Liquid Glass styling, 100% Ukrainian localization, live Banister TRIMP badges on workout rows, and Tomorrow Sodium Water Retention Forecast in Nutrition.
 
-### 3.6. Automated Morning Briefing & Lock Screen Widgets
+### 3.6. Automated End-to-End High-Leverage Testing Infrastructure (Maestro E2E) (Completed)
+> **E2E Spec:** [`docs/superpowers/specs/2026-10-21-maestro-e2e-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-maestro-e2e-design.md)  
+> **E2E Plan:** [`docs/superpowers/plans/2026-10-21-maestro-e2e.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-maestro-e2e.md)
+- [x] **Accessibility Identifiers:** Injected deterministic `.accessibilityIdentifier(...)` across all 4 primary screens (`TodayView`, `WorkoutsView`, `NutritionView`, `TrendsView`) and modal sheets (`AthleteProfileSheet`, `FoodInputSheet`). Zero UI impact or runtime overhead.
+- [x] **High-Leverage Flows (`.maestro/`):**
+  - `01_profile_and_readiness.yaml`: Validates Today view, launches profile sheet, modifies athlete weight, saves, asserts persistent state.
+  - `02_nutrition_logging_and_undo.yaml`: Tests Nutrition tab, oatmeal preset chip, optimistic food logging, modal dismissal.
+  - `03_workout_filtering_and_refresh.yaml`: Tests Workouts tab, cycles category filters (All $\to$ Running $\to$ Strength $\to$ All), triggers telemetry refresh.
+  - `04_trends_adaptive_analytics.yaml`: Cycles analytical categories (Adaptation, Workload ACWR, Body Weight Rolling Averages, Cardio Autonomic Vitals).
+  - `suite.yaml`: Orchestrates master continuous regression test suite.
+- [x] **Runner Automation & CI:**
+  - `scripts/run_e2e.sh`: 1-command build, simulator setup, OpenJDK 17 auto-detection, and Maestro test runner.
+  - `.github/workflows/e2e.yml`: Automated GitHub Actions workflow on `macos-15`.
+
+### 3.7. Automated Morning Briefing & Lock Screen Widgets
 - [ ] iOS WidgetKit Lock Screen & Home Screen widgets displaying Morning Readiness, 5-Metric Vitals status, Energy Bank %, and daily target directive.
 
 ---

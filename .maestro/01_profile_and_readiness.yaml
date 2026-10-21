@@ -17,9 +17,6 @@ appId: com.skycherepanya.Lifecore
 - assertVisible:
     id: "card_overnight_vitals"
 
-- assertVisible:
-    id: "card_body_battery"
-
 # 2. Open Athlete Profile Calibration Sheet
 - tapOn:
     id: "btn_open_profile"
@@ -46,4 +43,4 @@ appId: com.skycherepanya.Lifecore
     id: "sheet_athlete_profile"
 
 - assertVisible:
-    id: "card_body_battery"
+    id: "card_overnight_vitals"

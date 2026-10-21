@@ -174,11 +174,28 @@ ios/Lifecore/
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
 ```
 
-> **Phase 3 & Phase 3.1 Architectural Specs & Implementation Plans:**
+> **Phase 3, Phase 3.1 & E2E Architectural Specs & Implementation Plans:**
 > - **Phase 3 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)
 > - **Phase 3 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
 > - **Phase 3.1 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md)
 > - **Phase 3.1 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md)
+> - **E2E Testing Spec:** [`docs/superpowers/specs/2026-10-21-maestro-e2e-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-maestro-e2e-design.md)
+> - **E2E Testing Plan:** [`docs/superpowers/plans/2026-10-21-maestro-e2e.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-maestro-e2e.md)
+
+---
+
+### 3.2. End-to-End High-Leverage Testing Infrastructure (Maestro E2E)
+* **Philosophy:** Minimal set of high-leverage tests verifying actual state persistence, mathematical calculations, and optimistic async pipelines rather than superficial tab switching.
+* **Architecture:**
+  - Standard SwiftUI `.accessibilityIdentifier(...)` hooks across all 4 primary screens (`TodayView`, `WorkoutsView`, `NutritionView`, `TrendsView`) and modal sheets (`AthleteProfileSheet`, `FoodInputSheet`).
+  - Zero runtime dependencies in the Xcode project (`Lifecore.xcodeproj`); 100% external execution via Maestro CLI.
+* **Test Flows (`.maestro/`):**
+  1. `01_profile_and_readiness.yaml`: Validates Today screen cards, launches `AthleteProfileSheet`, updates anthropometric weight, saves profile, and asserts persistent state.
+  2. `02_nutrition_logging_and_undo.yaml`: Tests Nutrition tab, opens food sheet, taps oatmeal preset chip, triggers async optimistic log, and validates modal dismissal.
+  3. `03_workout_filtering_and_refresh.yaml`: Tests Workouts tab, cycles category filters (All $\to$ Running $\to$ Strength $\to$ All), and triggers telemetry refresh.
+  4. `04_trends_adaptive_analytics.yaml`: Cycles through all 4 analytical categories (Adaptation, Workload ACWR, Body Weight Rolling Averages, Cardio Autonomic Vitals), asserting non-blocking calculation rendering.
+  5. `suite.yaml`: Orchestrates master continuous regression suite.
+* **Automation:** `scripts/run_e2e.sh` automatically configures `DEVELOPER_DIR`, detects/boots active simulator, builds target with `xcodebuild`, installs `Lifecore.app`, configures OpenJDK 17, and executes Maestro. Continuous integration configured via GitHub Actions (`.github/workflows/e2e.yml`).
 
 ---
 

@@ -87,13 +87,28 @@ lifecore/
 │           ├── Features/      # Today/, Workouts/, Nutrition/, Trends/
 │           └── Intents/       # LifecoreSyncIntent.swift, LogMealIntent.swift
 │
+├── scripts/                   🛠️ Developer Automation Scripts
+│   └── run_e2e.sh             # 1-command build, simulator setup, and Maestro test runner
+│
+├── .maestro/                  🧪 End-to-End High-Leverage Maestro Test Suite
+│   ├── config.yaml            # Maestro bundle configuration (com.skycherepanya.Lifecore)
+│   ├── 01_profile_and_readiness.yaml # Today vitals & athlete profile calibration
+│   ├── 02_nutrition_logging_and_undo.yaml # Nutrition quick presets & optimistic logging
+│   ├── 03_workout_filtering_and_refresh.yaml # Workout activity filters & telemetry refresh
+│   ├── 04_trends_adaptive_analytics.yaml # Trends analytical categories & adaptive engine
+│   └── suite.yaml             # Master continuous regression test suite
+│
+├── .github/                   🤖 CI/CD Workflows
+│   └── workflows/
+│       └── e2e.yml            # Automated GitHub Actions Maestro simulator runner
+│
 ├── docs/                      📚 Architecture & Technical Specifications
 │   ├── ARCHITECTURE.md        # 4-layer on-device architecture specification
 │   ├── DATABASE.md            # PostgreSQL cloud warehouse schema & data dictionary
 │   ├── ROADMAP.md             # Native iOS-first development roadmap (Phase 1–4)
 │   └── superpowers/
-│       ├── specs/             # Architectural specifications (Lifecore 3.0 Vitals, ACWR, Correlations & UI 3.0)
-│       └── plans/             # Task-by-task implementation plans (Phase 2 & Phase 3)
+│       ├── specs/             # Architectural specifications (Lifecore 3.0 & Maestro E2E)
+│       └── plans/             # Task-by-task implementation plans (Phase 2 & Phase 3 & E2E)
 │
 ├── supabase/                  ☁️ Cloud Warehouse Layer (Supabase PostgreSQL)
 │   └── migrations/            # SQL DDL migrations (001–007)
@@ -110,7 +125,27 @@ lifecore/
 2. Ensure **HealthKit** and **AppIntents** capabilities are assigned to your Apple Developer Team.
 3. Build and run on a physical iPhone connected to an Apple Watch for live HealthKit telemetry.
 
-### 2. Cloud Synchronization (Supabase)
+### 2. End-to-End Testing (Maestro E2E)
+The repository provides automated, deterministic UI tests using [Maestro](https://maestro.mobile.dev) covering core user journeys and physiological engines:
+1. **Prerequisites:** Ensure Maestro CLI and Java 17+ are installed:
+   ```bash
+   curl -fsSL "https://get.maestro.mobile.dev" | bash
+   brew install openjdk@17
+   ```
+2. **Run All E2E Tests (1-Command Automation):**
+   ```bash
+   ./scripts/run_e2e.sh
+   ```
+   *Automatically boots simulator, builds the app target, installs `Lifecore.app`, and runs `.maestro/suite.yaml`.*
+3. **Run Specific Flow:**
+   ```bash
+   ./scripts/run_e2e.sh 01_profile_and_readiness.yaml
+   ./scripts/run_e2e.sh 02_nutrition_logging_and_undo.yaml
+   ./scripts/run_e2e.sh 03_workout_filtering_and_refresh.yaml
+   ./scripts/run_e2e.sh 04_trends_adaptive_analytics.yaml
+   ```
+
+### 3. Cloud Synchronization (Supabase)
 Direct on-device synchronization from native iOS (`SupabaseSyncService.swift`) into Supabase PostgreSQL:
 - Supabase Project URL & Anon/Service Role Key configured in `ios/Lifecore/Lifecore/Core/Storage/SupabaseSyncService.swift` (or via environment/runtime configuration).
 - Local-first architecture guarantees 100% offline functionality with async cloud persistence.

@@ -2,6 +2,44 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-21] - Feature: Automated End-to-End High-Leverage Testing Infrastructure (Maestro E2E)
+
+### 🧪 High-Leverage E2E Test Suite (`.maestro/`):
+- **Deterministic Selectors:**
+  - Added clean `.accessibilityIdentifier(...)` tags to 7 key SwiftUI view components (`MainTabView.swift`, `TodayView.swift`, `AthleteProfileSheet.swift`, `NutritionView.swift`, `FoodInputSheet.swift`, `WorkoutsView.swift`, `TrendsView.swift`) without impacting visual design or runtime performance.
+- **Core User Journey Flows:**
+  - `01_profile_and_readiness.yaml`: Validates Today view rendering, launches `AthleteProfileSheet`, updates anthropometric weight, saves profile, and asserts persistent state.
+  - `02_nutrition_logging_and_undo.yaml`: Tests Nutrition tab, oatmeal preset chip, optimistic food logging, and instant modal dismissal.
+  - `03_workout_filtering_and_refresh.yaml`: Tests Workouts tab, cycles category filters (All $\to$ Running $\to$ Strength $\to$ All), and triggers telemetry refresh.
+  - `04_trends_adaptive_analytics.yaml`: Cycles analytical categories (Adaptation, Workload ACWR, Body Weight Rolling Averages, Cardio Autonomic Vitals).
+  - `suite.yaml`: Orchestrates master continuous regression test suite running all 4 flows in under 60 seconds.
+
+### 🛠️ Developer-First Automation & CI:
+- **`scripts/run_e2e.sh`:**
+  - Automated 1-command build, simulator resolution/boot, app installation via `simctl`, Homebrew OpenJDK 17 auto-detection, and Maestro test runner.
+- **`.github/workflows/e2e.yml`:**
+  - Added GitHub Actions workflow running on macOS with automated Maestro CLI installation and simulator execution.
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/App/MainTabView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/AthleteProfileSheet.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/FoodInputSheet.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`
+- `.maestro/config.yaml`
+- `.maestro/01_profile_and_readiness.yaml`
+- `.maestro/02_nutrition_logging_and_undo.yaml`
+- `.maestro/03_workout_filtering_and_refresh.yaml`
+- `.maestro/04_trends_adaptive_analytics.yaml`
+- `.maestro/suite.yaml`
+- `scripts/run_e2e.sh`
+- `.github/workflows/e2e.yml`
+- `README.md`, `PROJECT_KNOWLEDGE.md`, `docs/ROADMAP.md`
+- `docs/superpowers/specs/2026-10-21-maestro-e2e-design.md`
+- `docs/superpowers/plans/2026-10-21-maestro-e2e.md`
+
 ## [2026-10-21] - Feature: Lifecore v3.1 (Phase 3.1) Self-Learning Adaptive Physiology Engine & Complete Liquid Glass Bento UI Overhaul Implementation
 
 ### 🧠 Self-Learning Adaptive Physiology Engine (`AdaptivePhysiologyEngine.swift`):
