@@ -129,7 +129,7 @@ flowchart TD
 * **Presentation Layer (`LifecoreDesignSystem` — Liquid Glass Dark / Bevel 2.0 Aesthetic):**
   - **Today View 3.0:** Readiness, Strain (with ACWR badge), and Active Move rings; **5-Pill Overnight Vitals Corridor Bar** with **Illness Prodrome Radar Banner**; **24h Energy Bank (Body Battery)** curve; Sleep Architecture & Sleep Debt; Movement & Pure NEAT with real-time accrued BMR; and `AthleteProfileSheet`.
   - **Workouts View:** 1km auto-splits and interval laps; synchronized Swift Charts for pace, heart rate, and elevation profile; EF, Cardiac Drift %, and Benchmark Delta cards.
-  - **Nutrition View:** Optimistic photo/voice capture (<0.2s UI response), +12.5% deficit buffer, Whole Food vs UPF quality card, sodium water-retention warning, and leucine MPS threshold.
+  - **Nutrition View:** Unified «Записати їжу» entry point; two-tier modal (`FoodInputSheet`) separating compact camera/photo capture from decoupled zero-latency text input; gesture-driven swipeable meal container (`SwipeableMealCardContainer`) with localized in-place destructive confirmation under touch and bidirectional Apple HealthKit dietary deletion sync; optimistic UI (<0.2s response); +12.5% deficit buffer, Whole Food vs UPF quality card, sodium water-retention warning, and leucine MPS threshold.
   - **Trends View 3.0:** 7d/14d rolling body weight trend (water noise filter), 30d/60d autonomic baseline corridors, **Time-Lagged Correlations & Insights Hub** ($r, r_{pb}$ with $T+1/T+2$ badges), and **EWMA ACWR Workload Ratio Chart**.
 * **AI Athletic Coach (Gemini API direct service):**
   - Evaluates pre-calculated Swift telemetry, Overnight Vitals confluence, EWMA ACWR, and personal time-lagged correlations.

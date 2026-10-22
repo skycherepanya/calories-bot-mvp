@@ -67,6 +67,9 @@
 - [x] Background vision processing: `GeminiService.swift` multimodal cascade (`gemini-3.8-flash` -> `gemini-2.5-flash` -> `gemini-3.6-flash`).
 - [x] Automatic application of +12.5% caloric deficit buffer, cooked weight calibration, and taxonomy tags (`FoodPrompt.swift`).
 - [x] Write-back to HealthKit dietary calories, protein, fat, carbs, and sodium via `HealthKitManager.swift` with bidirectional sample deletion & restoration tied to `LifecoreMealID` metadata.
+- [x] In-place swipe-to-delete meal interaction (`SwipeableMealCardContainer`) with localized finger touch confirmation and automatic Apple HealthKit deletion sync.
+- [x] Unified «Записати їжу» entry point on `NutritionView` replacing «Сфотографувати їжу».
+- [x] Two-tier modal architecture in `FoodInputSheet` (compact media capture tier + decoupled zero-latency text input & presets).
 
 ### 2.5. View 4: Trends View (Water Noise Filter & Longitudinal Baselines)
 - [x] Dedicated `Features/Trends/TrendsView.swift` & `TrendsComponents.swift`:

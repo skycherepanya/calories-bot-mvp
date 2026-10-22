@@ -7,6 +7,8 @@ public struct FoodInputSheet: View {
 
     public let onLog: (_ imageJpegData: Data?, _ textDescription: String?) -> Void
 
+    fileprivate static let isCameraAvailable: Bool = UIImagePickerController.isSourceTypeAvailable(.camera)
+
     @State private var textInput: String = ""
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImageData: Data?
@@ -21,59 +23,18 @@ public struct FoodInputSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Photo Capture / Picker Area
+                    // Block 1: Compact Photo / Camera Area
                     photoSection
 
-                    // Text Description Field
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Опис страви (необов'язково)", systemImage: "pencil.line")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                    // Block 2: Text Description & Presets
+                    textSection
 
-                        TextField("Наприклад: Гречка 150г, куряче філе 120г, огірок...", text: $textInput, axis: .vertical)
-                            .lineLimit(2...4)
-                            .padding(14)
-                            .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .foregroundStyle(.white)
-                            .accessibilityIdentifier("input_food_text")
-                    }
-
-                    // Quick Presets
-                    quickPresetsSection
-
-                    // Log Action Button
-                    Button(action: handleLog) {
-                        HStack(spacing: 8) {
-                            if isProcessingImage {
-                                ProgressView()
-                                    .tint(.black)
-                                Text("Обробка фото...")
-                                    .fontWeight(.bold)
-                            } else {
-                                Image(systemName: "sparkles")
-                                Text("Розпізнати та записати")
-                                    .fontWeight(.bold)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            canSubmit ?
-                            LinearGradient(colors: [.orange, Color(red: 1.0, green: 0.4, blue: 0.0)], startPoint: .leading, endPoint: .trailing) :
-                            LinearGradient(colors: [.gray.opacity(0.3), .gray.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
-                        )
-                        .foregroundStyle(canSubmit ? .black : .secondary)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .shadow(color: canSubmit ? Color.orange.opacity(0.3) : .clear, radius: 8, y: 3)
-                    }
-                    .accessibilityIdentifier("btn_submit_food")
-                    .disabled(!canSubmit || isProcessingImage)
-                    .padding(.top, 10)
+                    // Submit Action Button
+                    submitButton
                 }
                 .padding(20)
             }
+            .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("sheet_food_input")
             .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
             .navigationTitle("Новий прийом їжі")
@@ -111,79 +72,147 @@ public struct FoodInputSheet: View {
         selectedImageData != nil || !textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    // MARK: - Block 1: Media / Photo Capture
+
     private var photoSection: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Фото страви (опціонально)", systemImage: "camera.fill")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
             if let imgData = selectedImageData, let uiImage = UIImage(data: imgData) {
                 ZStack(alignment: .topTrailing) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
                         .frame(maxWidth: .infinity)
-                        .frame(height: 200)
+                        .frame(height: 140)
                         .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
 
                     Button(action: {
                         selectedImageData = nil
                         selectedPhotoItem = nil
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
+                            .font(.title3)
                             .foregroundStyle(.white, Color.black.opacity(0.7))
                             .padding(8)
                     }
                 }
             } else {
-                VStack(spacing: 14) {
-                    HStack(spacing: 12) {
-                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                            Button(action: { showCamera = true }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "camera.fill")
-                                        .font(.headline)
-                                    Text("Камера")
-                                        .fontWeight(.semibold)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 54)
-                                .background(Color.orange.opacity(0.15))
-                                .foregroundStyle(.orange)
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-                                )
-                            }
-                        }
-
-                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                HStack(spacing: 12) {
+                    if Self.isCameraAvailable {
+                        Button(action: { showCamera = true }) {
                             HStack(spacing: 8) {
-                                Image(systemName: "photo.on.rectangle.angled")
-                                    .font(.headline)
-                                Text("Галерея")
+                                Image(systemName: "camera.fill")
+                                    .font(.subheadline)
+                                Text("Камера")
+                                    .font(.subheadline)
                                     .fontWeight(.semibold)
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 54)
-                            .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-                            .foregroundStyle(.white)
+                            .frame(height: 48)
+                            .background(LifecoreTheme.strainOrange.opacity(0.14))
+                            .foregroundStyle(LifecoreTheme.strainOrange)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(LifecoreTheme.strainOrange.opacity(0.3), lineWidth: 1)
                             )
                         }
                     }
 
-                    Text("AI автоматично розпізнає страву, інгредієнти та КБЖУ")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.subheadline)
+                            Text("Галерея")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                    }
                 }
-                .padding(16)
-                .background(Color(red: 0.08, green: 0.09, blue: 0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
         }
+    }
+
+    // MARK: - Block 2: Text Description & Presets
+
+    private var textSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Опис страви", systemImage: "pencil.line")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                if textInput.isEmpty {
+                    Text("Наприклад: Гречка 150г, куряче філе 120г, огірок...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary.opacity(0.7))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                }
+
+                TextEditor(text: $textInput)
+                    .font(.subheadline)
+                    .foregroundStyle(.white)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(minHeight: 80, maxHeight: 110)
+                    .accessibilityIdentifier("input_food_text")
+            }
+            .background(Color(red: 0.1, green: 0.11, blue: 0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+
+            quickPresetsSection
+        }
+    }
+
+    private var submitButton: some View {
+        Button(action: handleLog) {
+            HStack(spacing: 8) {
+                if isProcessingImage {
+                    ProgressView()
+                        .tint(.black)
+                    Text("Обробка фото...")
+                        .fontWeight(.bold)
+                } else {
+                    Image(systemName: "sparkles")
+                    Text("Розпізнати та записати")
+                        .fontWeight(.bold)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                canSubmit ?
+                LinearGradient(colors: [LifecoreTheme.strainOrange, Color(red: 1.0, green: 0.35, blue: 0.0)], startPoint: .leading, endPoint: .trailing) :
+                LinearGradient(colors: [.gray.opacity(0.25), .gray.opacity(0.25)], startPoint: .leading, endPoint: .trailing)
+            )
+            .foregroundStyle(canSubmit ? .black : .secondary)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: canSubmit ? LifecoreTheme.strainOrange.opacity(0.3) : .clear, radius: 8, y: 3)
+        }
+        .accessibilityIdentifier("btn_submit_food")
+        .disabled(!canSubmit || isProcessingImage)
+        .padding(.top, 6)
     }
 
     private func processAndStoreImage(_ image: UIImage) {
@@ -206,9 +235,9 @@ public struct FoodInputSheet: View {
     }
 
     private var quickPresetsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Швидкі варіанти")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -221,6 +250,7 @@ public struct FoodInputSheet: View {
                 }
             }
         }
+        .padding(.top, 4)
     }
 
     private func presetChip(_ text: String) -> some View {
@@ -266,7 +296,7 @@ struct CameraPickerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        picker.sourceType = FoodInputSheet.isCameraAvailable ? .camera : .photoLibrary
         return picker
     }
 

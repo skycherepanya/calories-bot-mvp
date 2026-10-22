@@ -167,7 +167,7 @@ ios/Lifecore/
     ├── Features/
     │   ├── Today/                        # Dark-mode dashboard: Rings, 5-Pill Overnight Vitals, Illness Radar, 24h Energy Bank
     │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts
-    │   ├── Nutrition/                    # Camera capture, optimistic meal cards, macro breakdown
+    │   ├── Nutrition/                    # Unified "Записати їжу" log, two-tier input modal, gesture swipe-to-delete with HealthKit sync, macro cards
     │   └── Trends/                       # 7d/14d weight trend, autonomic baselines, EF/drift, Time-Lagged Correlations & ACWR
     └── Intents/
         ├── LogMealIntent.swift           # Fast Siri / Action button meal logger

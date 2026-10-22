@@ -263,7 +263,117 @@ public struct DietaryQualityCard: View {
     }
 }
 
-// MARK: - 3. Meal Item Card
+// MARK: - 3. Swipeable Meal Card Container
+
+public struct SwipeableMealCardContainer<Content: View>: View {
+    public let onDelete: () -> Void
+    @ViewBuilder public let content: () -> Content
+
+    @State private var offset: CGFloat = 0
+    @State private var isRevealed: Bool = false
+
+    private let buttonWidth: CGFloat = 84
+
+    public init(onDelete: @escaping () -> Void, @ViewBuilder content: @escaping () -> Content) {
+        self.onDelete = onDelete
+        self.content = content
+    }
+
+    public var body: some View {
+        ZStack(alignment: .trailing) {
+            // Destructive Delete Button Revealed on Swipe
+            Button(role: .destructive) {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    offset = -240
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    onDelete()
+                }
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 17, weight: .bold))
+                    Text("Видалити")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .frame(width: buttonWidth - 8)
+                .frame(maxHeight: .infinity)
+                .background(
+                    LinearGradient(
+                        colors: [Color.red.opacity(0.95), Color(red: 0.8, green: 0.1, blue: 0.1)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 2)
+            .opacity(offset < -15 ? 1 : 0)
+
+            // Main Card Content
+            content()
+                .offset(x: offset)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if isRevealed {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            offset = 0
+                            isRevealed = false
+                        }
+                    }
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 15)
+                        .onChanged { value in
+                            let translation = value.translation.width
+                            if isRevealed {
+                                let newOffset = -buttonWidth + translation
+                                offset = min(0, max(-buttonWidth - 30, newOffset))
+                            } else {
+                                if translation < 0 {
+                                    offset = max(-buttonWidth - 30, translation)
+                                }
+                            }
+                        }
+                        .onEnded { value in
+                            let translation = value.translation.width
+                            if isRevealed {
+                                if translation > 20 {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        offset = 0
+                                        isRevealed = false
+                                    }
+                                } else {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        offset = -buttonWidth
+                                    }
+                                }
+                            } else {
+                                if offset < -35 {
+                                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                                    haptic.impactOccurred()
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                        offset = -buttonWidth
+                                        isRevealed = true
+                                    }
+                                } else {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        offset = 0
+                                        isRevealed = false
+                                    }
+                                }
+                            }
+                        }
+                )
+        }
+    }
+}
+
+// MARK: - 3.1. Meal Item Card
 
 public struct MealItemCard: View {
     public let meal: MealRecord
@@ -271,7 +381,7 @@ public struct MealItemCard: View {
 
     @State private var showingDetails = false
 
-    public init(meal: MealRecord, onDelete: @escaping () -> Void) {
+    public init(meal: MealRecord, onDelete: @escaping () -> Void = {}) {
         self.meal = meal
         self.onDelete = onDelete
     }
@@ -315,28 +425,15 @@ public struct MealItemCard: View {
 
                 Spacer()
 
-                HStack(spacing: 8) {
-                    Button(action: { showingDetails = true }) {
-                        Image(systemName: "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(8)
-                            .background(Color.white.opacity(0.06))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(role: .destructive, action: onDelete) {
-                        Image(systemName: "trash")
-                            .font(.caption)
-                            .foregroundStyle(.red.opacity(0.9))
-                            .padding(8)
-                            .background(Color.red.opacity(0.14))
-                            .clipShape(Circle())
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
+                Button(action: { showingDetails = true }) {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(8)
+                        .background(Color.white.opacity(0.06))
+                        .clipShape(Circle())
                 }
+                .buttonStyle(.plain)
             }
 
             // Tags Chips
@@ -530,7 +627,7 @@ public struct MealDetailSheet: View {
                     }
                 }
 
-                if let onDelete = onDelete {
+                if onDelete != nil {
                     Section {
                         Button(role: .destructive) {
                             showingDeleteConfirm = true

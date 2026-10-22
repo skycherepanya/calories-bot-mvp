@@ -2,6 +2,34 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-22] - Feature: Nutrition UI Modernization, In-Place Swipe Deletion & Input Latency Elimination
+
+### 👆 Gesture-Driven Swipe-to-Delete (`NutritionComponents.swift`):
+- **`SwipeableMealCardContainer`:**
+  - Implemented an on-device `DragGesture(minimumDistance: 15)` wrapper around meal item cards with bounded horizontal offset (-84pt).
+  - Reveals an in-place red destructive confirmation button (`trash.fill` + "Видалити") positioned directly under the user's swipe finger.
+  - Generates subtle haptic feedback (`UIImpactFeedbackGenerator(style: .light)`) when snapped open.
+  - Tapping the confirmed red button executes deletion with spring exit animation; tapping anywhere else on the card or swiping right resets offset to 0.
+- **Card Aesthetics:** Cleaned up `MealItemCard` to eliminate redundant inline icons and rely on the gesture interaction.
+
+### 🍽️ Unified Logging Action & Dialog Cleanup (`NutritionView.swift`):
+- **Action Button:** Replaced "Сфотографувати їжу" with a unified "Записати їжу" button (`plus.circle.fill`) with preserved `.accessibilityIdentifier("btn_add_meal")`.
+- **Intrusive Dialog Elimination:** Permanently removed `.confirmationDialog` from the view hierarchy, delegating all meal removal to the in-place swipe container.
+- **Updated Guidance:** Refreshed `emptyDayView` helper text to reference "«Записати їжу» або «+»".
+
+### ⚡ Two-Tier Layout & Zero-Latency Text Input (`FoodInputSheet.swift`):
+- **Input Lag Elimination:** Cached camera hardware check via `fileprivate static let isCameraAvailable` to prevent synchronous `UIImagePickerController` queries on every keystroke.
+- **Two-Tier Architecture:**
+  - **Tier 1 (Media Capture):** Compact horizontal buttons for Camera and Gallery (`PhotosPicker`) or a 140pt thumbnail with `xmark.circle.fill` remove button.
+  - **Tier 2 (Text Description & Presets):** Decoupled `TextEditor` with high-responsiveness, zero layout jitter, and quick preset chips (`preset_oatmeal`, etc.).
+- **E2E Compatibility:** Fully preserved accessibility identifiers (`sheet_food_input`, `btn_close_food_input`, `preset_oatmeal`, `btn_submit_food`, `input_food_text`).
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionComponents.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/FoodInputSheet.swift`
+- `docs/ROADMAP.md`, `docs/ARCHITECTURE.md`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`
+
 ## [2026-10-22] - Feature: Bidirectional Food Deletion & Restoration Sync with Apple HealthKit
 
 ### 🍏 HealthKit Food Deletion & Metadata Sync (`HealthKitManager.swift`):

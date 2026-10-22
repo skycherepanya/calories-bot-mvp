@@ -9,8 +9,6 @@ public struct NutritionView: View {
     @State private var showingInputSheet = false
     @State private var isYesterdayFastMode = false
     @State private var statusToast: String?
-
-    @State private var mealPendingDeletion: MealRecord?
     @State private var recentlyDeletedMeal: MealRecord?
 
     public init() {
@@ -87,27 +85,6 @@ public struct NutritionView: View {
                     processFoodLog(imageJpegData: imageJpegData, textDescription: textDescription)
                 }
             }
-            .confirmationDialog(
-                "Видалити цей прийом їжі?",
-                isPresented: Binding(
-                    get: { mealPendingDeletion != nil },
-                    set: { if !$0 { mealPendingDeletion = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                if let meal = mealPendingDeletion {
-                    Button("Видалити \"\(meal.name)\"", role: .destructive) {
-                        deleteMealConfirmed(meal)
-                    }
-                }
-                Button("Скасувати", role: .cancel) {
-                    mealPendingDeletion = nil
-                }
-            } message: {
-                if let meal = mealPendingDeletion {
-                    Text("Запис \"\(meal.name)\" буде вилучено з вашого щоденника харчування.")
-                }
-            }
         }
     }
 
@@ -181,9 +158,10 @@ public struct NutritionView: View {
         HStack(spacing: 10) {
             Button(action: { showingInputSheet = true }) {
                 HStack(spacing: 8) {
-                    Image(systemName: "camera.fill")
-                        .foregroundStyle(.orange)
-                    Text("Сфотографувати їжу")
+                    Image(systemName: "plus.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(LifecoreTheme.strainOrange)
+                    Text("Записати їжу")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.white)
@@ -191,6 +169,7 @@ public struct NutritionView: View {
                 .frame(maxWidth: .infinity)
                 .lifecoreGlassCard(cornerRadius: 14, padding: 12)
             }
+            .accessibilityIdentifier("btn_add_meal")
 
             Button(action: toggleYesterdayFastLog) {
                 HStack(spacing: 6) {
@@ -254,8 +233,10 @@ public struct NutritionView: View {
                                 }
                             }
                         } else {
-                            MealItemCard(meal: meal) {
-                                mealPendingDeletion = meal
+                            SwipeableMealCardContainer(onDelete: {
+                                deleteMealConfirmed(meal)
+                            }) {
+                                MealItemCard(meal: meal)
                             }
                         }
                     }
@@ -273,7 +254,7 @@ public struct NutritionView: View {
             Text("Немає записів за цей день")
                 .font(.subheadline)
                 .foregroundStyle(.white)
-            Text("Натисніть «Сфотографувати їжу» або «+» для швидкого розпізнавання калорій.")
+            Text("Натисніть «Записати їжу» або «+» для швидкого розпізнавання калорій.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -295,7 +276,6 @@ public struct NutritionView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             storage.deleteMeal(id: meal.id)
         }
-        mealPendingDeletion = nil
 
         Task {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
