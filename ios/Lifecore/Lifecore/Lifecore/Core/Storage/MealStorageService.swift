@@ -213,6 +213,10 @@ public final class MealStorageService: ObservableObject {
             }
             try? context.save()
         }
+
+        Task {
+            try? await HealthKitManager.shared.deleteMealFromHealthKit(mealId: id)
+        }
     }
 
     public func restoreMeal(_ meal: MealRecord) {
@@ -222,6 +226,10 @@ public final class MealStorageService: ObservableObject {
             let entity = MealEntity(record: meal)
             context.insert(entity)
             try? context.save()
+
+            Task {
+                try? await HealthKitManager.shared.saveMealToHealthKit(meal: meal)
+            }
         }
     }
 

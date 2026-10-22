@@ -66,7 +66,7 @@
 - [x] Optimistic UI: instant pending meal card insertion (<0.2s) in "Analyzing..." state via `MealStorageService.swift`.
 - [x] Background vision processing: `GeminiService.swift` multimodal cascade (`gemini-3.8-flash` -> `gemini-2.5-flash` -> `gemini-3.6-flash`).
 - [x] Automatic application of +12.5% caloric deficit buffer, cooked weight calibration, and taxonomy tags (`FoodPrompt.swift`).
-- [x] Write-back to HealthKit dietary calories, protein, fat, carbs, and sodium via `HealthKitManager.swift`.
+- [x] Write-back to HealthKit dietary calories, protein, fat, carbs, and sodium via `HealthKitManager.swift` with bidirectional sample deletion & restoration tied to `LifecoreMealID` metadata.
 
 ### 2.5. View 4: Trends View (Water Noise Filter & Longitudinal Baselines)
 - [x] Dedicated `Features/Trends/TrendsView.swift` & `TrendsComponents.swift`:

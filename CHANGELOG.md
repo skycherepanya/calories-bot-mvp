@@ -2,6 +2,29 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-22] - Feature: Bidirectional Food Deletion & Restoration Sync with Apple HealthKit
+
+### 🍏 HealthKit Food Deletion & Metadata Sync (`HealthKitManager.swift`):
+- **Sample Metadata Tagging (`LifecoreMealID`):**
+  - Updated `saveMealToHealthKit` to attach `LifecoreMealID = meal.id.uuidString` to all generated quantity samples (`dietaryEnergyConsumed`, `dietaryProtein`, `dietaryFatTotal`, `dietaryCarbohydrates`, `dietarySodium`, `dietaryFiber`).
+  - Updated `saveMealToHealthKit(meal: MealRecord, date: Date?)` overload to pass `meal.id` and timestamp accurately using `meal.createdAt`.
+- **Targeted Deletion (`deleteMealFromHealthKit`):**
+  - Implemented `deleteMealFromHealthKit(mealId: UUID)` which generates an `HKQuery.predicateForObjects(withMetadataKey:operatorType:value:)` and calls `healthStore.deleteObjects(of:predicate:)` across all 6 dietary quantity types.
+
+### 🔄 UI & Storage Integration (`MealStorageService.swift`, `NutritionView.swift`):
+- **Lifecycle Deletion Sync:**
+  - `MealStorageService.deleteMeal(id: UUID)` automatically triggers background HealthKit deletion `deleteMealFromHealthKit(mealId: id)` upon any meal removal (swipe-to-delete, optimistic cancellation, or batch removal).
+- **Undo Restoration Sync:**
+  - `MealStorageService.restoreMeal(_ meal: MealRecord)` automatically triggers `saveMealToHealthKit(meal: meal)` if the user restores a meal via the 5-second undo toast banner.
+- **Nutrition Pipeline Cleanup:**
+  - In `NutritionView.swift`, streamlined resolved meal handling to pass the returned `MealRecord` directly to `saveMealToHealthKit(meal: resolved)`, ensuring `meal.id` is consistently populated for both live Gemini AI parsing and offline fallback.
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`
+- `PROJECT_KNOWLEDGE.md`, `docs/ROADMAP.md`, `CHANGELOG.md`
+
 ## [2026-10-21] - Feature: Automated End-to-End High-Leverage Testing Infrastructure (Maestro E2E)
 
 ### 🧪 High-Leverage E2E Test Suite (`.maestro/`):

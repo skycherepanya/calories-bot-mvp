@@ -362,18 +362,10 @@ public struct NutritionView: View {
                 )
 
                 // 3. Resolve pending card with finalized macros and tags
-                storage.resolvePending(id: pendingRecord.id, nutrition: nutrition)
-
-                // 4. Background write-back to Apple HealthKit
-                try? await HealthKitManager.shared.saveMealToHealthKit(
-                    name: nutrition.mealName,
-                    kcal: nutrition.kcal,
-                    proteinG: nutrition.protein,
-                    fatG: nutrition.fat,
-                    carbsG: nutrition.carbs,
-                    sodiumMg: nutrition.micronutrients?.sodiumMg,
-                    fiberG: nutrition.micronutrients?.fiberG
-                )
+                if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: nutrition) {
+                    // 4. Background write-back to Apple HealthKit
+                    try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
+                }
 
                 // 5. Asynchronous cloud sync to Supabase
                 _ = try? await SupabaseSyncService.shared.syncPendingMeals()
@@ -385,7 +377,9 @@ public struct NutritionView: View {
             } catch {
                 print("[NutritionView] AI analysis failed with error: \(error.localizedDescription)")
                 let fallback = GeminiService.shared.generateOfflineMeal(textDescription: textDescription)
-                storage.resolvePending(id: pendingRecord.id, nutrition: fallback)
+                if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: fallback) {
+                    try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
+                }
                 _ = try? await SupabaseSyncService.shared.syncPendingMeals()
             }
         }

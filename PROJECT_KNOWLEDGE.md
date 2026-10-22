@@ -144,7 +144,7 @@ ios/Lifecore/
     │   └── MainTabView.swift             # 4-tab navigation (Сьогодні, Тренування, Харчування, Тренди)
     ├── Core/
     │   ├── HealthKit/
-    │   │   ├── HealthKitManager.swift    # Queries raw biometrics, 5-metric Vitals, R-R Heartbeat series, sleep stages
+    │   │   ├── HealthKitManager.swift    # Queries raw biometrics, 5-metric Vitals, R-R Heartbeat series, sleep stages, dietary write-back & deletion sync (LifecoreMealID)
     │   │   └── WorkoutTelemetryExtractor.swift # Extracts HKQuantitySeriesSample (HR, GPS, Altitude, Cadence)
     │   ├── MathEngine/
     │   │   ├── ReadinessCalculator.swift # Recovery score (0-100%), Strain score, Pure NEAT, rolling averages

@@ -52,7 +52,9 @@ public final class HealthKitManager: @unchecked Sendable {
         try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
     }
 
-    // MARK: - Dietary Write-Back
+    // MARK: - Dietary Write-Back & Deletion
+    public static let mealIDMetadataKey = "LifecoreMealID"
+
     public func saveMealToHealthKit(
         name: String,
         kcal: Double,
@@ -61,14 +63,19 @@ public final class HealthKitManager: @unchecked Sendable {
         carbsG: Double,
         sodiumMg: Double? = nil,
         fiberG: Double? = nil,
-        date: Date = Date()
+        date: Date = Date(),
+        mealId: UUID? = nil
     ) async throws {
         guard isAvailable else { throw HealthKitError.notAvailableOnDevice }
 
-        var samples: [HKQuantitySample] = []
-        let metadata: [String: Any] = [
+        var metadata: [String: Any] = [
             HKMetadataKeyFoodType: name
         ]
+        if let mealId = mealId {
+            metadata[Self.mealIDMetadataKey] = mealId.uuidString
+        }
+
+        var samples: [HKQuantitySample] = []
 
         let kcalType = HKQuantityType(.dietaryEnergyConsumed)
         let kcalQuantity = HKQuantity(unit: .kilocalorie(), doubleValue: kcal)
@@ -107,7 +114,7 @@ public final class HealthKitManager: @unchecked Sendable {
         try await healthStore.save(samples)
     }
 
-    public func saveMealToHealthKit(meal: MealRecord, date: Date = Date()) async throws {
+    public func saveMealToHealthKit(meal: MealRecord, date: Date? = nil) async throws {
         try await saveMealToHealthKit(
             name: meal.name,
             kcal: meal.kcal,
@@ -116,8 +123,32 @@ public final class HealthKitManager: @unchecked Sendable {
             carbsG: meal.carbsG,
             sodiumMg: meal.micronutrients?.sodiumMg,
             fiberG: meal.micronutrients?.fiberG,
-            date: date
+            date: date ?? meal.createdAt,
+            mealId: meal.id
         )
+    }
+
+    public func deleteMealFromHealthKit(mealId: UUID) async throws {
+        guard isAvailable else { return }
+
+        let dietaryTypes: [HKQuantityType] = [
+            HKQuantityType(.dietaryEnergyConsumed),
+            HKQuantityType(.dietaryProtein),
+            HKQuantityType(.dietaryFatTotal),
+            HKQuantityType(.dietaryCarbohydrates),
+            HKQuantityType(.dietarySodium),
+            HKQuantityType(.dietaryFiber)
+        ]
+
+        let predicate = HKQuery.predicateForObjects(
+            withMetadataKey: Self.mealIDMetadataKey,
+            operatorType: .equalTo,
+            value: mealId.uuidString
+        )
+
+        for type in dietaryTypes {
+            try await healthStore.deleteObjects(of: type, predicate: predicate)
+        }
     }
 
     // MARK: - 1. Daily NEAT Activity
