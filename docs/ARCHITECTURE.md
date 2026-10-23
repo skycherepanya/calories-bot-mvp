@@ -1,6 +1,6 @@
-# Lifecore 3.1 System Architecture: Native iOS-First, Self-Learning Physiology & Athletic Intelligence
+# Lifecore 3.2 System Architecture: Native iOS-First, Deterministic Adaptive Training Prescription & Athletic Intelligence
 
-> **Document Status:** Master Architecture Reference (Active v3.1)  
+> **Document Status:** Master Architecture Reference (Active v3.2)  
 > **Target Platform:** Native iOS (Swift 6, SwiftUI, Swift Charts, HealthKit, SwiftData) + Cloud Synchronization (Supabase PostgreSQL, Gemini API) + Maestro E2E
 
 ---
@@ -44,22 +44,22 @@ flowchart TD
     end
 
     subgraph Layer3 ["3️⃣ Layer 3: Persistence, Profile & Bidirectional Cloud Sync"]
-        SwiftData[("💾 SwiftData + AthleteProfileStore\nMealEntity, WorkoutAnalysisEntity, User Calibration")]
+        SwiftData[("💾 SwiftData + AthleteProfileStore + TrainingPlanStore\nMealEntity, WorkoutAnalysisEntity, AthleteTrainingPlanState, User Calibration")]
         MealService["🍽️ MealStorageService\n(Optimistic State, Undo Toast, Sync Trigger)"]
         SyncService["🔄 SupabaseSyncService / AppIntents\n(Two-Way REST Sync, Offline Queue, Migration 007)"]
         SupaDB[("☁️ Supabase PostgreSQL\nmeals, workout_analyses, daily_metrics, sleep_logs")]
     end
 
-    subgraph Layer4 ["4️⃣ Layer 4: Lifecore UI 3.1 (Liquid Glass Bento Cockpit) & AI Intelligence"]
-        Dashboard["📱 TodayView 3.1\nHero Cockpit, AdaptiveEngineBadgeBar, RPE Row, Rings, 5-Pill Vitals, Illness Radar, Energy Bank"]
-        WorkoutsUI["🏃 WorkoutsView 3.1\nLive TRIMP Badges, 1km Splits, Laps, Synchronized Swift Charts, EF/Drift Cards"]
-        NutritionUI["🥗 NutritionView 3.1\nUnified Log Button, Two-Tier Input Modal, Swipe-to-Delete, Sodium H2O Forecast"]
-        TrendsHub["📊 TrendsView 3.1\nSegmented Glass Switcher, Adaptive Engine Status, EWMA ACWR, Correlation Hub"]
-        GeminiProxy["🤖 Gemini AI Athletic Coach\n70/15/15 Performance Narrative, Split Breakdown, Benchmark Delta, Actionable 24h Directive"]
+    subgraph Layer4 ["4️⃣ Layer 4: Lifecore UI 3.2 (Liquid Glass Bento Cockpit) & AI Intelligence"]
+        Dashboard["📱 TodayView 3.2\nHero Cockpit, TacticalPrescriptionCard, Rings, 5-Pill Vitals, Illness Radar, Energy Bank"]
+        WorkoutsUI["🏃 WorkoutsView 3.2\nRollingHorizonDeckView, Live TRIMP Badges, 1km Splits, Laps, Swift Charts, EF/Drift Cards"]
+        NutritionUI["🥗 NutritionView 3.2\nUnified Log Button, Two-Tier Input Modal, Swipe-to-Delete, Sodium H2O Forecast"]
+        TrendsHub["📊 TrendsView 3.2\nSegmented Glass Switcher, Adaptive Engine Status, EWMA ACWR, Correlation Hub"]
+        GeminiProxy["🤖 Gemini AI Athletic Coach\n70/15/15 Performance Narrative, Split Breakdown, Benchmark Delta, Actionable 24h Directive, Next Prescription"]
     end
 
     subgraph TestingLayer ["🧪 Automated Verification & High-Leverage E2E Layer"]
-        MaestroSuite["🧪 Maestro E2E Suite (.maestro/)\n01_profile_and_readiness, 02_nutrition_logging_and_undo,\n03_workout_filtering_and_refresh, 04_trends_adaptive_analytics"]
+        MaestroSuite["🧪 Maestro E2E Suite (.maestro/)\n01_profile_and_readiness, 02_nutrition_logging_and_undo,\n03_workout_filtering_and_refresh, 04_trends_adaptive_analytics,\n05_training_prescription_flow"]
         Accessibility["🏷️ Non-Invasive Accessibility Identifiers\n(.accessibilityIdentifier hooks across all views & sheets)"]
         CI["🤖 CI Pipeline (scripts/run_e2e.sh & GitHub Actions e2e.yml)"]
     end
@@ -77,6 +77,9 @@ flowchart TD
     MacroEngine --> MealService
     MealService --> SwiftData
     AdaptiveEngine <--> SwiftData
+    PrescriptionEngine <--> SwiftData
+    PrescriptionEngine --> Dashboard
+    PrescriptionEngine --> WorkoutsUI
 
     SwiftData --> CorrEngine
     SwiftData <--> SyncService
@@ -170,6 +173,20 @@ Operates four closed feedback loops that dynamically personalize the app to the 
 - **Loop 4 — 60-Day EWMA Corridors & 1-Tap RPE Simplex Calibration:**
   Tracks nocturnal Vitals baselines with $\lambda_{60} = 2/61$ smoothing and performs simplex adjustments on `ReadinessWeightVector` whenever subjective RPE feedback diverges from predicted readiness.
 
+#### 7. Deterministic Adaptive Training Prescription Engine (`TrainingPrescriptionEngine.swift` — Phase 3.2)
+Computes personalized tactical training prescriptions and maintains a non-destructive rolling stimulus queue:
+- **Inverse EWMA ACWR Load Budgeting:**
+  $$\text{TRIMP}_{\text{budget}} = \frac{R_{\text{target}} \cdot (1 - \lambda_c) \cdot C_{t-1} - (1 - \lambda_a) \cdot A_{t-1}}{\lambda_a - R_{\text{target}} \cdot \lambda_c}$$
+  Calculates exact load budget $\text{TRIMP} \in [0, 160]$ targeting $R_{\text{target}} = 1.08$, bounded with recovery ceiling $\le 45$ TRIMP if acute ratio exceeds $1.25$.
+- **3-Gate Physiological Override State Machine:**
+  - Gate 1: Vitals prodrome strictly forces `.restDay` (TRIMP = 0); morning Body Battery $< 40\%$ or immune watch caps at Zone 2 (55% budget); depressed HRV modulates to Zone 3 (80% budget).
+  - Gate 2: 3-day caloric deficit $< -650\text{ kcal/day}$ caps intensity at Zone 3 (85% budget).
+  - Gate 3: Median Cardiac Drift % over recent aerobic runs $\ge 45\text{ min}$ ($> 5.0\%$ holds duration for consolidation; $\le 3.5\%$ with $\Delta EF_{30d} > 1.5\%$ unlocks speed progression with 1.08 duration multiplier).
+- **Dynamic Pace & HR Zones Derived from $EF_{75}$:**
+  Paces across Zones 1–5 derived from 30-day 75th percentile Efficiency Factor ($EF_{75}$) and Heart Rate Reserve ($\text{HRR}$).
+- **4-Archetype Polarized Rolling Stimulus Queue & Pre-Run Carbs:**
+  Cycles through `aerobicBasePlusStrides`, `cruiseThresholdIntervals`, `recoveryFlush`, `progressiveQualityLongRun`. High acute spikes safely defer quality sessions to `RecoveryFlush` while keeping the quality session at the head of the horizon queue. Automatically prescribes pre-run carbs ($25\text{--}110\text{g}$) for sessions with $\text{TRIMP} \ge 75$ scaled by individual $\beta_{\text{Carbs}\to\text{Drift}}$ slope.
+
 ---
 
 ### 3.3. Layer 3: Persistence, Profile & Synchronization Layer
@@ -209,7 +226,8 @@ Operates four closed feedback loops that dynamically personalize the app to the 
   2. `02_nutrition_logging_and_undo.yaml`: Tests Nutrition tab, opens food sheet, taps oatmeal preset chip, triggers async optimistic log, and validates modal dismissal.
   3. `03_workout_filtering_and_refresh.yaml`: Tests Workouts tab, cycles category filters (All $\to$ Running $\to$ Strength $\to$ All), and triggers telemetry refresh.
   4. `04_trends_adaptive_analytics.yaml`: Cycles through all 4 analytical categories (Adaptation, Workload ACWR, Body Weight Rolling Averages, Cardio Autonomic Vitals), asserting non-blocking calculation rendering.
-  5. `suite.yaml`: Orchestrates master continuous regression suite.
+  5. `05_training_prescription_flow.yaml`: Validates Today tactical prescription card, Workouts rolling horizon deck, and 1-tap club run queue recalculation.
+  6. `suite.yaml`: Orchestrates master continuous regression suite.
 * **Developer Tooling & CI:**
   - `scripts/run_e2e.sh`: 1-command build, simulator setup, OpenJDK 17 auto-detection, and Maestro runner.
   - `.github/workflows/e2e.yml`: Automated GitHub Actions workflow on `macos-15`.

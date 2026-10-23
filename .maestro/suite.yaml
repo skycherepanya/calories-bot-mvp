@@ -7,3 +7,4 @@ appId: com.skycherepanya.Lifecore
 - runFlow: 02_nutrition_logging_and_undo.yaml
 - runFlow: 03_workout_filtering_and_refresh.yaml
 - runFlow: 04_trends_adaptive_analytics.yaml
+- runFlow: 05_training_prescription_flow.yaml

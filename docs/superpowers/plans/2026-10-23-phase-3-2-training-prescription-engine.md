@@ -26,7 +26,7 @@
   - Prevent division by zero in inverse EWMA (`denom = max(0.0001, lambdaA - clampedTarget * lambdaC)`) and speed-to-pace conversion (`60000.0 / max(80.0, speedMetersPerMin)`).
   - High Acute Load Spike Rule (for Test Case 12.2): when `previousAcuteLoad / max(20.0, previousChronicLoad) > 1.25`, cap raw budget to `min(trimpRaw, 45.0)` so quality sessions (`CruiseThresholdIntervals`) automatically defer in favor of `RecoveryFlush` while staying at the head of `RollingQueueState`.
 
-- [ ] **Step A1.1: Create `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingPrescriptionEngine.swift`**
+- [x] **Step A1.1: Create `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingPrescriptionEngine.swift`**
 
 ```swift
 import Foundation
@@ -801,7 +801,7 @@ public enum TrainingPrescriptionEngine {
   - **Test Case 12.2:** High acute load (`previousAcuteLoad = 115.0`, `previousChronicLoad = 70.0`, `ACWR > 1.25`) downscales `targetTrimp` and swaps queued `.cruiseThresholdIntervals` for `.recoveryFlush` today while preserving `.cruiseThresholdIntervals` in `preservedQueuedArchetype` and at the head of `horizonQueue`.
   - **Test Case 12.3:** Increasing $EF_{75}$ from `1.15` to `1.28` deterministically increases prescribed Zone 2 speed (`targetSpeedMetersPerMin`) and makes `targetPaceSecPerKm` faster while maintaining the exact same `targetHeartRateBpm` ceiling.
 
-- [ ] **Step A2.1: Update `MathEngineVerification.swift` and run `xcodebuild`**
+- [x] **Step A2.1: Update `MathEngineVerification.swift` and run `xcodebuild`**
 Add `verifyTrainingPrescriptionEngine()` to `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`:
 
 ```swift
@@ -865,7 +865,7 @@ Run verification build:
 * **Edge-Case Constraints:**
   - If `AthleteTrainingPlanState` does not yet exist in SwiftData on first launch, automatically insert a default row (`currentQueueIndex = 0`, `weeklyRunFrequency = 4`, `sessionDurationCapMin = 60.0`, `clubRunOverrideToday = false`).
 
-- [ ] **Step B1.1: Create `ios/Lifecore/Lifecore/Lifecore/Core/Storage/TrainingPlanModels.swift`**
+- [x] **Step B1.1: Create `ios/Lifecore/Lifecore/Lifecore/Core/Storage/TrainingPlanModels.swift`**
 
 ```swift
 import Foundation
@@ -964,7 +964,7 @@ public final class TrainingPlanStore: ObservableObject {
 }
 ```
 
-- [ ] **Step B1.2: Register `AthleteTrainingPlanState.self` in `SwiftDataModels.swift`**
+- [x] **Step B1.2: Register `AthleteTrainingPlanState.self` in `SwiftDataModels.swift`**
 In `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift` inside `LifecoreDataStore.init()`:
 Update `let schema = Schema([MealEntity.self, WorkoutAnalysisEntity.self, AthleteTrainingPlanState.self])`.
 
@@ -982,7 +982,7 @@ Update `let schema = Schema([MealEntity.self, WorkoutAnalysisEntity.self, Athlet
   - Adaptation reason pill: `"pill_prescription_reason"`
   - Segments list container: `"list_prescription_segments"`
 
-- [ ] **Step C1.1: Create `ios/Lifecore/Lifecore/Lifecore/Features/Today/TacticalPrescriptionCard.swift`**
+- [x] **Step C1.1: Create `ios/Lifecore/Lifecore/Lifecore/Features/Today/TacticalPrescriptionCard.swift`**
 
 ```swift
 import SwiftUI
@@ -1131,7 +1131,7 @@ public struct TacticalPrescriptionCard: View {
 }
 ```
 
-- [ ] **Step C1.2: Wire `TacticalPrescriptionCard` into `TodayView.swift`**
+- [x] **Step C1.2: Wire `TacticalPrescriptionCard` into `TodayView.swift`**
 In `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`:
 1. Add `@ObservedObject private var planStore = TrainingPlanStore.shared` and `@State private var prescriptionPlan: TrainingPrescriptionPlan?`.
 2. Inside `body` (`VStack(spacing: 18)`), insert `TacticalPrescriptionCard(plan: prescriptionPlan)` right after `ringsHeaderView` (before `OvernightVitalsCard`).
@@ -1147,7 +1147,7 @@ In `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`:
   - Deck container: `"deck_rolling_horizon"`
   - Club/Custom Run button: `"btn_recalculate_club_queue"`
 
-- [ ] **Step C2.1: Create `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/RollingHorizonDeckView.swift`**
+- [x] **Step C2.1: Create `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/RollingHorizonDeckView.swift`**
 
 ```swift
 import SwiftUI
@@ -1248,7 +1248,7 @@ public struct RollingHorizonDeckView: View {
 }
 ```
 
-- [ ] **Step C2.2: Insert `RollingHorizonDeckView()` at top of `WorkoutsView.swift`**
+- [x] **Step C2.2: Insert `RollingHorizonDeckView()` at top of `WorkoutsView.swift`**
 In `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift` inside `ScrollView { VStack(spacing: 16) { ... } }`, place `RollingHorizonDeckView()` as the first item right above `filterScrollView`.
 
 ---
@@ -1266,7 +1266,7 @@ In `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift` inside 
   - `.maestro/05_training_prescription_flow.yaml` (NEW)
   - `.maestro/suite.yaml` (UPDATE)
 
-- [ ] **Step D2.1: Create `.maestro/05_training_prescription_flow.yaml`**
+- [x] **Step D2.1: Create `.maestro/05_training_prescription_flow.yaml`**
 
 ```yaml
 appId: com.skycherepanya.Lifecore
@@ -1309,6 +1309,6 @@ appId: com.skycherepanya.Lifecore
     id: "card_tactical_prescription"
 ```
 
-- [ ] **Step D2.2: Append `- runFlow: 05_training_prescription_flow.yaml` to `.maestro/suite.yaml` and run final `xcodebuild`**
+- [x] **Step D2.2: Append `- runFlow: 05_training_prescription_flow.yaml` to `.maestro/suite.yaml` and run final `xcodebuild`**
 Run:
 `xcodebuild -project ios/Lifecore/Lifecore/Lifecore.xcodeproj -scheme Lifecore -destination 'generic/platform=iOS Simulator' build`

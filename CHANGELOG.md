@@ -2,6 +2,43 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-23] - Implementation: Lifecore v3.2 Deterministic Adaptive Training Prescription Engine
+
+### 🏃‍♂️ Adaptive Training Prescription Engine Implementation:
+- **Phase A (Math Engine & Verification Suite 12):**
+  - Implemented `TrainingPrescriptionEngine.swift` with analytical inverse EWMA ACWR load budgeting ($R_{\text{target}} = 1.08$), 30d rolling $EF_{75}$ calculation, dynamic Zone 1–5 pace & HR cap derivation, 3-gate physiological override state machine (Overnight Vitals illness prodrome, Body Battery $<40\%$, caloric deficit $< -650\text{ kcal/day}$, and 3-run cardiac drift % threshold), and pre-workout carbohydrate calculation for TRIMP $\ge 75$.
+  - Added Suite 12 (`verifyTrainingPrescriptionEngine()`) to `MathEngineVerification.swift` covering illness rest override, ACWR acute load spike queue swapping, and $EF_{75}$ pace gain at constant heart rate ceiling.
+- **Phase B (SwiftData Persistence & State Wiring):**
+  - Created `TrainingPlanModels.swift` containing `@Model AthleteTrainingPlanState` and reactive singleton `@MainActor TrainingPlanStore`.
+  - Registered `AthleteTrainingPlanState.self` into `LifecoreDataStore` ModelContainer schema.
+- **Phase C (Liquid Glass Bento UI 3.2 Components):**
+  - Created `TacticalPrescriptionCard.swift` with dynamic glow pills, target TRIMP/volume badges, and multi-segment zone breakdown; integrated into `TodayView.swift` above `OvernightVitalsCard`.
+  - Created `RollingHorizonDeckView.swift` featuring a horizontal scroll of upcoming 3 stimulus slots and a 1-tap club/custom run queue recalculation toggle; integrated at the top of `WorkoutsView.swift`.
+- **Phase D (AI Prompt Context & Maestro E2E):**
+  - Enhanced `CoachPrompt.swift` with `nextPrescriptionSummaryUk` parameter and `[NEXT 24H DETERMINISTIC TRAINING PRESCRIPTION]` context section.
+  - Created `.maestro/05_training_prescription_flow.yaml` testing Today tactical card visibility, Workouts rolling horizon deck visibility, and club run queue recalculation; updated `.maestro/suite.yaml`.
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingPrescriptionEngine.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/TrainingPlanModels.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TacticalPrescriptionCard.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/RollingHorizonDeckView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`
+- `.maestro/05_training_prescription_flow.yaml`
+- `.maestro/suite.yaml`
+- `CHANGELOG.md`
+- `PROJECT_KNOWLEDGE.md`
+- `docs/ROADMAP.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DATABASE.md`
+- `README.md`
+
+---
+
 ## [2026-10-23] - Architecture & Spec: Lifecore v3.2 (Phase 3.2) Deterministic Adaptive Training Prescription Engine (`TrainingPrescriptionEngine.swift`) Roadmap
 
 ### 🏃‍♂️ Adaptive Training Prescription Mathematical Specification (`TrainingPrescriptionEngine.swift`):

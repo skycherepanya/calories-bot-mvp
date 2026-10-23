@@ -44,6 +44,9 @@ public enum MathEngineVerification {
         // Test 11: Self-Learning Adaptive Physiology Engine (Phase 3.1)
         results.append(verifyAdaptivePhysiologyEngine())
 
+        // Test 12: Adaptive Training Prescription Engine (Phase 3.2)
+        results.append(verifyTrainingPrescriptionEngine())
+
         return results
     }
 
@@ -496,6 +499,48 @@ public enum MathEngineVerification {
             testName: "Self-Learning Adaptive Physiology Engine",
             passed: passed,
             details: "BayesianWeight=\(w) (expected 0.5), LearnedBMR=\(tdee.learnedBmrKcal) (adaptation: \(tdee.metabolicAdaptationKcal)), WeightsSum=\(weightSum)"
+        )
+    }
+
+    private static func verifyTrainingPrescriptionEngine() -> VerificationResult {
+        // Test Case 12.1: .illnessProdrome strictly forces .rest and targetTRIMP == 0
+        let queueAtQuality = RollingQueueState(currentIndex: 1) // .cruiseThresholdIntervals
+        let illnessPlan = TrainingPrescriptionEngine.prescribeTodayAndHorizon(
+            queueState: queueAtQuality,
+            previousAcuteLoad: 70.0,
+            previousChronicLoad: 70.0,
+            vitalsState: .illnessProdrome
+        )
+        let case12_1 = (illnessPlan.today.archetype == .restDay) &&
+                       (illnessPlan.today.maxAllowedZone == .rest) &&
+                       (illnessPlan.today.targetTrimp == 0.0)
+
+        // Test Case 12.2: High acute load (ACWR > 1.25) downscales target TRIMP and swaps CruiseThresholdIntervals for RecoveryFlush while preserving quality session in queue
+        let spikePlan = TrainingPrescriptionEngine.prescribeTodayAndHorizon(
+            queueState: queueAtQuality,
+            previousAcuteLoad: 115.0,
+            previousChronicLoad: 70.0,
+            vitalsState: .optimal
+        )
+        let case12_2 = (spikePlan.today.archetype == .recoveryFlush) &&
+                       (spikePlan.today.preservedQueuedArchetype == .cruiseThresholdIntervals) &&
+                       (spikePlan.horizonQueue.first?.archetype == .cruiseThresholdIntervals) &&
+                       (spikePlan.today.targetTrimp <= 45.0)
+
+        // Test Case 12.3: Increasing EF_75 from 1.15 to 1.28 deterministically increases Z2 speed at identical HR ceiling
+        let zonesLowEF = TrainingPrescriptionEngine.deriveDynamicZones(ef75: 1.15, restingHr: 49.0, maxHr: 192.0)
+        let zonesHighEF = TrainingPrescriptionEngine.deriveDynamicZones(ef75: 1.28, restingHr: 49.0, maxHr: 192.0)
+        let z2Low = zonesLowEF[.zone2Easy]!
+        let z2High = zonesHighEF[.zone2Easy]!
+        let case12_3 = (z2High.targetSpeedMetersPerMin > z2Low.targetSpeedMetersPerMin) &&
+                       (z2High.targetPaceSecPerKm < z2Low.targetPaceSecPerKm) &&
+                       (z2High.targetHeartRateBpm == z2Low.targetHeartRateBpm)
+
+        let passed = case12_1 && case12_2 && case12_3
+        return VerificationResult(
+            testName: "Adaptive Training Prescription Engine (Suite 12)",
+            passed: passed,
+            details: "12.1(IllnessRest)=\(case12_1), 12.2(ACWRQueueSwap)=\(case12_2), 12.3(EF_SpeedGain:\(z2Low.formattedPaceMinKm)->\(z2High.formattedPaceMinKm)@\(z2High.targetHeartRateBpm)bpm)=\(case12_3)"
         )
     }
 }

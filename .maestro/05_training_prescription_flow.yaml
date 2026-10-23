@@ -1,0 +1,38 @@
+appId: com.skycherepanya.Lifecore
+---
+# Flow 05: Deterministic Adaptive Training Prescription & Rolling Queue E2E
+- launchApp:
+    clearState: false
+
+# 1. Verify Tactical Prescription Card on Today Tab
+- tapOn:
+    id: "tab_today"
+
+- assertVisible:
+    id: "card_tactical_prescription"
+
+- assertVisible:
+    id: "txt_prescription_archetype"
+
+- assertVisible:
+    id: "pill_prescription_reason"
+
+# 2. Switch to Workouts Tab & Verify Rolling Horizon Deck
+- tapOn:
+    id: "tab_workouts"
+
+- assertVisible:
+    id: "deck_rolling_horizon"
+
+- assertVisible:
+    id: "btn_recalculate_club_queue"
+
+# 3. Trigger Club/Custom Run Queue Recalculation & Return to Today
+- tapOn:
+    id: "btn_recalculate_club_queue"
+
+- tapOn:
+    id: "tab_today"
+
+- assertVisible:
+    id: "card_tactical_prescription"

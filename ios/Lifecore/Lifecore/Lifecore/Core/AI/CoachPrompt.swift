@@ -88,7 +88,8 @@ public enum CoachPrompt {
     public static func buildUserPrompt(
         analysis: WorkoutAnalysisResult,
         recoveryContext: RecentRecoveryContext? = nil,
-        adaptiveSummaryUk: String? = nil
+        adaptiveSummaryUk: String? = nil,
+        nextPrescriptionSummaryUk: String? = nil
     ) -> String {
         var lines: [String] = []
 
@@ -180,6 +181,12 @@ public enum CoachPrompt {
         if let adaptive = adaptiveSummaryUk, !adaptive.isEmpty {
             lines.append("\n[SELF-LEARNING PHYSIOLOGY CALIBRATION]:")
             lines.append("- \(adaptive)")
+        }
+
+        // Deterministic Adaptive Training Prescription Context (Lifecore v3.2)
+        if let nextPrescription = nextPrescriptionSummaryUk, !nextPrescription.isEmpty {
+            lines.append("\n[NEXT 24H DETERMINISTIC TRAINING PRESCRIPTION]:")
+            lines.append("- \(nextPrescription)")
         }
 
         lines.append("\nINSTRUCTION: Generate a simple, motivating, and human coach breakdown in Ukrainian following the 3 sections above. Talk directly to the runner in plain, athletic terms without robotic jargon or percentage tags.")

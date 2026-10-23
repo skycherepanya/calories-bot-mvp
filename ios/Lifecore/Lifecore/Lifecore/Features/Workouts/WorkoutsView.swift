@@ -74,6 +74,9 @@ public struct WorkoutsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    // Rolling Stimulus Horizon Deck (Lifecore v3.2)
+                    RollingHorizonDeckView()
+
                     // Category Filter Scroll
                     filterScrollView
 

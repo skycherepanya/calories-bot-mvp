@@ -1,4 +1,4 @@
-# Project Master Context: Lifecore 3.1 (Native iOS-First, Self-Learning Physiology & Athletic Performance Platform)
+# Project Master Context: Lifecore 3.2 (Native iOS-First, Deterministic Adaptive Training Prescription & Athletic Performance Platform)
 
 > **File Purpose:** Single Source of Truth for AI agents and developers. Contains the full project description, physiological mathematics, on-device Swift telemetry rules, AI coach prompt engineering, database schema, and roadmap. **Do not search other files redundantly — all critical information is consolidated here.**
 
@@ -170,14 +170,15 @@ ios/Lifecore/
     │   │   ├── FoodPrompt.swift          # English system prompt for optimistic vision food parsing
     │   │   └── CoachPrompt.swift         # English system prompt for athletic performance analyst + Vitals/ACWR context
     │   └── Storage/
-    │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity)
+    │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity, AthleteTrainingPlanState)
     │       ├── AthleteProfileStore.swift # (Phase 3) Editable physiological & macro calibration store
+    │       ├── TrainingPlanModels.swift  # (Phase 3.2) AthleteTrainingPlanState & TrainingPlanStore
     │       ├── MealStorageService.swift  # SwiftData meal repository, optimistic state & HealthKit deletion sync
     │       ├── HealthPayload.swift       # Direct payload codable definitions
     │       └── SupabaseSyncService.swift # Bidirectional cloud persistence for meals, workout_analyses & vitals
     ├── Features/
-    │   ├── Today/                        # Dark-mode dashboard: Hero Cockpit, Rings, 5-Pill Vitals, Illness Radar, Energy Bank
-    │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts & TRIMP badges
+    │   ├── Today/                        # Dark-mode dashboard: Hero Cockpit, TacticalPrescriptionCard, Rings, 5-Pill Vitals, Illness Radar, Energy Bank
+    │   ├── Workouts/                     # Workout list, RollingHorizonDeckView, granular split detail views with synchronized charts & TRIMP badges
     │   ├── Nutrition/                    # Unified "Записати їжу" log, two-tier input modal, gesture swipe-to-delete with HealthKit sync, macro cards
     │   └── Trends/                       # Segmented Glass Switcher, Adaptive Engine status, weight trend, Correlations & ACWR
     └── Intents/
@@ -185,11 +186,13 @@ ios/Lifecore/
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
 ```
 
-> **Phase 3, Phase 3.1 & E2E Architectural Specs & Implementation Plans:**
+> **Phase 3, Phase 3.1, Phase 3.2 & E2E Architectural Specs & Implementation Plans:**
 > - **Phase 3 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)
 > - **Phase 3 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
 > - **Phase 3.1 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md)
 > - **Phase 3.1 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md)
+> - **Phase 3.2 Spec:** [`docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md)
+> - **Phase 3.2 Plan:** [`docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md)
 > - **E2E Testing Spec:** [`docs/superpowers/specs/2026-10-21-maestro-e2e-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-maestro-e2e-design.md)
 > - **E2E Testing Plan:** [`docs/superpowers/plans/2026-10-21-maestro-e2e.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-maestro-e2e.md)
 
@@ -205,7 +208,8 @@ ios/Lifecore/
   2. `02_nutrition_logging_and_undo.yaml`: Tests Nutrition tab, opens food sheet, taps oatmeal preset chip, triggers async optimistic log, and validates modal dismissal.
   3. `03_workout_filtering_and_refresh.yaml`: Tests Workouts tab, cycles category filters (All $\to$ Running $\to$ Strength $\to$ All), and triggers telemetry refresh.
   4. `04_trends_adaptive_analytics.yaml`: Cycles through all 4 analytical categories (Adaptation, Workload ACWR, Body Weight Rolling Averages, Cardio Autonomic Vitals), asserting non-blocking calculation rendering.
-  5. `suite.yaml`: Orchestrates master continuous regression suite.
+  5. `05_training_prescription_flow.yaml`: Validates Tactical Prescription Card, Archetype & Glow Pill assertions on Today tab, Rolling Horizon Deck on Workouts tab, and 1-tap club/custom run recalculation button.
+  6. `suite.yaml`: Orchestrates master continuous regression suite.
 * **Automation:** `scripts/run_e2e.sh` automatically configures `DEVELOPER_DIR`, detects/boots active simulator, builds target with `xcodebuild`, installs `Lifecore.app`, configures OpenJDK 17, and executes Maestro. Continuous integration configured via GitHub Actions (`.github/workflows/e2e.yml`).
 
 ---

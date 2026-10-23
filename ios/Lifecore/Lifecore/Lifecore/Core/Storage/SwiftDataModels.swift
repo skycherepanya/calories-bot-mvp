@@ -222,7 +222,8 @@ public final class LifecoreDataStore {
     private init() {
         let schema = Schema([
             MealEntity.self,
-            WorkoutAnalysisEntity.self
+            WorkoutAnalysisEntity.self,
+            AthleteTrainingPlanState.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {

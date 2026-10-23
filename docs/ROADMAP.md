@@ -1,6 +1,6 @@
-# Lifecore 3.1 Development Roadmap
+# Lifecore 3.2 Development Roadmap
 
-> **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), and **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1).
+> **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1), and **Deterministic Adaptive Training Prescription Engine** (v3.2).
 
 ---
 
@@ -154,24 +154,24 @@
   - `scripts/run_e2e.sh`: 1-command build, simulator setup, OpenJDK 17 auto-detection, and Maestro test runner.
   - `.github/workflows/e2e.yml`: Automated GitHub Actions workflow on `macos-15`.
 
-### 3.7. Phase 3.2 (Lifecore v3.2) — Deterministic Adaptive Training Prescription Engine (`TrainingPrescriptionEngine.swift`) (Active Focus)
+### 3.7. Phase 3.2 (Lifecore v3.2) — Deterministic Adaptive Training Prescription Engine (`TrainingPrescriptionEngine.swift`) (Completed)
 > **v3.2 Spec:** [`docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md)  
 > **v3.2 Plan:** [`docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md)
-- [ ] **Phase A — Math Engine & Suite 12 (`TrainingPrescriptionEngine.swift` & `MathEngineVerification.swift`):**
+- [x] **Phase A — Math Engine & Suite 12 (`TrainingPrescriptionEngine.swift` & `MathEngineVerification.swift`):**
   - Inverse EWMA ACWR Load Budgeting ($R_{\text{target}} = 1.08$, bounded $[0.85, 1.25]$) computing daily target $\text{TRIMP}_{\text{budget}} \in [0, 160]$.
   - 3-Gate Physiological Override State Machine (Gate 1: `ImmuneSystemState` + Body Battery + $Z_{\text{HRV}}$; Gate 2: 3d Caloric Deficit $< -650\text{ kcal}$ cap; Gate 3: Median Cardiac Drift % vs $\Delta EF_{30d}$ efficiency progression gate).
   - Dynamic Pace & HR Zone derivation from 30-day rolling 75th percentile Efficiency Factor ($EF_{75}$) and Heart Rate Reserve ($\text{HRR}$).
   - 4-Archetype Polarized Rolling Stimulus Queue (`aerobicBasePlusStrides`, `cruiseThresholdIntervals`, `recoveryFlush`, `progressiveQualityLongRun`) with non-destructive quality session deferral and pre-run carbohydrate prescription ($\beta_{\text{Carbs}\to\text{Drift}}$).
   - Verification Suite 12 (`verifyTrainingPrescriptionEngine()`): Test Cases 12.1 (Illness Rest Override), 12.2 (ACWR Spike Queue Deferral), and 12.3 ($EF_{75}$ Speed Gain at Identical HR).
-- [ ] **Phase B — SwiftData Persistence & State Wiring (`TrainingPlanModels.swift`):**
+- [x] **Phase B — SwiftData Persistence & State Wiring (`TrainingPlanModels.swift`):**
   - `@Model final class AthleteTrainingPlanState` & `TrainingPlanStore` singleton registered in `LifecoreDataStore`.
-- [ ] **Phase C — Liquid Glass UI 3.2 Components:**
+- [x] **Phase C — Liquid Glass UI 3.2 Components:**
   - `TacticalPrescriptionCard.swift` on `Сьогодні` tab (`TodayView.swift`) showing archetype, adaptation reason glow pill, segment pace/HR caps, target TRIMP, and pre-run carbs.
   - `RollingHorizonDeckView.swift` on `Тренування` tab (`WorkoutsView.swift`) displaying the 3 upcoming rolling slots + 1-tap `"Сьогодні своя пробіжка / Клуб (Recalculate Queue)"` override.
-- [ ] **Phase D — Gemini Tactical Briefing & Maestro E2E (`05_training_prescription_flow.yaml`):**
+- [x] **Phase D — Gemini Tactical Briefing & Maestro E2E (`05_training_prescription_flow.yaml`):**
   - Pre-computed tactical prescription context in `CoachPrompt.swift` and automated Maestro E2E flow 05.
 
-### 3.8. Automated Morning Briefing & Lock Screen Widgets (Upcoming)
+### 3.8. Automated Morning Briefing & Lock Screen Widgets (Active Focus)
 - [ ] iOS WidgetKit Lock Screen & Home Screen widgets displaying Morning Readiness, 5-Metric Vitals status, Energy Bank %, and daily target directive.
 
 ---

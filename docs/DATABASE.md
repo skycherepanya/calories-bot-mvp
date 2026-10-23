@@ -1,13 +1,13 @@
 # Lifecore Database Schema & Data Dictionary
 
 > **Target Database:** PostgreSQL 15+ (hosted on Supabase)
-> **Role in Lifecore 3.1:** Cloud Persistence, Synchronization, and Longitudinal Health Data Warehouse for the Native iOS Application.
+> **Role in Lifecore 3.2:** Cloud Persistence, Synchronization, and Longitudinal Health Data Warehouse for the Native iOS Application.
 
 ---
 
 ### 1. Architectural Role in iOS-First Model
 
-In **Lifecore 3.1**, local persistence is handled on-device via **SwiftData**, while **Supabase PostgreSQL** serves as the immutable cloud data warehouse and backup layer. HealthKit is the primary canonical source of truth.
+In **Lifecore 3.2**, local persistence is handled on-device via **SwiftData**, while **Supabase PostgreSQL** serves as the immutable cloud data warehouse and backup layer. HealthKit is the primary canonical source of truth.
 
 ### Key Schema Decisions:
 
@@ -279,3 +279,16 @@ Stores individual meals recognized by Gemini Vision.
 | `amino_acids`    | `JSONB`         | `DEFAULT '{}'`  | BCAA, leucine estimates                                       |
 | `dietary_date`   | `DATE`          | `NOT NULL`      | Attributed dietary date (04:00 AM shift)                      |
 | `created_at`     | `TIMESTAMPTZ`   | `DEFAULT NOW()` | Record insertion timestamp                                    |
+
+---
+
+## 4. SwiftData Local-First Storage Architecture (`SwiftDataModels.swift` & `TrainingPlanModels.swift`)
+
+In addition to PostgreSQL cloud synchronization, the native iOS application maintains local-first SwiftData `@Model` entities:
+
+| Model Entity | Storage File | Scope & Attributes |
+|---|---|---|
+| `MealEntity` | `SwiftDataModels.swift` | Tracks optimistic meal insertions, micronutrients, amino acids, +12.5% deficit buffer, and `syncedToCloud` flag. |
+| `WorkoutAnalysisEntity` | `SwiftDataModels.swift` | Caches 1km auto-splits JSON, interval laps JSON, EF, cardiac drift %, and Gemini AI coach narrative. |
+| `AthleteTrainingPlanState` | `TrainingPlanModels.swift` | Persists the rolling stimulus queue index (`currentQueueIndex`), weekly run frequency, session duration cap, target ACWR ratio, and club run override toggle. |
+

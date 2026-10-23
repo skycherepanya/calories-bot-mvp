@@ -1,10 +1,16 @@
-# Lifecore 3.1: Native iOS-First, Self-Learning Adaptive Physiology & Athletic Platform
+# Lifecore 3.2: Native iOS-First, Deterministic Adaptive Training Prescription & Athletic Platform
 
-**Lifecore** is a personal, native Quantified Self health and endurance platform. Built with **Swift 6, SwiftUI, HealthKit, and Supabase**, the system integrates high-frequency physiological telemetry from Apple Watch, camera-based nutrition tracking, on-device deterministic sports mathematics, a self-learning adaptive physiological engine, and Gemini AI to deliver elite endurance coaching without vendor lock-in.
+**Lifecore** is a personal, native Quantified Self health and endurance platform. Built with **Swift 6, SwiftUI, HealthKit, and Supabase**, the system integrates high-frequency physiological telemetry from Apple Watch, camera-based nutrition tracking, on-device deterministic sports mathematics, a self-learning adaptive physiological engine, deterministic training prescription, and Gemini AI to deliver elite endurance coaching without vendor lock-in.
 
 ---
 
 ## ⚡ Key Capabilities (Lifecore 3.1)
+
+### 🎯 Deterministic Adaptive Training Prescription Engine (Phase 3.2)
+* **Inverse EWMA ACWR Load Budgeting:** Formulates analytical daily load budgets $\text{TRIMP} \in [0, 160]$ targeting progressive overload ratio $R_{\text{target}} = 1.08$ with high-acute-spike safety ceiling ($\le 45$ TRIMP if prior ACWR $>1.25$).
+* **3-Gate Physiological Override State Machine:** Multi-metric gating across Overnight Vitals (`ImmuneSystemState`), Morning Body Battery ($<40\%$), 3-day caloric deficit ($< -650\text{ kcal/day}$), and median 3-run Cardiac Drift % ($>5.0\%$ duration consolidation vs $\le 3.5\%$ speed progression unlock).
+* **Dynamic Pace & HR Zones Derived from $EF_{75}$:** Derives personalized pace and HR ceiling targets across Zones 1–5 from 30-day rolling 75th percentile Efficiency Factor ($EF_{75}$) and Heart Rate Reserve ($\text{HRR}$).
+* **4-Archetype Polarized Rolling Stimulus Queue:** Manages non-destructive quality session deferral across `aerobicBasePlusStrides`, `cruiseThresholdIntervals`, `recoveryFlush`, and `progressiveQualityLongRun`, with 1-tap club/custom run recalculation and pre-workout carbohydrate prescription ($\beta_{\text{Carbs}\to\text{Drift}}$).
 
 ### 🧠 Self-Learning Adaptive Physiology Engine (Phase 3.1)
 * **Bayesian Shrinkage Prior-Blending:** Smoothly blends athlete baseline priors with empirical personal telemetry ($w_N = \frac{N}{N + 14}$), displaying live confidence percentage (0–99%).
@@ -49,6 +55,7 @@
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 2: Swift Deterministic Math & Adaptive Engine   │
+│  TrainingPrescriptionEngine (Inverse EWMA, 3 Gates)    │
 │  AdaptivePhysiologyEngine (Dynamic TDEE, Bayesian OLS) │
 │  VitalsAndIllnessEngine (5-Metric NightSignal Radar)   │
 │  TrainingLoadAndBatteryEngine (TRIMP, EWMA ACWR)       │
@@ -58,8 +65,8 @@
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 3: Local Persistence & Cloud Synchronization    │
-│  SwiftData (Local-First Offline Storage)               │
-│  AthleteProfileStore (Physiological Calibration)       │
+│  SwiftData (AthleteTrainingPlanState, Meals, Workouts) │
+│  AthleteProfileStore & TrainingPlanStore               │
 │  MealStorageService (Optimistic State & Undo Toast)    │
 │  ▲                                                     │
 │  └──► Async Warehouse: Supabase (001–007 Migrations)   │
@@ -67,7 +74,8 @@
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 4: Presentation & AI Athletic Intelligence      │
-│  Liquid Glass Bento UI 3.1 (Hero Cockpit, Trends Hub)  │
+│  Liquid Glass Bento UI 3.2 (Cockpit, Horizon Deck)     │
+│  TacticalPrescriptionCard (Today) & Rolling Deck       │
 │  Gemini Vision Food Parser (+12.5% buffer, tags)       │
 │  AI Athletic Performance Analyst (70 / 15 / 15)        │
 └────────────────────────────────────────────────────────┘
@@ -96,14 +104,15 @@ lifecore/
 │           │   ├── MathEngine/# ReadinessCalculator.swift, WorkoutMathEngine.swift,
 │           │   │              # VitalsAndIllnessEngine.swift, TrainingLoadAndBatteryEngine.swift,
 │           │   │              # CorrelationEngine.swift, AdaptivePhysiologyEngine.swift,
-│           │   │              # MathEngineVerification.swift (11 verification suites)
+│           │   │              # TrainingPrescriptionEngine.swift,
+│           │   │              # MathEngineVerification.swift (12 verification suites)
 │           │   ├── UI/        # LifecoreDesignSystem.swift (Liquid Glass Bento Cockpit)
 │           │   ├── AI/        # GeminiService.swift, FoodPrompt.swift, CoachPrompt.swift
-│           │   └── Storage/   # SwiftDataModels.swift, AthleteProfileStore.swift,
+│           │   └── Storage/   # SwiftDataModels.swift, AthleteProfileStore.swift, TrainingPlanModels.swift,
 │           │                  # MealStorageService.swift, HealthPayload.swift, SupabaseSyncService.swift
 │           ├── Features/
-│           │   ├── Today/     # TodayView.swift, AthleteProfileSheet.swift, OvernightVitalsCard.swift
-│           │   ├── Workouts/  # WorkoutsView.swift, WorkoutDetailView.swift, CoachReportView.swift, WorkoutChartsView.swift
+│           │   ├── Today/     # TodayView.swift, TacticalPrescriptionCard.swift, AthleteProfileSheet.swift
+│           │   ├── Workouts/  # WorkoutsView.swift, RollingHorizonDeckView.swift, WorkoutDetailView.swift
 │           │   ├── Nutrition/ # NutritionView.swift, FoodInputSheet.swift, NutritionComponents.swift
 │           │   └── Trends/    # TrendsView.swift, TrendsComponents.swift, CorrelationInsightsCard.swift
 │           └── Intents/       # LifecoreSyncIntent.swift, LogMealIntent.swift
@@ -117,6 +126,7 @@ lifecore/
 │   ├── 02_nutrition_logging_and_undo.yaml # Nutrition quick presets & optimistic logging
 │   ├── 03_workout_filtering_and_refresh.yaml # Workout activity filters & telemetry refresh
 │   ├── 04_trends_adaptive_analytics.yaml # Trends analytical categories & adaptive engine
+│   ├── 05_training_prescription_flow.yaml # Tactical prescription card & rolling horizon deck
 │   └── suite.yaml             # Master continuous regression test suite
 │
 ├── .github/                   🤖 CI/CD Workflows

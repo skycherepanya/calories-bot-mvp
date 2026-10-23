@@ -10,6 +10,8 @@ public struct TodayView: View {
     @State private var cloudSyncMessage: String?
     @State private var isShowingProfileSheet = false
     @ObservedObject private var athleteStore = AthleteProfileStore.shared
+    @ObservedObject private var planStore = TrainingPlanStore.shared
+    @State private var prescriptionPlan: TrainingPrescriptionPlan?
 
     public init() {}
 
@@ -28,6 +30,9 @@ public struct TodayView: View {
                 VStack(spacing: 18) {
                     // 1. Hero Cockpit Bento Card (Rings + Adaptive Engine Badge + 1-Tap RPE)
                     ringsHeaderView
+
+                    // Tactical Training Prescription Card (Lifecore v3.2)
+                    TacticalPrescriptionCard(plan: prescriptionPlan)
 
                     // 2. Overnight Vitals Corridor & Pre-Symptomatic Illness Radar
                     OvernightVitalsCard(evaluation: snapshot?.vitalsEvaluation)
@@ -76,6 +81,9 @@ public struct TodayView: View {
             }
             .sheet(isPresented: $isShowingProfileSheet) {
                 AthleteProfileSheet()
+            }
+            .onChange(of: planStore.queueState) { _ in
+                updatePrescriptionPlan()
             }
             .refreshable {
                 await loadData(forceRefresh: true)
@@ -491,7 +499,26 @@ public struct TodayView: View {
             loadFallbackSnapshot(adaptive: evaluatedAdaptive)
         }
 
+        updatePrescriptionPlan()
         isLoading = false
+    }
+
+    private func updatePrescriptionPlan() {
+        let acute = snapshot?.acwr?.acuteLoad ?? 55.0
+        let chronic = snapshot?.acwr?.chronicLoad ?? 50.0
+        let vitals = snapshot?.vitalsEvaluation?.state ?? .optimal
+        let battery = snapshot?.energyBank?.wakeBattery ?? 85
+
+        self.prescriptionPlan = TrainingPrescriptionEngine.prescribeTodayAndHorizon(
+            queueState: planStore.queueState,
+            config: planStore.goalConfig,
+            previousAcuteLoad: acute,
+            previousChronicLoad: chronic,
+            vitalsState: vitals,
+            morningBodyBattery: battery,
+            restingHr: athleteStore.profile.restingHeartRateBaselineBpm,
+            maxHr: athleteStore.profile.maxHeartRateBpm
+        )
     }
 
     private func buildJoinedPhysiologyHistory(days: Int = 28) async -> [DailyJoinedPhysiologyRecord] {
