@@ -1,32 +1,39 @@
-# Lifecore 2.0: Native iOS-First & Athletic Performance Platform
+# Lifecore 3.1: Native iOS-First, Self-Learning Adaptive Physiology & Athletic Platform
 
-**Lifecore** is a personal, native Quantified Self health and endurance platform. Built with **Swift 6, SwiftUI, HealthKit, and Supabase**, the system integrates high-frequency physiological telemetry from Apple Watch, camera-based nutrition tracking, on-device deterministic sports mathematics, and Gemini AI to deliver elite endurance coaching without vendor lock-in.
+**Lifecore** is a personal, native Quantified Self health and endurance platform. Built with **Swift 6, SwiftUI, HealthKit, and Supabase**, the system integrates high-frequency physiological telemetry from Apple Watch, camera-based nutrition tracking, on-device deterministic sports mathematics, a self-learning adaptive physiological engine, and Gemini AI to deliver elite endurance coaching without vendor lock-in.
 
 ---
 
-## ⚡ Key Capabilities (Lifecore 2.0)
+## ⚡ Key Capabilities (Lifecore 3.1)
 
-### 🍏 Native iOS Application (`ios/Lifecore/`)
-* **Bevel 2.0 + Apple Vitals Dashboard (UI 3.0):** Liquid Glass Dark interface presenting daily Readiness, Cardiovascular Strain (with EWMA ACWR), 24h Body Battery / Energy Bank, and Caloric Balance at a glance.
-* **5-Metric Overnight Vitals & Illness Radar:** Direct on-device queries (<5ms) for sleep architecture, beat-to-beat HRV RMSSD (`HKHeartbeatSeriesSample`) + $\ln(\text{SDNN})$, sleeping RHR, sleeping wrist temperature ($\Delta T^\circ\text{C}$), blood oxygen ($\text{SpO}_2\%$), respiratory rate, and $\text{VO}_2\text{max}$. Uses Stanford NightSignal + Apple Vitals confluence to detect pre-symptomatic viral prodrome 24–48h early while avoiding single-metric alarmism.
-* **Time-Lagged Correlation Engine ($T+0, T+1, T+2$):** Deterministic Point-Biserial ($r_{pb}$) and Pearson ($r$) correlation hub linking sodium to water weight spikes, pre-run carbohydrates to cardiac drift %, and late/UPF meals to overnight HRV recovery (with high-TRIMP confounder filtering).
-* **1-Tap & Automated Sync:** `LifecoreSyncIntent` & `LogMealIntent` integrate with iOS Shortcuts, Action Button, Siri, and bidirectional Supabase cloud hydration.
+### 🧠 Self-Learning Adaptive Physiology Engine (Phase 3.1)
+* **Bayesian Shrinkage Prior-Blending:** Smoothly blends athlete baseline priors with empirical personal telemetry ($w_N = \frac{N}{N + 14}$), displaying live confidence percentage (0–99%).
+* **MacroFactor-Style Dynamic TDEE & Adaptive BMR:** Continuously recalculates true daily energy expenditure and metabolic adaptation from 14-day smoothed weight slopes ($\Delta W_{\text{trend}} \times 7700\text{ kcal/kg}$) against logged caloric intake and isolated Pure NEAT.
+* **Online Ridge OLS $\beta$-Sensitivities:** Quantifies personal biological response slopes: $\beta_{\text{Na}\to\text{H2O}}$ (kg water spike per 1g sodium), $\beta_{\text{TRIMP}\to\text{Battery}}$ (energy drain factor), $\beta_{\text{LateMeal}\to\text{RHR}}$ (+bpm nocturnal penalty), and $\beta_{\text{Carbs}\to\text{Drift}}$ (% cardiac drift mitigation).
+* **60d EWMA Baseline Corridors & 1-Tap RPE Calibration:** Dynamic personal baseline envelope smoothing with simplex adjustments to `ReadinessWeightVector` when subjective athlete feedback diverges from predicted readiness.
+
+### 🧬 Clinical-Grade Vitals & Pre-Symptomatic Illness Radar
+* **5-Metric Overnight Vitals Corridor:** Direct on-device queries (<5ms) for sleep architecture, beat-to-beat HRV RMSSD (`HKHeartbeatSeriesSample` with 20% ectopic beat rejection) + $\ln(\text{SDNN})$, sleeping RHR, sleeping wrist temperature ($\Delta T^\circ\text{C}$), blood oxygen ($\text{SpO}_2\%$), respiratory rate, and $\text{VO}_2\text{max}$.
+* **Stanford NightSignal + Apple Vitals Confluence:** Multi-metric state machine (`optimal`, `trainingFatigue`, `immuneWatch`, `illnessProdrome`) detects viral prodrome 24–48h before clinical symptoms without single-metric medical alarmism.
+* **Continuous 24h Body Battery (0–100%):** Differential reserve trajectory combining overnight vagal recharge with daytime hourly drain (circadian + Pure NEAT + TRIMP + immune strain).
 
 ### 🏃 Athletic Split Telemetry & Running Engine
 * **Kilometer-by-Kilometer Splits:** Granular analysis of every kilometer (pace, average heart rate, elevation gain/loss $\Delta h$, cadence).
 * **Cardiac Drift & Decoupling ($EF$):** Deterministic evaluation of aerobic decoupling ($\Delta EF$) between the first and second half of runs to detect cardiovascular fatigue, dehydration, and glycogen depletion.
 * **Pure NEAT Isolation:** Mathematical extraction of non-exercise activity thermogenesis ($\text{NEAT} = \max(0, \text{daily\_active\_kcal} - \sum \text{workout\_kcal})$) avoiding duplicate calorie counting.
+* **Banister TRIMP & EWMA ACWR:** Exponential heart-rate impulse workload calculation and Acute (7d) vs Chronic (28d) ratio monitoring the $0.80\text{--}1.30$ sweet spot.
+
+### 📸 Frictionless Nutrition & Bidirectional HealthKit Sync
+* **Vision-Based Food Recognition:** Multi-model Gemini Vision cascade (`gemini-3.8-flash` $\to$ `gemini-2.5-flash` $\to$ `gemini-3.6-flash`) with automated portion estimation and macronutrient breakdown.
+* **Guaranteed Deficit Buffer (+12.5%):** Automatically multiplies calculated calories by $\times 1.125$ to protect the user's caloric deficit.
+* **4-Hour Dietary Day Shift:** The dietary date resets at 04:00 AM, correctly attributing late-night meals to the preceding physiological cycle.
+* **Bidirectional Apple Health Sync:** Every logged meal writes back calories, protein, fat, carbs, fiber, and sodium tagged with metadata key `LifecoreMealID`. Supports instant in-place swipe deletion (`SwipeableMealCardContainer`), 5-second undo restoration, and two-tier zero-lag modal input (`FoodInputSheet`).
 
 ### 🤖 AI Athletic Performance Analyst (70 / 15 / 15)
 * **70% Workout Execution:** Granular breakdown of pacing stability, heart rate spikes on hills, and cardiovascular efficiency.
 * **15% Historical Benchmark:** Objective comparison against past similar endurance sessions.
 * **15% Physiological Root Causes:** Explaining performance deltas through sleep stages, autonomic recovery (HRV/RHR), and nutritional glycogen reserves.
-* **Actionable Directive:** 1 concrete, non-medical training instruction for the next 24 hours.
-
-### 📸 Frictionless Nutrition Logging
-* **Vision-Based Food Recognition:** Camera capture powered by Gemini Vision with automated portion estimation and macronutrient breakdown.
-* **Guaranteed Deficit Buffer (+12.5%):** Automatically multiplies calculated calories by ×1.125 to protect the user's caloric deficit.
-* **4-Hour Dietary Day Shift:** The dietary date resets at 04:00 AM, correctly attributing late-night meals to the preceding physiological cycle.
+* **Actionable Directive:** 1 concrete, non-medical training instruction for the next 24 hours in Ukrainian.
 
 ---
 
@@ -36,26 +43,31 @@
 ┌────────────────────────────────────────────────────────┐
 │  Layer 1: Canonical Source of Truth (Apple HealthKit)  │
 │  Apple Watch Ultra & iPhone 16 Pro (<5ms direct query) │
-│  Sleep Stages • HRV SDNN • Sleeping RHR • Series Data  │
+│  Sleep Stages • HRV SDNN/RMSSD • Wrist Temp • SpO2     │
+│  Bidirectional Dietary Write-Back & Deletion Sync      │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
-│  Layer 2: Swift Deterministic Math & Telemetry Engine  │
-│  Readiness (0-100%) • Strain • Pure NEAT Isolation     │
-│  1km Auto-Splits • Laps • EF • Cardiac Drift % • GAP   │
-│  7d / 14d Rolling Weight Averages (Water Noise Filter) │
+│  Layer 2: Swift Deterministic Math & Adaptive Engine   │
+│  AdaptivePhysiologyEngine (Dynamic TDEE, Bayesian OLS) │
+│  VitalsAndIllnessEngine (5-Metric NightSignal Radar)   │
+│  TrainingLoadAndBatteryEngine (TRIMP, EWMA ACWR)       │
+│  CorrelationEngine (T+0, T+1, T+2 Point-Biserial r)    │
+│  WorkoutMathEngine (1km Auto-Splits, EF, Drift %)      │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 3: Local Persistence & Cloud Synchronization    │
 │  SwiftData (Local-First Offline Storage)               │
+│  AthleteProfileStore (Physiological Calibration)       │
+│  MealStorageService (Optimistic State & Undo Toast)    │
 │  ▲                                                     │
-│  └──► Async Backup: Supabase (meals, workout_analyses) │
+│  └──► Async Warehouse: Supabase (001–007 Migrations)   │
 └───────────────────────────┬────────────────────────────┘
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │  Layer 4: Presentation & AI Athletic Intelligence      │
-│  SwiftUI Bevel-Style Dashboard (Today, Workouts, etc.) │
+│  Liquid Glass Bento UI 3.1 (Hero Cockpit, Trends Hub)  │
 │  Gemini Vision Food Parser (+12.5% buffer, tags)       │
 │  AI Athletic Performance Analyst (70 / 15 / 15)        │
 └────────────────────────────────────────────────────────┘
@@ -69,7 +81,8 @@
 lifecore/
 ├── AGENTS.md                  # Token economy rules & agent instructions (English)
 ├── PROJECT_KNOWLEDGE.md       # Master Single Source of Truth (English)
-├── ARCHITECTURAL_PIVOT_IOS_FIRST.md # Master architectural pivot directive
+├── PROJECT_OVERVIEW.md        # High-density executive summary for AI brainstorming
+├── ARCHITECTURAL_PIVOT_IOS_FIRST.md # Historical architectural pivot directive
 ├── CHANGELOG.md               # Milestones & engineering log
 │
 ├── ios/                       🍏 Primary Client: Native iOS App (Swift 6)
@@ -80,11 +93,19 @@ lifecore/
 │           ├── App/           # LifecoreApp.swift, MainTabView.swift
 │           ├── Core/
 │           │   ├── HealthKit/ # HealthKitManager.swift, WorkoutTelemetryExtractor.swift
-│           │   ├── MathEngine/# ReadinessCalculator.swift, WorkoutMathEngine.swift, VitalsAndIllnessEngine.swift, TrainingLoadAndBatteryEngine.swift, CorrelationEngine.swift
-│           │   ├── UI/        # LifecoreDesignSystem.swift (Liquid Glass Dark, Glow Pills)
+│           │   ├── MathEngine/# ReadinessCalculator.swift, WorkoutMathEngine.swift,
+│           │   │              # VitalsAndIllnessEngine.swift, TrainingLoadAndBatteryEngine.swift,
+│           │   │              # CorrelationEngine.swift, AdaptivePhysiologyEngine.swift,
+│           │   │              # MathEngineVerification.swift (11 verification suites)
+│           │   ├── UI/        # LifecoreDesignSystem.swift (Liquid Glass Bento Cockpit)
 │           │   ├── AI/        # GeminiService.swift, FoodPrompt.swift, CoachPrompt.swift
-│           │   └── Storage/   # SwiftDataModels.swift, AthleteProfileStore.swift, SupabaseSyncService.swift
-│           ├── Features/      # Today/, Workouts/, Nutrition/, Trends/
+│           │   └── Storage/   # SwiftDataModels.swift, AthleteProfileStore.swift,
+│           │                  # MealStorageService.swift, HealthPayload.swift, SupabaseSyncService.swift
+│           ├── Features/
+│           │   ├── Today/     # TodayView.swift, AthleteProfileSheet.swift, OvernightVitalsCard.swift
+│           │   ├── Workouts/  # WorkoutsView.swift, WorkoutDetailView.swift, CoachReportView.swift, WorkoutChartsView.swift
+│           │   ├── Nutrition/ # NutritionView.swift, FoodInputSheet.swift, NutritionComponents.swift
+│           │   └── Trends/    # TrendsView.swift, TrendsComponents.swift, CorrelationInsightsCard.swift
 │           └── Intents/       # LifecoreSyncIntent.swift, LogMealIntent.swift
 │
 ├── scripts/                   🛠️ Developer Automation Scripts
@@ -103,12 +124,12 @@ lifecore/
 │       └── e2e.yml            # Automated GitHub Actions Maestro simulator runner
 │
 ├── docs/                      📚 Architecture & Technical Specifications
-│   ├── ARCHITECTURE.md        # 4-layer on-device architecture specification
+│   ├── ARCHITECTURE.md        # 4-layer on-device architecture specification (v3.1)
 │   ├── DATABASE.md            # PostgreSQL cloud warehouse schema & data dictionary
 │   ├── ROADMAP.md             # Native iOS-first development roadmap (Phase 1–4)
 │   └── superpowers/
-│       ├── specs/             # Architectural specifications (Lifecore 3.0 & Maestro E2E)
-│       └── plans/             # Task-by-task implementation plans (Phase 2 & Phase 3 & E2E)
+│       ├── specs/             # Architectural specifications (v3.0, v3.1 & Maestro E2E)
+│       └── plans/             # Task-by-task implementation plans (Phase 2, Phase 3, v3.1 & E2E)
 │
 ├── supabase/                  ☁️ Cloud Warehouse Layer (Supabase PostgreSQL)
 │   └── migrations/            # SQL DDL migrations (001–007)
@@ -150,4 +171,3 @@ Direct on-device synchronization from native iOS (`SupabaseSyncService.swift`) i
 - Supabase Project URL & Anon/Service Role Key configured in `ios/Lifecore/Lifecore/Core/Storage/SupabaseSyncService.swift` (or via environment/runtime configuration).
 - Local-first architecture guarantees 100% offline functionality with async cloud persistence.
 - To inspect or access historical v1.0 Telegram Bot & Deno Edge Function code: `git checkout v1.0-telegram-archive`.
-

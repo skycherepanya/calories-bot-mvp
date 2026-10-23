@@ -1,6 +1,6 @@
-# Lifecore 2.0 Development Roadmap
+# Lifecore 3.1 Development Roadmap
 
-> **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform**.
+> **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), and **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1).
 
 ---
 
@@ -18,7 +18,7 @@
 
 ---
 
-## 🚀 Phase 2 — Native iOS-First Platform & Four Feature Views (Active / Current Focus)
+## 🚀 Phase 2 — Native iOS-First Platform & Four Feature Views (Completed)
 
 ### 2.1. Foundation: HealthKit Reader & Deterministic Math Engine
 - [x] HealthKit async statistics queries for sleep architecture (`asleepDeep`, `asleepREM`, `asleepCore`, `awake`).
@@ -94,7 +94,7 @@
 
 ---
 
-## 📈 Phase 3 — Advanced Physiological Intelligence, Overnight Vitals, Illness Prodrome & UI 3.0 (Active / Next Focus)
+## 📈 Phase 3 — Advanced Physiological Intelligence, Overnight Vitals, Illness Prodrome & UI 3.0 (Completed)
 
 > **Master Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)  
 > **Master Implementation Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
@@ -154,7 +154,7 @@
   - `scripts/run_e2e.sh`: 1-command build, simulator setup, OpenJDK 17 auto-detection, and Maestro test runner.
   - `.github/workflows/e2e.yml`: Automated GitHub Actions workflow on `macos-15`.
 
-### 3.7. Automated Morning Briefing & Lock Screen Widgets
+### 3.7. Automated Morning Briefing & Lock Screen Widgets (Active / Next Focus)
 - [ ] iOS WidgetKit Lock Screen & Home Screen widgets displaying Morning Readiness, 5-Metric Vitals status, Energy Bank %, and daily target directive.
 
 ---

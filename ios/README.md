@@ -1,56 +1,48 @@
-# Lifecore iOS App Intents & HealthKit Sync
+# Lifecore Native iOS Client (`ios/Lifecore/`)
 
-Цей модуль реалізує нативну, блискавичну та 100% типобезпечну синхронізацію біометрії Apple Watch та iPhone з базою даних Lifecore (Supabase) за допомогою **Swift**, **HealthKit** та **AppIntents**.
-
----
-
-## 🎯 Чому це набагато краще за звичайні візуальні шорткати:
-
-1. **Жодних циклів у Shortcuts:** Замість 50 заплутаних візуальних блоків у додатку Команди з'являється **один нативний блок:** `Sync Lifecore Health`.
-2. **Швидкість < 5 мілісекунд:** `HKStatisticsQuery` та Swift обробляють тисячі записів кроків і фаз сну миттєво на рівні бази даних iOS.
-3. **Ідеальний JSON:** `Codable` та `JSONEncoder` гарантують валідність структури (жодних пропущених ком, лапок чи пустих рядків).
-4. **Універсальність тригерів:** Можна викликати з шорткатів, кнопки дії (Action Button), віджета на екрані блокування або через Siri: *"Hey Siri, Sync Lifecore"*.
+> **Platform:** iOS 17.0+ (Optimized for iOS 18+ & watchOS)  
+> **Toolchain:** Swift 6, SwiftUI, Swift Charts, HealthKit, SwiftData, AppIntents
 
 ---
 
-## 📁 Структура файлів
+## 1. Overview & Capabilities
 
-| Файл | Опис |
-|---|---|
-| [`HealthPayload.swift`](./Lifecore/HealthPayload.swift) | `Codable` Swift-моделі для `daily_activity`, `sleep_logs`, `workouts` |
-| [`HealthKitManager.swift`](./Lifecore/HealthKitManager.swift) | Асинхронні запити до HealthKit (`HKStatisticsQuery`, `HKSampleQuery`) |
-| [`LifecoreAPIService.swift`](./Lifecore/LifecoreAPIService.swift) | Мережевий шар `URLSession` для відправки JSON у Supabase Edge Function |
-| [`LifecoreSyncIntent.swift`](./Lifecore/LifecoreSyncIntent.swift) | Готовий `AppIntent` та `AppShortcutsProvider` |
+The `ios/Lifecore/` directory houses the primary client and physiological engine of the Lifecore platform. It operates local-first, querying continuous biometrics from Apple Watch via Apple HealthKit in under 5ms, computing deterministic sports and recovery math on-device, and rendering a Liquid Glass Bento Cockpit UI.
+
+### Key Architecture Modules:
+- **`App/`**: `LifecoreApp.swift` (lifecycle, SwiftData container initialization) and `MainTabView.swift` (4 primary tabs: `Сьогодні`, `Тренування`, `Харчування`, `Тренди`).
+- **`Core/HealthKit/`**:
+  - `HealthKitManager.swift`: Async queries for sleep stages, beat-to-beat `HKHeartbeatSeriesSample` (RMSSD), nocturnal RHR, wrist temperature ($\Delta T^\circ\text{C}$), $\text{SpO}_2\%$, respiratory rate, and bidirectional dietary write-back/deletion sync with `LifecoreMealID` metadata.
+  - `WorkoutTelemetryExtractor.swift`: Continuous series sample extraction (heart rate, GPS distance, altitude, cadence).
+- **`Core/MathEngine/`**:
+  - `AdaptivePhysiologyEngine.swift` (v3.1): 4 self-learning loops (Bayesian shrinkage $w_N$, MacroFactor-style dynamic TDEE & adaptive BMR, online Ridge OLS $\beta$-sensitivities, 60d EWMA corridors & 1-tap RPE calibration).
+  - `VitalsAndIllnessEngine.swift`: 5-metric nocturnal corridor analysis & Stanford NightSignal + Apple Vitals illness prodrome state machine.
+  - `TrainingLoadAndBatteryEngine.swift`: Banister TRIMP, 7d/28d EWMA ACWR, and continuous 24h Body Battery (0–100%).
+  - `CorrelationEngine.swift`: Point-biserial ($r_{pb}$) and Pearson ($r$) multi-day time-lagged correlations ($T+0, T+1, T+2$) with high-TRIMP confounder filtering.
+  - `WorkoutMathEngine.swift`: 1km auto-splits, structured interval laps, Efficiency Factor ($EF$), and Cardiac Drift %.
+  - `ReadinessCalculator.swift`: Recovery score (0–100%), cardiovascular strain score, and 7d/14d rolling weight averages.
+  - `MathEngineVerification.swift`: 11 automated verification test suites for all mathematical engines.
+- **`Core/UI/`**: `LifecoreDesignSystem.swift` (Liquid Glass Bento Cockpit, specular top-edge highlights, semantic status glow pills, `.lifecoreGlassCard()`).
+- **`Core/Storage/`**:
+  - `SwiftDataModels.swift`: `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`).
+  - `AthleteProfileStore.swift`: User-editable physiological baselines, active move targets, and macro distribution.
+  - `MealStorageService.swift`: SwiftData meal repository, optimistic UI state management, 5-second undo toast, and automatic HealthKit sync trigger.
+  - `SupabaseSyncService.swift`: Direct native iOS REST client for bidirectional synchronization with Supabase PostgreSQL (meals, workout analyses, daily metrics, sleep logs).
+- **`Core/AI/`**: `GeminiService.swift`, `FoodPrompt.swift`, `CoachPrompt.swift` (multi-model cascade for vision food parsing and 70/15/15 AI athletic performance analyst).
+- **`Features/`**:
+  - `Today/`: Hero Cockpit, `AdaptiveEngineBadgeBar`, `RPEQuickCalibrationRow`, Readiness/Strain/Active Move rings, `OvernightVitalsCard`, and `EnergyBankCard`.
+  - `Workouts/`: Filterable workout lists with live TRIMP badges, granular split details, and synchronized charts.
+  - `Nutrition/`: Unified «Записати їжу» entry point, two-tier zero-lag modal (`FoodInputSheet`), and in-place gesture swipe-to-delete (`SwipeableMealCardContainer`).
+  - `Trends/`: Segmented Glass Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`), Adaptive Engine status card, longitudinal rolling weight trends, autonomic envelopes, and Correlation Hub.
+- **`Intents/`**: `LogMealIntent.swift` (hands-free Siri / Action button logger) and `LifecoreSyncIntent.swift` (system-wide background and manual HealthKit synchronization).
 
 ---
 
-## 🛠 Інструкція з підключення до Xcode-проєкту
+## 2. Xcode Setup & Build Configuration
 
-### 1. Додай файли до проєкту
-Перетягни папку `ios/Lifecore` у свій Xcode-проєкт (вибери *"Copy items if needed"* та переконайся, що стоїть галочка напроти твого App Target).
-
-### 2. Увімкни HealthKit Capability
-1. У Xcode відкрий налаштування проєкту $\rightarrow$ обери свій Target.
-2. Перейди у вкладку **Signing & Capabilities**.
-3. Натисни **`+ Capability`** $\rightarrow$ обери **HealthKit**.
-
-### 3. Додай дозвіл у `Info.plist`
-Додай ключ для читання даних здоров'я:
-* **Key:** `Privacy - Health Share Usage Description` (`NSHealthShareUsageDescription`)
-* **Value:** `Lifecore reads your sleep stages, heart rate variability, daily steps, and workouts to provide AI-powered recovery and athletic coaching.`
-
----
-
-## 📱 Як налаштувати тригер в iOS Shortcuts:
-
-Після запуску застосунку на телефоні система автоматично зареєструє новий екшен:
-
-1. Відкрий додаток **Shortcuts** $\rightarrow$ вкладка **Automation**.
-2. **Ранкова синхронізація:**
-   * Тригер: `Time of Day` (09:00 AM) $\rightarrow$ `Run Immediately`.
-   * Дія: в пошуку дій введи **Lifecore** $\rightarrow$ обери **`Sync Lifecore Health`**.
-3. **Після тренування:**
-   * Тригер: `Apple Watch Workout` (Ends) $\rightarrow$ `Run Immediately`.
-   * Дія: **`Sync Lifecore Health`**.
-
-Все! В автоматизації тепер рівно **одна нативна дія**, яка ніколи не тупить, не просить підтверджень і не зависає на лімітах пам'яті.
+1. Open `ios/Lifecore/Lifecore/Lifecore.xcodeproj` in **Xcode 16+**.
+2. **Capabilities Required:**
+   - **HealthKit:** Enable background delivery and clinical health records if needed.
+   - **AppIntents:** Enabled by default in iOS 17+.
+3. **Target Signing:** Ensure development team is selected and bundle identifier (`com.skycherepanya.Lifecore`) is configured.
+4. **Execution:** Build and run on a physical iPhone paired with an Apple Watch Ultra/Series 8+ for real nocturnal wrist temperature and heartbeat series samples.

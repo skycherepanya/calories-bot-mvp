@@ -1,13 +1,13 @@
 # Lifecore Database Schema & Data Dictionary
 
 > **Target Database:** PostgreSQL 15+ (hosted on Supabase)
-> **Role in Lifecore 2.0:** Cloud Persistence, Synchronization, and Longitudinal Health Data Warehouse for the Native iOS Application.
+> **Role in Lifecore 3.1:** Cloud Persistence, Synchronization, and Longitudinal Health Data Warehouse for the Native iOS Application.
 
 ---
 
 ### 1. Architectural Role in iOS-First Model
 
-In **Lifecore 2.0**, local persistence is handled on-device via **SwiftData**, while **Supabase PostgreSQL** serves as the immutable cloud data warehouse and backup layer. HealthKit is the primary canonical source of truth.
+In **Lifecore 3.1**, local persistence is handled on-device via **SwiftData**, while **Supabase PostgreSQL** serves as the immutable cloud data warehouse and backup layer. HealthKit is the primary canonical source of truth.
 
 ### Key Schema Decisions:
 

@@ -1,4 +1,4 @@
-# Project Master Context: Lifecore 2.0 (Native iOS-First & Athletic Performance Platform)
+# Project Master Context: Lifecore 3.1 (Native iOS-First, Self-Learning Physiology & Athletic Performance Platform)
 
 > **File Purpose:** Single Source of Truth for AI agents and developers. Contains the full project description, physiological mathematics, on-device Swift telemetry rules, AI coach prompt engineering, database schema, and roadmap. **Do not search other files redundantly — all critical information is consolidated here.**
 
@@ -152,7 +152,8 @@ ios/Lifecore/
     │   │   ├── VitalsAndIllnessEngine.swift # (Phase 3) 20% R-R filter, ln(RMSSD), 5-metric Vitals & Illness Prodrome
     │   │   ├── TrainingLoadAndBatteryEngine.swift # (Phase 3) Banister TRIMP, EWMA ACWR (7d/28d), 24h Body Battery
     │   │   ├── CorrelationEngine.swift   # (Phase 3) Multi-day time-lagged (T+0, T+1, T+2) r_pb & Pearson r engine
-    │   │   └── AdaptivePhysiologyEngine.swift # (Phase 3.1) Bayesian shrinkage, Dynamic TDEE, Ridge OLS β-slopes, 60d EWMA
+    │   │   ├── AdaptivePhysiologyEngine.swift # (Phase 3.1) Bayesian shrinkage, Dynamic TDEE, Ridge OLS β-slopes, 60d EWMA
+    │   │   └── MathEngineVerification.swift # 11-suite mathematical verification test harness
     │   ├── UI/
     │   │   └── LifecoreDesignSystem.swift # (Phase 3.1) Liquid Glass Bento Cockpit, AdaptiveEngineBadgeBar, RPE calibration
     │   ├── AI/
@@ -162,13 +163,14 @@ ios/Lifecore/
     │   └── Storage/
     │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity)
     │       ├── AthleteProfileStore.swift # (Phase 3) Editable physiological & macro calibration store
-    │       ├── MealStorageService.swift  # SwiftData meal repository & optimistic state manager
+    │       ├── MealStorageService.swift  # SwiftData meal repository, optimistic state & HealthKit deletion sync
+    │       ├── HealthPayload.swift       # Direct payload codable definitions
     │       └── SupabaseSyncService.swift # Bidirectional cloud persistence for meals, workout_analyses & vitals
     ├── Features/
-    │   ├── Today/                        # Dark-mode dashboard: Rings, 5-Pill Overnight Vitals, Illness Radar, 24h Energy Bank
-    │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts
+    │   ├── Today/                        # Dark-mode dashboard: Hero Cockpit, Rings, 5-Pill Vitals, Illness Radar, Energy Bank
+    │   ├── Workouts/                     # Workout list & granular split detail views with synchronized charts & TRIMP badges
     │   ├── Nutrition/                    # Unified "Записати їжу" log, two-tier input modal, gesture swipe-to-delete with HealthKit sync, macro cards
-    │   └── Trends/                       # 7d/14d weight trend, autonomic baselines, EF/drift, Time-Lagged Correlations & ACWR
+    │   └── Trends/                       # Segmented Glass Switcher, Adaptive Engine status, weight trend, Correlations & ACWR
     └── Intents/
         ├── LogMealIntent.swift           # Fast Siri / Action button meal logger
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
@@ -199,14 +201,15 @@ ios/Lifecore/
 
 ---
 
-### 3.2. Cloud Storage & Synchronization (Supabase PostgreSQL)
+### 3.3. Cloud Storage & Synchronization (Supabase PostgreSQL)
 * **Role:** Asynchronous backup, historical cold storage (10+ years), and multi-device warehouse.
 * **Synchronization Pipeline:** Direct native iOS client (`SupabaseSyncService.swift`) connecting to Supabase PostgreSQL REST endpoints. No intermediary Edge Functions.
 * **Active Tables:** `meals` (nutrition logs), `workout_analyses` (cached JSONB splits & laps + AI reports), `daily_metrics`, `sleep_logs`, `body_measurements`.
+* **Migrations:** Database schema updated through `007_lifecore_v3_vitals_and_correlations.sql`.
 
 ---
 
-### 3.3. Legacy Telegram Architecture (Archived in Git Tag)
+### 3.4. Legacy Telegram Architecture (Archived in Git Tag)
 All Version 1.0 components (Node.js Telegram bot, Deno edge functions, shortcuts, and legacy Python scripts) have been permanently deleted from the active tree and safely archived in git tag **`v1.0-telegram-archive`**:
 * **Tag:** `v1.0-telegram-archive`
 * **Historical Contents:** `index.js`, `handlers/`, `utils/`, `shortcuts/`, `supabase/functions/`, `Lifecore/scripts/`.

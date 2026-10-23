@@ -2,6 +2,42 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-23] - Documentation: Full Repository Audit & Synchronization to Lifecore 3.1
+
+### 📚 Documentation Architecture & Version Alignment:
+- **`docs/ARCHITECTURE.md`:**
+  - Upgraded specification from legacy 2.0 reference to comprehensive **Lifecore 3.1 System Architecture**.
+  - Documented Layer 2's `AdaptivePhysiologyEngine.swift` with its 4 self-learning loops (Bayesian Shrinkage $w_N$, MacroFactor Dynamic TDEE & Adaptive BMR, Online Ridge OLS $\beta$-sensitivities, 60d EWMA corridors & 1-tap RPE calibration).
+  - Added Layer 5: Automated High-Leverage E2E Testing Architecture (Maestro E2E suite, non-invasive `.accessibilityIdentifier` hooks, `scripts/run_e2e.sh`, GitHub Actions CI).
+  - Documented bidirectional Apple Health dietary synchronization with `LifecoreMealID` metadata tagging, sample deletion, and restoration sync.
+  - Detailed the Liquid Glass Bento Cockpit UI (Hero Cockpit, `AdaptiveEngineBadgeBar`, `RPEQuickCalibrationRow`, Segmented Glass Switchers, live Banister TRIMP badges, Tomorrow Sodium Water Retention Forecast).
+- **`PROJECT_KNOWLEDGE.md`:**
+  - Re-anchored project master title and references to Lifecore 3.1.
+  - Reconciled duplicated Section 3.2 headers (fixed numbering for Maestro E2E, Supabase Cloud Storage, and Legacy Telegram Archive).
+  - Updated repository directory tree to include `AdaptivePhysiologyEngine.swift`, `MathEngineVerification.swift`, `HealthPayload.swift`, `MealStorageService.swift`, and components.
+- **`README.md`:**
+  - Upgraded master repository README to Lifecore 3.1.
+  - Highlighted Phase 3.1 self-learning adaptive capabilities, 5-metric Overnight Vitals, Banister TRIMP, EWMA ACWR, and bidirectional HealthKit meal sync.
+  - Refreshed 4-Layer On-Device Architecture ASCII diagram and complete repository file tree.
+- **`docs/ROADMAP.md`:**
+  - Upgraded roadmap to Lifecore 3.1, officially marking Phase 2 (Native iOS-First Platform) and Phase 3 / Phase 3.1 (Physiological Intelligence & Adaptive Engine) as `[x] Completed`.
+  - Shifted active focus to Phase 3.7 (WidgetKit Lock Screen & Home Screen widgets) and Phase 4 (Hardware Extensions).
+- **`docs/DATABASE.md` & `ios/README.md`:**
+  - Updated database documentation references to Lifecore 3.1 with migration `007_lifecore_v3_vitals_and_correlations.sql`.
+  - Re-authored `ios/README.md` into concise, high-density English per Section 1.1 token economy rules, detailing modules and build requirements.
+- **`PROJECT_OVERVIEW.md`:**
+  - Created a dedicated, standalone executive and physiological overview designed for rapid context ingestion, architectural review, and brainstorming with external AI models.
+
+### Affected Files:
+- `docs/ARCHITECTURE.md`
+- `PROJECT_KNOWLEDGE.md`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/DATABASE.md`
+- `ios/README.md`
+- `PROJECT_OVERVIEW.md`
+- `CHANGELOG.md`
+
 ## [2026-10-22] - Feature: Nutrition UI Modernization, In-Place Swipe Deletion & Input Latency Elimination
 
 ### 👆 Gesture-Driven Swipe-to-Delete (`NutritionComponents.swift`):
