@@ -27,10 +27,10 @@ Welcome to the **Lifecore (Native iOS-First & Athletic Performance Platform)** p
 * **Modular Structure:**
   - `Lifecore/App/`: `LifecoreApp.swift`, `MainTabView.swift`
   - `Lifecore/Core/HealthKit/`: `HealthKitManager.swift`, `WorkoutTelemetryExtractor.swift`
-  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`, `VitalsAndIllnessEngine.swift` (Phase 3), `TrainingLoadAndBatteryEngine.swift` (Phase 3), `CorrelationEngine.swift` (Phase 3), `AdaptivePhysiologyEngine.swift` (Phase 3.1 Self-Learning Engine)
+  - `Lifecore/Core/MathEngine/`: `ReadinessCalculator.swift`, `WorkoutMathEngine.swift`, `VitalsAndIllnessEngine.swift` (Phase 3), `TrainingLoadAndBatteryEngine.swift` (Phase 3), `CorrelationEngine.swift` (Phase 3), `AdaptivePhysiologyEngine.swift` (Phase 3.1 Self-Learning Engine), `TrainingPrescriptionEngine.swift` (Phase 3.2 Adaptive Training Prescription Engine)
   - `Lifecore/Core/UI/`: `LifecoreDesignSystem.swift` (Phase 3.1 Liquid Glass Bento Cockpit)
   - `Lifecore/Core/AI/`: `GeminiService.swift`, `FoodPrompt.swift`, `CoachPrompt.swift`
-  - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `AthleteProfileStore.swift` (Phase 3), `MealStorageService.swift`, `SupabaseSyncService.swift`
+  - `Lifecore/Core/Storage/`: `SwiftDataModels.swift`, `AthleteProfileStore.swift` (Phase 3), `TrainingPlanModels.swift` (Phase 3.2), `MealStorageService.swift`, `SupabaseSyncService.swift`
   - `Lifecore/Features/`: `Today/`, `Workouts/`, `Nutrition/`, `Trends/`
   - `Lifecore/Intents/`: `LogMealIntent.swift`, `LifecoreSyncIntent.swift`
 * **Legacy Backend Archived:** The Dual-Backend has been removed from `main` and safely archived in git tag `v1.0-telegram-archive`. The repository is strictly native iOS-First.

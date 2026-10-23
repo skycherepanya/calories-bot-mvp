@@ -2,6 +2,31 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-23] - Architecture & Spec: Lifecore v3.2 (Phase 3.2) Deterministic Adaptive Training Prescription Engine (`TrainingPrescriptionEngine.swift`) Roadmap
+
+### 🏃‍♂️ Adaptive Training Prescription Mathematical Specification (`TrainingPrescriptionEngine.swift`):
+- **Inverse EWMA ACWR Load Budgeting:**
+  - Formulated analytical inverse EWMA daily load budget $\text{TRIMP}_{\text{budget}} \in [0, 160]$ targeting optimal progressive overload ratio $R_{\text{target}} = 1.08$ ($\lambda_a = 0.25$, $\lambda_c = 2/29$) with cold-start floor and acute load spike ($>1.25$) recovery ceiling.
+- **3-Gate Physiological Override State Machine:**
+  - Specified deterministic gating across Overnight Vitals (`ImmuneSystemState`), Morning Body Battery ($<40\%$), 3-day rolling caloric deficit protection ($< -650\text{ kcal/day}$), and median 3-run Cardiac Drift % ($>5.0\%$ consolidation vs $\le 3.5\%$ + $\Delta EF_{30d} > +1.5\%$ progression unlock).
+- **Dynamic Pace & HR Zone Derivation from $EF_{75}$:**
+  - Specified automatic pace ($\text{sec/km}$) and HR cap derivation across Zones 1–5 from the athlete's 30-day rolling 75th percentile Efficiency Factor ($EF_{75}$) and Heart Rate Reserve ($\text{HRR}$), with deterministic cold-start fallbacks ($EF = 1.15$, $\text{HR}_{\text{rest}} = 55$, $\text{HR}_{\text{max}} = 192$).
+- **4-Archetype Rolling Stimulus Queue & Pre-Run Carbohydrate Coupling:**
+  - Specified cyclic stimulus queue (`aerobicBasePlusStrides`, `cruiseThresholdIntervals`, `recoveryFlush`, `progressiveQualityLongRun`) with non-destructive quality session deferral, external/club run auto-reconciliation, and $\beta_{\text{Carbs}\to\text{Drift}}$-weighted pre-workout carb prescription.
+- **4-Phase Flash-Optimized Implementation Roadmap:**
+  - Authored atomic work packages across Phase A (Math Engine & Suite 12), Phase B (SwiftData `AthleteTrainingPlanState`), Phase C (`TacticalPrescriptionCard` & `RollingHorizonDeckView`), and Phase D (`CoachPrompt` & `.maestro/05_training_prescription_flow.yaml`).
+
+### Affected Files:
+- `docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md`
+- `docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md`
+- `docs/ROADMAP.md`
+- `docs/ARCHITECTURE.md`
+- `PROJECT_KNOWLEDGE.md`
+- `AGENTS.md`
+- `CHANGELOG.md`
+
+---
+
 ## [2026-10-23] - Documentation: Full Repository Audit & Synchronization to Lifecore 3.1
 
 ### 📚 Documentation Architecture & Version Alignment:

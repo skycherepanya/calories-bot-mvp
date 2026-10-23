@@ -35,6 +35,7 @@ flowchart TD
     subgraph Layer2 ["2️⃣ Layer 2: Swift Deterministic Math & Self-Learning Physiological Engine"]
         VitalsEngine["🧬 Overnight Vitals & Illness Radar (v3.0)\n(20% Ectopic Filter -> ln(RMSSD), 5-Metric Corridor, NightSignal Prodrome)"]
         AdaptiveEngine["🧠 Self-Learning Adaptive Engine (v3.1)\n(Loop 1: Bayesian Shrinkage w_N\nLoop 2: MacroFactor Dynamic TDEE & BMR\nLoop 3: Ridge OLS β-Sensitivities\nLoop 4: 60d EWMA Corridors & 1-Tap RPE)"]
+        PrescriptionEngine["🎯 Adaptive Training Prescription Engine (v3.2)\n(Inverse EWMA TRIMP Budget, 3-Gate Override, EF_75 Dynamic Zones, 4-Slot Rolling Queue)"]
         WorkloadEngine["⚡ Workload & Energy Bank (Firstbeat v3.0)\n(Banister TRIMP, 7d/28d EWMA ACWR, 24h Body Battery 0-100%)"]
         SplitEngine["⏱ Splits & Cardiac Drift Engine (v2.0)\n(1km Pace, HR per split, Δh, EF = Speed / HR, Drift %)"]
         CorrEngine["🔗 Time-Lagged Correlation Engine (v3.0)\n(T+0, T+1, T+2 Point-Biserial r_pb & Pearson r with Confounder Filter)"]

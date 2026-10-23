@@ -123,7 +123,15 @@ $$\text{RMSSD} = \sqrt{\frac{1}{N-1}\sum_{i=1}^{N-1}(RR_{i+1}-RR_i)^2}, \quad Z_
 
 ---
 
-### 2.8. Dietary Date Convention
+### 2.8. Deterministic Adaptive Training Prescription Engine (Lifecore v3.2)
+* **Inverse EWMA ACWR Load Budgeting:** Computes daily target $\text{TRIMP}_{\text{budget}} \in [0, 160]$ to maintain progressive overload ($R_{\text{target}} = 1.08$) without injury spikes.
+* **3-Gate Physiological Override State Machine:** Modulates target TRIMP and intensity ceiling via Overnight Vitals (`ImmuneSystemState`), Morning Body Battery ($<40\%$), 3-day caloric deficit ($< -650\text{ kcal/day}$), and median 3-run Cardiac Drift % vs $\Delta EF_{30d}$.
+* **Dynamic $EF_{75}$ Pace & HR Zone Derivation:** Automatically derives target paces ($\text{sec/km}$) and HR caps for Zones 1–5 from the athlete's 30-day rolling 75th percentile Efficiency Factor ($EF_{75}$) and Heart Rate Reserve ($\text{HRR}$).
+* **4-Archetype Rolling Stimulus Queue:** Cycles through `aerobicBasePlusStrides`, `cruiseThresholdIntervals`, `recoveryFlush`, and `progressiveQualityLongRun`, deferring quality sessions non-destructively when fatigued and prescribing pre-run carbohydrates ($\beta_{\text{Carbs}\to\text{Drift}}$).
+
+---
+
+### 2.9. Dietary Date Convention
 * The dietary day shifts at **04:00 AM** (`shiftHours = 4`), not midnight.
 * Meals, post-midnight workouts, and sleep cycles occurring between 00:00 and 03:59 AM belong to the physiological cycle of the preceding calendar day.
 
@@ -153,7 +161,8 @@ ios/Lifecore/
     │   │   ├── TrainingLoadAndBatteryEngine.swift # (Phase 3) Banister TRIMP, EWMA ACWR (7d/28d), 24h Body Battery
     │   │   ├── CorrelationEngine.swift   # (Phase 3) Multi-day time-lagged (T+0, T+1, T+2) r_pb & Pearson r engine
     │   │   ├── AdaptivePhysiologyEngine.swift # (Phase 3.1) Bayesian shrinkage, Dynamic TDEE, Ridge OLS β-slopes, 60d EWMA
-    │   │   └── MathEngineVerification.swift # 11-suite mathematical verification test harness
+    │   │   ├── TrainingPrescriptionEngine.swift # (Phase 3.2) Inverse EWMA TRIMP budget, 3-Gate override, EF_75 zones, 4-slot queue
+    │   │   └── MathEngineVerification.swift # 12-suite mathematical verification test harness
     │   ├── UI/
     │   │   └── LifecoreDesignSystem.swift # (Phase 3.1) Liquid Glass Bento Cockpit, AdaptiveEngineBadgeBar, RPE calibration
     │   ├── AI/
