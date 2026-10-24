@@ -291,6 +291,8 @@ public struct RollingHorizonDeckView: View {
                         Text(todayPrescription.cleanTitleUk)
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
 
                         if todayPrescription.totalDurationMin > 0 {
                             HStack(spacing: 8) {
@@ -304,6 +306,8 @@ public struct RollingHorizonDeckView: View {
                             }
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(LifecoreTheme.athleticEmerald)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         } else {
                             Text("День відпочинку та відновлення сил")
                                 .font(.caption2)

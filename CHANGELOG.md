@@ -11,7 +11,8 @@ All changes to the code, data structure, AI prompts, and documentation must be r
   - Added `cleanHumanTitleUk` ("Легкий біг з прискореннями", "Порогові інтервали", "Відновлювальний легкий біг", "Довгий прогресивний біг") and `loadLevelUk` to `WorkoutArchetype`.
   - Added empathetic, plain-language headlines (`bevelHeadlineUk`) and context summaries (`bevelExplanationUk`) to `AdaptationReason`.
 - **`TodayView` - 1-Row Compact Activity Banner:**
-  - Redesigned `TacticalPrescriptionCard.swift` from a large multi-segment card into a sleek 1-row Bevel "Today's Activity" banner (`СЬОГОДНІ • Назва • Час/км/ЧСС >`).
+  - Redesigned `TacticalPrescriptionCard.swift` from a large multi-segment card into a sleek Bevel "Today's Activity" banner (`СЬОГОДНІ • Назва • Час/км/ЧСС >`).
+  - Fixed horizontal crowding: moved the adaptation reason glow pill to the top header row so the workout title and metrics have the full card width, eliminating text truncation (`Довг...`, `69... • ~1...`). Added `minimumScaleFactor(0.85)` for resilient typography across all screen sizes.
   - Added seamless 1-tap tab switching: tapping the banner in `TodayView` activates `MainTabView.selectedTab = .workouts`.
   - Maintained accessibility identifiers (`card_tactical_prescription`, `txt_prescription_archetype`, `pill_prescription_reason`) ensuring Maestro E2E suite stability.
 - **`WorkoutsView` - Bevel Fitness Cockpit:**
