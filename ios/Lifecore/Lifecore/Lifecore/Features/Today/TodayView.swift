@@ -13,7 +13,11 @@ public struct TodayView: View {
     @ObservedObject private var planStore = TrainingPlanStore.shared
     @State private var prescriptionPlan: TrainingPrescriptionPlan?
 
-    public init() {}
+    public var onNavigateToWorkouts: (() -> Void)?
+
+    public init(onNavigateToWorkouts: (() -> Void)? = nil) {
+        self.onNavigateToWorkouts = onNavigateToWorkouts
+    }
 
     private var todayDateKey: String {
         let formatter = DateFormatter()
@@ -32,7 +36,10 @@ public struct TodayView: View {
                     ringsHeaderView
 
                     // Tactical Training Prescription Card (Lifecore v3.2)
-                    TacticalPrescriptionCard(plan: prescriptionPlan)
+                    TacticalPrescriptionCard(
+                        plan: prescriptionPlan,
+                        onNavigateToWorkouts: onNavigateToWorkouts
+                    )
 
                     // 2. Overnight Vitals Corridor & Pre-Symptomatic Illness Radar
                     OvernightVitalsCard(evaluation: snapshot?.vitalsEvaluation)

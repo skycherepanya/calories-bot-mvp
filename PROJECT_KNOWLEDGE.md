@@ -177,8 +177,8 @@ ios/Lifecore/
     │       ├── HealthPayload.swift       # Direct payload codable definitions
     │       └── SupabaseSyncService.swift # Bidirectional cloud persistence for meals, workout_analyses & vitals
     ├── Features/
-    │   ├── Today/                        # Dark-mode dashboard: Hero Cockpit, TacticalPrescriptionCard, Rings, 5-Pill Vitals, Illness Radar, Energy Bank
-    │   ├── Workouts/                     # Workout list, RollingHorizonDeckView, granular split detail views with synchronized charts & TRIMP badges
+    │   ├── Today/                        # Dark-mode dashboard: Hero Cockpit, Bevel 1-Row Today's Activity Banner, Rings, 5-Pill Vitals, Illness Radar, Energy Bank
+    │   ├── Workouts/                     # Bevel Fitness Cockpit (7-day calendar strip, AI Coach Banner, Today's Activity card, 1-tap club run toggle, upcoming horizon), workout list with human load labels
     │   ├── Nutrition/                    # Unified "Записати їжу" log, two-tier input modal, gesture swipe-to-delete with HealthKit sync, macro cards
     │   └── Trends/                       # Segmented Glass Switcher, Adaptive Engine status, weight trend, Correlations & ACWR
     └── Intents/

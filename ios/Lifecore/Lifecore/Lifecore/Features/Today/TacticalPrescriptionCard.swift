@@ -3,10 +3,16 @@ import SwiftUI
 public struct TacticalPrescriptionCard: View {
     public let plan: TrainingPrescriptionPlan?
     public var onSkipOrAdvance: (() -> Void)?
+    public var onNavigateToWorkouts: (() -> Void)?
 
-    public init(plan: TrainingPrescriptionPlan?, onSkipOrAdvance: (() -> Void)? = nil) {
+    public init(
+        plan: TrainingPrescriptionPlan?,
+        onSkipOrAdvance: (() -> Void)? = nil,
+        onNavigateToWorkouts: (() -> Void)? = nil
+    ) {
         self.plan = plan
         self.onSkipOrAdvance = onSkipOrAdvance
+        self.onNavigateToWorkouts = onNavigateToWorkouts
     }
 
     private var prescription: DailyWorkoutPrescription {
@@ -31,114 +37,80 @@ public struct TacticalPrescriptionCard: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Header Row: Archetype & Adaptation Reason Glow Pill
-            HStack(alignment: .top, spacing: 10) {
-                HStack(spacing: 8) {
+        Button(action: {
+            onNavigateToWorkouts?()
+        }) {
+            HStack(spacing: 14) {
+                // Circular Activity Glyph (Bevel-style dashed/glow ring)
+                ZStack {
+                    Circle()
+                        .strokeBorder(LifecoreTheme.electricTeal.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [3]))
+                        .frame(width: 46, height: 46)
+                    Circle()
+                        .fill(LifecoreTheme.electricTeal.opacity(0.12))
+                        .frame(width: 46, height: 46)
                     Image(systemName: prescription.archetype.iconName)
-                        .font(.headline)
+                        .font(.system(size: 20))
                         .foregroundStyle(LifecoreTheme.electricTeal)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Тактичний план на сьогодні")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
+                }
+
+                // Title & Metrics Details
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("СЬОГОДНІ")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(LifecoreTheme.electricTeal)
+
+                        Text("•")
+                            .font(.system(size: 10))
                             .foregroundStyle(.secondary)
-                        Text(prescription.archetype.titleUk)
-                            .font(.subheadline)
-                            .fontWeight(.bold)
+
+                        Text(prescription.cleanTitleUk)
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
+                            .lineLimit(1)
                             .accessibilityIdentifier("txt_prescription_archetype")
+                    }
+
+                    if prescription.totalDurationMin > 0 {
+                        HStack(spacing: 6) {
+                            Text("\(Int(round(prescription.totalDurationMin))) хв")
+                            Text("•")
+                            Text("~\(String(format: "%.1f", prescription.estimatedDistanceKm)) км")
+                            Text("•")
+                            Text(prescription.maxAllowedZone.titleUk)
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    } else {
+                        Text("День повного відновлення")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
                 Spacer()
 
-                LifecoreGlowPill(
-                    text: prescription.adaptationReason.titleUk,
-                    systemIcon: "sparkles",
-                    color: reasonColor
-                )
-                .accessibilityIdentifier("pill_prescription_reason")
-            }
+                // Reason Glow Pill (Compact) + Chevron
+                HStack(spacing: 8) {
+                    LifecoreGlowPill(
+                        text: prescription.adaptationReason.titleUk,
+                        systemIcon: "sparkles",
+                        color: reasonColor
+                    )
+                    .accessibilityIdentifier("pill_prescription_reason")
 
-            Text(prescription.adaptationReason.subtitleUk)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.8))
-
-            // KPI Badges Row: Target TRIMP, Est Distance, Pre-Run Carbs
-            HStack(spacing: 8) {
-                kpiPill(label: "Ціль TRIMP", value: "\(Int(prescription.targetTrimp))", color: LifecoreTheme.electricTeal)
-                if prescription.totalDurationMin > 0 {
-                    kpiPill(label: "Час / Об'єм", value: "\(Int(prescription.totalDurationMin)) хв • ~\(String(format: "%.1f", prescription.estimatedDistanceKm)) км", color: LifecoreTheme.recoveryGreen)
-                }
-                if let carbs = prescription.preWorkoutCarbsG {
-                    kpiPill(label: "Вуглеводи за 2г", value: "+\(carbs) г", color: LifecoreTheme.strainOrange)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
-
-            Divider().background(Color.white.opacity(0.08))
-
-            // Segments Breakdown
-            VStack(spacing: 8) {
-                ForEach(prescription.segments) { seg in
-                    HStack {
-                        Text(seg.zone.shortBadgeUk)
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(LifecoreTheme.electricTeal.opacity(0.18))
-                            .foregroundStyle(LifecoreTheme.electricTeal)
-                            .clipShape(Capsule())
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(seg.titleUk)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.white)
-                            Text(seg.instructionUk)
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-
-                        Spacer()
-
-                        if seg.durationMin > 0 {
-                            VStack(alignment: .trailing, spacing: 1) {
-                                Text("\(seg.formattedPace)")
-                                    .font(.caption.monospacedDigit().bold())
-                                    .foregroundStyle(LifecoreTheme.athleticEmerald)
-                                Text("≤\(seg.targetHrCapBpm) bpm • \(Int(seg.durationMin)) хв")
-                                    .font(.system(size: 10).monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.white.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-            }
-            .accessibilityIdentifier("list_prescription_segments")
+            .padding(14)
+            .lifecoreGlassCard(cornerRadius: 18, borderColor: LifecoreTheme.electricTeal.opacity(0.2))
         }
-        .padding(16)
-        .lifecoreGlassCard(cornerRadius: 22, borderColor: reasonColor.opacity(0.28))
+        .buttonStyle(.plain)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("card_tactical_prescription")
-    }
-
-    private func kpiPill(label: String, value: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.caption.monospacedDigit().bold())
-                .foregroundStyle(color)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(color.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

@@ -74,8 +74,8 @@ public struct WorkoutsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Rolling Stimulus Horizon Deck (Lifecore v3.2)
-                    RollingHorizonDeckView()
+                    // Rolling Stimulus Horizon Deck (Lifecore v3.2 - Bevel Fitness Cockpit)
+                    RollingHorizonDeckView(pastWorkouts: workouts)
 
                     // Category Filter Scroll
                     filterScrollView
@@ -210,7 +210,13 @@ public struct WorkoutsView: View {
 
                 Spacer()
 
-                LifecoreGlowPill(text: "TRIMP \(Int(trimp))", systemIcon: "flame.fill", color: typeColor)
+                let loadLabel: String = {
+                    if trimp >= 80 { return "Високе" }
+                    else if trimp >= 45 { return "Помірне" }
+                    else { return "Легке" }
+                }()
+
+                LifecoreGlowPill(text: loadLabel, systemIcon: "flame.fill", color: typeColor)
 
                 Text(formattedDate(workout.startDate))
                     .font(.caption2)

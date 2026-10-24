@@ -2,6 +2,37 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-24] - UI/UX Overhaul: Bevel-Inspired Native iOS Fitness Dashboard & Clutter-Free Cockpit
+
+### 💎 Bevel-Style UX & Visual Language Transformation:
+- **Purged Academic Laboratory Metrics from End-User View:**
+  - Removed confusing `TRIMP` and `EF_75` numeric formulas from user-facing screens and badges.
+  - Replaced workout history row badges with human load classifications ("Легке", "Помірне", "Високе").
+  - Added `cleanHumanTitleUk` ("Легкий біг з прискореннями", "Порогові інтервали", "Відновлювальний легкий біг", "Довгий прогресивний біг") and `loadLevelUk` to `WorkoutArchetype`.
+  - Added empathetic, plain-language headlines (`bevelHeadlineUk`) and context summaries (`bevelExplanationUk`) to `AdaptationReason`.
+- **`TodayView` - 1-Row Compact Activity Banner:**
+  - Redesigned `TacticalPrescriptionCard.swift` from a large multi-segment card into a sleek 1-row Bevel "Today's Activity" banner (`СЬОГОДНІ • Назва • Час/км/ЧСС >`).
+  - Added seamless 1-tap tab switching: tapping the banner in `TodayView` activates `MainTabView.selectedTab = .workouts`.
+  - Maintained accessibility identifiers (`card_tactical_prescription`, `txt_prescription_archetype`, `pill_prescription_reason`) ensuring Maestro E2E suite stability.
+- **`WorkoutsView` - Bevel Fitness Cockpit:**
+  - Redesigned `RollingHorizonDeckView.swift` into a 4-tier Bevel Fitness Dashboard:
+    1. **7-Day Activity Calendar Strip:** Displays days -3 to +3 centered on Today, with day initials, day numbers, today active triangle marker, activity glyphs (cycling purple, running emerald, strength orange, and rest `moon.zzz.fill`), and future dashed ring indicators.
+    2. **AI Coach Recommendation Banner:** Glassmorphic card displaying friendly coach rationale and guidance without clinical jargon.
+    3. **Today's Activity Card:** Primary planned session card with time, distance, pace, zone, segment pills, and a 1-tap "Сьогодні біжу в клубі або за своїм планом" button (`btn_recalculate_club_queue`).
+    4. **Upcoming Horizons:** Clean 3-day preview cards for the next scheduled sessions with friendly load labels.
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingPrescriptionEngine.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TacticalPrescriptionCard.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/App/MainTabView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/RollingHorizonDeckView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`
+- `CHANGELOG.md`
+- `PROJECT_KNOWLEDGE.md`
+
+---
+
 ## [2026-10-23] - Implementation: Lifecore v3.2 Deterministic Adaptive Training Prescription Engine
 
 ### 🏃‍♂️ Adaptive Training Prescription Engine Implementation:

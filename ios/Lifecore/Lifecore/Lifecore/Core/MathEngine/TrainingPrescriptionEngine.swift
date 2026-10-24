@@ -62,6 +62,52 @@ public enum AdaptationReason: String, Codable, Sendable, Equatable {
         }
     }
 
+    public var bevelHeadlineUk: String {
+        switch self {
+        case .blockedByIllnessProdrome:
+            return "Сьогодні відпочинок — організм бореться з навантаженням"
+        case .downgradedByVitalsOrBattery:
+            return "Сьогодні краще легке відновлення, а не важке тренування"
+        case .modulatedByHRV:
+            return "Сьогодні помірний темп замість максимальних зусиль"
+        case .cappedByCaloricDeficit:
+            return "Енергетичний дефіцит — сьогодні безпечний легкий біг"
+        case .downgradedByAcuteLoadSpike:
+            return "Висока втома за тиждень — час розвантажитися"
+        case .heldByCardiacDrift:
+            return "Закріплюємо аеробну базу без збільшення дистанції"
+        case .efficiencyUnlocked:
+            return "Відмінна форма — серце справляється значно легше"
+        case .optimalProgression:
+            return "Сьогодні оптимальний день для запланованого тренування"
+        case .externalClubRunAdapted:
+            return "План адаптовано під твої зовнішні пробіжки"
+        }
+    }
+
+    public var bevelExplanationUk: String {
+        switch self {
+        case .blockedByIllnessProdrome:
+            return "Нічні показники пульсу та температури вказують на імунну напругу. Організму потрібен сон та спокій, щоб не захворіти."
+        case .downgradedByVitalsOrBattery:
+            return "Ранковий заряд і якість сну нижчі за норму. Важке тренування збережено на інший день, сьогодні лише спокійний відновлювальний рух."
+        case .modulatedByHRV:
+            return "Варіабельність серцевого ритму дещо знижена після попередніх навантажень. Працюємо у спокійному темпі без перевантаження ЦНС."
+        case .cappedByCaloricDeficit:
+            return "Останні дні організм був у помітному дефіциті калорій. Щоб не втрачати м'язову масу та не перевтомлюватися, інтенсивність обмежена."
+        case .downgradedByAcuteLoadSpike:
+            return "За останні дні накопичилося багато навантаження. Легка пробіжка допоможе швидше відновити свіжість у ногах."
+        case .heldByCardiacDrift:
+            return "Пульс під кінець пробіжок трохи зростає. Фіксуємо поточну тривалість, щоб серцево-судинна система адаптувалася."
+        case .efficiencyUnlocked:
+            return "Пульс залишається стабільним, а швидкість зростає. Твоє серце працює все економніше!"
+        case .optimalProgression:
+            return "Сон, варіабельність серця та заряд енергії у чудовому балансі. Організм повністю готовий до якісної роботи."
+        case .externalClubRunAdapted:
+            return "Ми врахували нещодавній біг у клубі або власну сесію і плавно підлаштували графік тренувань."
+        }
+    }
+
     public var subtitleUk: String {
         switch self {
         case .blockedByIllnessProdrome:
@@ -77,7 +123,7 @@ public enum AdaptationReason: String, Codable, Sendable, Equatable {
         case .heldByCardiacDrift:
             return "Медіанний кардіодрейф > 5%. Тривалість зафіксована для укріплення аеробної економічності."
         case .efficiencyUnlocked:
-            return "Кардіодрейф ≤ 3.5% та ріст EF > 1.5%. Дозволено підвищення швидкості при тому ж пульсі."
+            return "Кардіодрейф ≤ 3.5% та ріст EF > 1.5%. Дозволено підвищення швидкості при тому же пульсі."
         case .optimalProgression:
             return "Всі біомаркери у зеленому коридорі. Виконуємо черговий стимул за планом."
         case .externalClubRunAdapted:
@@ -101,6 +147,26 @@ public enum WorkoutArchetype: String, Codable, Sendable, CaseIterable, Identifia
         .recoveryFlush,
         .progressiveQualityLongRun
     ]
+
+    public var cleanHumanTitleUk: String {
+        switch self {
+        case .aerobicBasePlusStrides: return "Легкий біг з прискореннями"
+        case .cruiseThresholdIntervals: return "Порогові інтервали"
+        case .recoveryFlush: return "Відновлювальний легкий біг"
+        case .progressiveQualityLongRun: return "Довгий прогресивний біг"
+        case .restDay: return "День відпочинку"
+        }
+    }
+
+    public var loadLevelUk: String {
+        switch self {
+        case .aerobicBasePlusStrides: return "Помірне"
+        case .cruiseThresholdIntervals: return "Високе"
+        case .recoveryFlush: return "Легке"
+        case .progressiveQualityLongRun: return "Високе"
+        case .restDay: return "Відновлення"
+        }
+    }
 
     public var titleUk: String {
         switch self {
@@ -289,6 +355,17 @@ public struct DailyWorkoutPrescription: Codable, Sendable, Equatable, Identifiab
         self.preWorkoutCarbsG = preWorkoutCarbsG
         self.segments = segments
         self.preservedQueuedArchetype = preservedQueuedArchetype
+    }
+
+    public var cleanTitleUk: String {
+        archetype.cleanHumanTitleUk
+    }
+
+    public var summaryMetricsUk: String {
+        guard totalDurationMin > 0 else { return "Повне відновлення" }
+        let dur = Int(round(totalDurationMin))
+        let dist = String(format: "%.1f", estimatedDistanceKm)
+        return "\(dur) хв • ~\(dist) км • \(maxAllowedZone.shortBadgeUk)"
     }
 }
 

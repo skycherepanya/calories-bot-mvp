@@ -14,7 +14,9 @@ public struct MainTabView: View {
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            TodayView()
+            TodayView(onNavigateToWorkouts: {
+                selectedTab = .workouts
+            })
                 .tabItem {
                     Label("Сьогодні", systemImage: "bolt.heart.fill")
                         .accessibilityIdentifier("tab_today")
