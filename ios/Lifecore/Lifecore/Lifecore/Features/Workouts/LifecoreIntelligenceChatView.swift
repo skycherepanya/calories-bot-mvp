@@ -5,6 +5,7 @@ public struct LifecoreIntelligenceChatView: View {
     public let initialQuestion: String?
 
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isInputFocused: Bool
     @State private var messages: [AnalystChatMessage] = []
     @State private var inputText: String = ""
     @State private var isLoading: Bool = false
@@ -48,6 +49,13 @@ public struct LifecoreIntelligenceChatView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                    .onTapGesture {
+                        if isInputFocused {
+                            isInputFocused = false
+                            hideKeyboard()
+                        }
                     }
                     .onChange(of: messages.count) { _, _ in
                         if let lastId = messages.last?.id {
@@ -96,6 +104,7 @@ public struct LifecoreIntelligenceChatView: View {
                     .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
             }
+            .lifecoreKeyboardDismissToolbar()
             .task {
                 refreshMemoryBank()
                 if messages.isEmpty {
@@ -118,12 +127,20 @@ public struct LifecoreIntelligenceChatView: View {
                     color: LifecoreTheme.accentTeal
                 )
 
-                let carbs = Int(dossier.acuteNutrition.last24hCarbsG)
-                contextPill(
-                    icon: "fork.knife",
-                    title: "\(carbs)г вуглеводів",
-                    color: LifecoreTheme.statusOptimal
-                )
+                if dossier.acuteNutrition.loggedMealsCount > 0 && dossier.acuteNutrition.last24hCarbsG > 0 {
+                    let carbs = Int(dossier.acuteNutrition.last24hCarbsG)
+                    contextPill(
+                        icon: "fork.knife",
+                        title: "\(carbs)г вуглеводів",
+                        color: LifecoreTheme.statusOptimal
+                    )
+                } else if dossier.acuteNutrition.loggedMealsCount == 0 {
+                    contextPill(
+                        icon: "fork.knife",
+                        title: "Раціон не записано",
+                        color: LifecoreTheme.inkTertiary
+                    )
+                }
 
                 if let rhr = dossier.recoveryContext?.morningRhrBpm {
                     contextPill(
@@ -225,7 +242,7 @@ public struct LifecoreIntelligenceChatView: View {
                     .foregroundStyle(LifecoreTheme.inkPrimary)
             }
 
-            Text("Я володію повною картиною твого стану: сплити сьогоднішньої сесії, вчорашні вуглеводи й натрій, нічні Vitals, Body Battery та твої особисті цілі. Запитай мене будь-що про тренування чи самопочуття.")
+            Text("Я аналізую всю картину твого стану: спліти сьогоднішньої сесії, баланс харчування, нічні Vitals, Body Battery та твої особисті цілі. Запитай мене будь-що про тренування чи самопочуття.")
                 .font(.system(size: 12))
                 .foregroundStyle(LifecoreTheme.inkSecondary)
                 .lineSpacing(3)
@@ -370,8 +387,25 @@ public struct LifecoreIntelligenceChatView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
+            if isInputFocused {
+                Button(action: {
+                    isInputFocused = false
+                    hideKeyboard()
+                }) {
+                    Image(systemName: "keyboard.chevron.compact.down")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                        .frame(width: 34, height: 34)
+                        .background(LifecoreTheme.paperWell)
+                        .clipShape(Circle())
+                }
+                .accessibilityIdentifier("btn_hide_chat_keyboard")
+                .transition(.scale.combined(with: .opacity))
+            }
+
             TextField("Запитай про пульс, спліти чи їжу...", text: $inputText)
+                .focused($isInputFocused)
                 .font(.system(size: 14))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -399,6 +433,7 @@ public struct LifecoreIntelligenceChatView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(LifecoreTheme.paperCard)
+        .animation(.easeInOut(duration: 0.2), value: isInputFocused)
     }
 
     // MARK: - Actions
@@ -478,3 +513,4 @@ public struct LifecoreIntelligenceChatView: View {
         }
     }
 }
+

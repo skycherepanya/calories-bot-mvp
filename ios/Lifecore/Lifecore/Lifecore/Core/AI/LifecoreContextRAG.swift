@@ -32,6 +32,7 @@ public struct RetrievedMemoryNode: Codable, Sendable, Equatable, Identifiable {
 }
 
 public struct AcuteNutritionSlice: Codable, Sendable, Equatable {
+    public let loggedMealsCount: Int
     public let last24hKcal: Double
     public let last24hCarbsG: Double
     public let last24hProteinG: Double
@@ -42,6 +43,7 @@ public struct AcuteNutritionSlice: Codable, Sendable, Equatable {
     public let recentMealNames: [String]
 
     public init(
+        loggedMealsCount: Int = 0,
         last24hKcal: Double = 0,
         last24hCarbsG: Double = 0,
         last24hProteinG: Double = 0,
@@ -51,6 +53,7 @@ public struct AcuteNutritionSlice: Codable, Sendable, Equatable {
         hadLateMealAfter2130: Bool = false,
         recentMealNames: [String] = []
     ) {
+        self.loggedMealsCount = loggedMealsCount
         self.last24hKcal = last24hKcal
         self.last24hCarbsG = last24hCarbsG
         self.last24hProteinG = last24hProteinG
@@ -266,6 +269,7 @@ public enum LifecoreContextRAG {
 
         let wholeRatioPct = totalMeals > 0 ? Int(round((Double(wholeFoodCount) / Double(totalMeals)) * 100)) : 85
         let nutritionSlice = AcuteNutritionSlice(
+            loggedMealsCount: totalMeals,
             last24hKcal: round(totalKcal),
             last24hCarbsG: round(totalCarbs),
             last24hProteinG: round(totalProtein),
@@ -281,7 +285,9 @@ public enum LifecoreContextRAG {
         if let analysis = workoutAnalysis {
             if (analysis.aerobicDecouplingPct ?? 0) > 5.0 {
                 contextTags.append("hr_drift")
-                contextTags.append("carbs")
+                if totalMeals > 0 && totalCarbs > 0 {
+                    contextTags.append("carbs")
+                }
             }
             if analysis.benchmarkDelta?.regime == .higherIntensityEffort {
                 contextTags.append("intensity")

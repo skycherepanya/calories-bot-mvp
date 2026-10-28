@@ -166,9 +166,12 @@ public enum CoachPrompt {
     5. HOLISTIC CAUSALITY (70 / 15 / 15):
        - 70% executionAnalysisUk: Split progression (pacing by km, hills, cardiac drift).
        - 15% benchmarkComparisonUk: Effort-aware benchmark evaluation.
-       - 15% rootCauseAndDirectiveUk: Tie performance to 48h nutrition (carbs/sodium), overnight vitals/sleep, and provide ONE decisive athletic directive for the next 24h.
-    6. EVIDENCE PILLS: Provide 3 to 5 key numeric metrics (e.g. "EF", "Дрейф ЧСС", "Вуглеводи 24г", "Нічний RHR").
-    7. FOLLOW-UP QUESTIONS: 3 relevant questions the runner can ask the conversational analyst.
+       - 15% rootCauseAndDirectiveUk: Tie performance to sleep architecture, resting heart rate, and nutrition ONLY IF logged. Provide ONE decisive athletic directive for the next 24h.
+    6. STRICT NUTRITION INTEGRITY (ZERO HALLUCINATIONS):
+       - If Status is '0 meals logged' or Carbohydrates is 0g because no meals were logged, DO NOT invent carbohydrate intake, DO NOT claim glycogen depletion from fasting, and DO NOT include carbohydrates in evidence pills! State honestly that nutrition was not logged, or focus solely on sleep and pacing.
+       - Only discuss carbohydrate availability if logged meals > 0 and carbs > 0.
+    7. EVIDENCE PILLS: Provide 3 to 5 key numeric metrics directly from the provided data (e.g. "EF", "Дрейф ЧСС", "Нічний RHR", "Глибокий сон"). Never include carbohydrates if 0 meals are logged.
+    8. FOLLOW-UP QUESTIONS: 3 relevant questions the runner can ask the conversational analyst.
     """
 
     /// Conversational analyst system prompt for multi-turn chat
@@ -188,8 +191,9 @@ public enum CoachPrompt {
          "extractedMemoryFactUk": "... or null",
          "extractedMemoryCategory": "goal|injury_note|nutrition_habit|workout_feel or null"
        }
-    2. TONE: Sharp, direct Ukrainian, athletic, supportive. Zero generic platitudes.
-    3. MEMORY EXTRACTION: If the runner mentions a goal, a physical discomfort/injury, specific running shoes, or a lifestyle change, extract it into extractedMemoryFactUk so it is permanently remembered in their profile.
+    2. TONE & GROUNDING: Sharp, direct Ukrainian, athletic, supportive. Zero generic platitudes.
+    3. ZERO NUTRITION HALLUCINATIONS: Never invent or hallucinate calories or carbohydrates. If the athlete asks about their nutrition or carbs, but 0 meals are logged in their dossier, explicitly tell them: "У додатку ще немає записів їжі за цей період. Запиши прийом їжі у вкладці «Харчування», щоб я міг проаналізувати надходження вуглеводів."
+    4. MEMORY EXTRACTION: If the runner mentions a goal, a physical discomfort/injury, specific running shoes, or a lifestyle change, extract it into extractedMemoryFactUk so it is permanently remembered in their profile.
     """
 
     /// Backward compatibility prompt
@@ -242,14 +246,20 @@ public enum CoachPrompt {
         // Tier L1: Acute Nutrition
         let nut = dossier.acuteNutrition
         lines.append("\n=== TIER L1: ACUTE 24H/48H NUTRITION ===")
-        lines.append("- Logged Energy: \(Int(nut.last24hKcal)) kcal")
-        lines.append("- Carbohydrates: \(Int(nut.last24hCarbsG)) g")
-        lines.append("- Protein: \(Int(nut.last24hProteinG)) g, Fat: \(Int(nut.last24hFatG)) g")
-        lines.append("- Sodium: \(Int(nut.last24hSodiumMg)) mg")
-        lines.append("- Whole Food Quality: \(nut.wholeFoodRatioPct)%")
-        lines.append("- Late Meal After 21:30: \(nut.hadLateMealAfter2130 ? "YES (potential overnight RHR penalty)" : "NO")")
-        if !nut.recentMealNames.isEmpty {
-            lines.append("- Recent Meals: \(nut.recentMealNames.joined(separator: ", "))")
+        if nut.loggedMealsCount > 0 {
+            lines.append("- Athlete Logged Meals: \(nut.loggedMealsCount) meal(s)")
+            lines.append("- Logged Energy: \(Int(nut.last24hKcal)) kcal")
+            lines.append("- Carbohydrates: \(Int(nut.last24hCarbsG)) g")
+            lines.append("- Protein: \(Int(nut.last24hProteinG)) g, Fat: \(Int(nut.last24hFatG)) g")
+            lines.append("- Sodium: \(Int(nut.last24hSodiumMg)) mg")
+            lines.append("- Whole Food Quality: \(nut.wholeFoodRatioPct)%")
+            lines.append("- Late Meal After 21:30: \(nut.hadLateMealAfter2130 ? "YES (potential overnight RHR penalty)" : "NO")")
+            if !nut.recentMealNames.isEmpty {
+                lines.append("- Recent Meals: \(nut.recentMealNames.joined(separator: ", "))")
+            }
+        } else {
+            lines.append("- Status: 0 meals logged. The athlete has NOT logged nutrition for this window.")
+            lines.append("- RULE: DO NOT assume low carbs, fasting, or glycogen depletion. DO NOT invent carbohydrate figures. Focus on sleep and splits.")
         }
 
         // Tier L1: Vitals & Recovery

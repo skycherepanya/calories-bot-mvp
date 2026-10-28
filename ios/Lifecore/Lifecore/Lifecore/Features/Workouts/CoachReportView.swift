@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct CoachReportView: View {
     public let analysis: WorkoutAnalysisResult
+    public let workoutDate: Date
     public let recoveryContext: RecentRecoveryContext?
     public let assembledDossier: AssembledHealthDossier?
 
@@ -13,17 +14,19 @@ public struct CoachReportView: View {
 
     public init(
         analysis: WorkoutAnalysisResult,
+        workoutDate: Date = Date(),
         recoveryContext: RecentRecoveryContext? = nil,
         assembledDossier: AssembledHealthDossier? = nil
     ) {
         self.analysis = analysis
+        self.workoutDate = workoutDate
         self.recoveryContext = recoveryContext
         self.assembledDossier = assembledDossier
     }
 
     private var activeDossier: AssembledHealthDossier {
         if let d = assembledDossier { return d }
-        let meals = MealStorageService.fetchTodayMeals()
+        let meals = MealStorageService.fetchAcuteNutritionMeals(for: workoutDate)
         return LifecoreContextRAG.assembleDossier(
             workoutAnalysis: analysis,
             recoveryContext: recoveryContext,
@@ -205,7 +208,7 @@ public struct CoachReportView: View {
             } else {
                 // Initial CTA Card before debrief generation
                 VStack(spacing: 12) {
-                    Text("Багаторівневий спортивний розбір на основі сплітів, вчорашніх вуглеводів, нічних Vitals та епізодичної пам'яті атлета.")
+                    Text("Багаторівневий спортивний розбір на основі сплітів, кардіо-динаміки, нічних Vitals та епізодичної пам'яті атлета.")
                         .font(.system(size: 12))
                         .foregroundStyle(LifecoreTheme.inkSecondary)
                         .lineSpacing(2)

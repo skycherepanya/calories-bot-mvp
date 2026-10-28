@@ -521,3 +521,39 @@ public struct AdaptiveEngineStatusCard: View {
         .lifecoreWell(cornerRadius: 10, padding: 10)
     }
 }
+
+// MARK: - Universal Keyboard Management (Lifecore Daylight)
+
+public extension View {
+    /// Programmatically resigns the first responder to dismiss the software keyboard.
+    func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    /// Standard Lifecore keyboard dismissal toolbar accessory.
+    /// Attaches an accessible "Сховати клавіатуру" button directly to the keyboard accessory bar.
+    func lifecoreKeyboardDismissToolbar() -> some View {
+        self.toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button {
+                    hideKeyboard()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Сховати клавіатуру")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(LifecoreTheme.paperWell)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
+                    .clipShape(Capsule())
+                }
+                .accessibilityIdentifier("btn_hide_keyboard_toolbar")
+            }
+        }
+    }
+}
+

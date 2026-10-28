@@ -14,6 +14,7 @@ public struct FoodInputSheet: View {
     @State private var selectedImageData: Data?
     @State private var isProcessingImage = false
     @State private var showCamera = false
+    @FocusState private var isTextFocused: Bool
 
     public init(onLog: @escaping (_ imageJpegData: Data?, _ textDescription: String?) -> Void) {
         self.onLog = onLog
@@ -35,6 +36,13 @@ public struct FoodInputSheet: View {
                 .padding(20)
             }
             .scrollDismissesKeyboard(.interactively)
+            .onTapGesture {
+                if isTextFocused {
+                    isTextFocused = false
+                    hideKeyboard()
+                }
+            }
+            .lifecoreKeyboardDismissToolbar()
             .accessibilityIdentifier("sheet_food_input")
             .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Новий прийом їжі")
@@ -151,10 +159,36 @@ public struct FoodInputSheet: View {
 
     private var textSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Опис страви", systemImage: "pencil.line")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(LifecoreTheme.inkSecondary)
+            HStack {
+                Label("Опис страви", systemImage: "pencil.line")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+
+                Spacer()
+
+                if isTextFocused {
+                    Button(action: {
+                        isTextFocused = false
+                        hideKeyboard()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "keyboard.chevron.compact.down")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Сховати клавіатуру")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(LifecoreTheme.paperWell)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
+                        .clipShape(Capsule())
+                    }
+                    .accessibilityIdentifier("btn_hide_food_keyboard")
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: isTextFocused)
 
             ZStack(alignment: .topLeading) {
                 if textInput.isEmpty {
@@ -166,6 +200,7 @@ public struct FoodInputSheet: View {
                 }
 
                 TextEditor(text: $textInput)
+                    .focused($isTextFocused)
                     .font(.subheadline)
                     .foregroundStyle(LifecoreTheme.inkPrimary)
                     .scrollContentBackground(.hidden)

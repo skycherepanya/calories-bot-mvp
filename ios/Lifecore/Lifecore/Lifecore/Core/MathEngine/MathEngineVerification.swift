@@ -621,7 +621,7 @@ public enum MathEngineVerification {
         let dossier = AssembledHealthDossier(
             workoutAnalysis: dummyAnalysis,
             recoveryContext: RecentRecoveryContext(morningHrvMs: 95.0, baselineHrvMs: 98.0, morningRhrBpm: 48.0, baselineRhrBpm: 49.0),
-            acuteNutrition: AcuteNutritionSlice(last24hKcal: 2100, last24hCarbsG: 220, last24hProteinG: 150, last24hFatG: 65, last24hSodiumMg: 2100),
+            acuteNutrition: AcuteNutritionSlice(loggedMealsCount: 3, last24hKcal: 2100, last24hCarbsG: 220, last24hProteinG: 150, last24hFatG: 65, last24hSodiumMg: 2100),
             adaptiveSensitivitiesSummaryUk: "Стабільна адаптація TDEE",
             next24hPrescriptionSummaryUk: "Зона 2 (Аеробна база) 45 хв до 135 bpm",
             retrievedMemories: []

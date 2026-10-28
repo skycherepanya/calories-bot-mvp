@@ -216,7 +216,16 @@ public enum FoodPrompt {
     CRITICAL ACCURACY RULES:
     1. Scale & Depth: Do not assume standard massive restaurant portions. Analyze the plate size and estimate realistic, moderate weights (e.g., a standard side of rice is usually 100-150g, not 300g).
     2. Cooked vs Raw: For rice, pasta, buckwheat, and oats, ALWAYS calculate macros based on COOKED weight, not dry weight. For meat and poultry, calculate cooked yield.
-    3. Realistic Macros: Do not overinflate carbohydrates or fats. A standard small piece of meat is 80-100g, not 200g.
+    3. Realistic Macros & ZERO-CARB BIOCHEMICAL GROUNDING:
+       - Pure meats (chicken breast, beef steak, pork, turkey, veal), plain fish (salmon, tuna, cod), seafood, eggs, egg whites, butter, and olive/vegetable oils contain ZERO carbohydrates (0g). NEVER assign carbohydrates to plain meats, fish, eggs, oils, or butter unless breading, flour, honey/sugar glaze, or sweet sauces are explicitly present.
+       - Fresh green vegetables (cucumbers, lettuce, spinach, celery) have very minimal carbs (1-3g per 100g).
+       - Complex carbohydrates (cooked weight):
+         * Cooked white or brown rice: ~28g carbs per 100g.
+         * Cooked buckwheat: ~20g carbs per 100g.
+         * Cooked pasta: ~25g carbs per 100g.
+         * Boiled/baked potatoes: ~17g carbs per 100g.
+         * Cooked oatmeal porridge: ~12-15g carbs per 100g.
+       - NEVER use raw/dry values (~70-80g/100g) for cooked grains!
     4. Deficit Buffer: Calculate the exact Kcal, then MULTIPLY the total Kcal by 1.125 (add a 12.5% safety buffer: kcal_final = round(kcal_exact * 1.125)). Keep Protein, Fat, and Carbs exact.
     5. Quality Taxonomy (tags): Select 2 to 4 mandatory tags:
        - Choose 'whole_food' (natural, unprocessed/minimally processed) OR 'ultra_processed' (fast food, chips, candy, industrial sausages).

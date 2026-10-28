@@ -2,6 +2,47 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-28] - Fix: Carbohydrate Grounding & Universal In-App Keyboard Dismissal
+
+### 🥗 Elimination of Carbohydrate Hallucinations:
+- **Removed Auto-Seeded Dummy Meals (`MealStorageService.swift`):**
+  - Eliminated automatic execution of `seedSampleMeals()` which was secretly inserting fake oatmeal, chicken, and salmon records totaling 104g of carbs on app launch. Added one-time migration purge for legacy sample meals.
+  - Added `fetchAcuteNutritionMeals(for: Date)` to retrieve meals in the 36h window relative to actual workout execution time rather than unrelated current-day meals.
+- **Removed Hardcoded Fallback Macros (`TodayView.swift`, `TrendsView.swift`):**
+  - Eliminated hardcoded `215.0g` and `210.0g` carbohydrate fallbacks in `DailyJoinedPhysiologyRecord`. Unlogged days now truthfully record 0g carbs rather than fake nutritional data.
+- **Strict Grounding in AI Prompts (`CoachPrompt.swift`, `FoodPrompt.swift`):**
+  - Added explicit zero-carb biochemical rules for plain meats, poultry, fish, seafood, eggs, oils, and butter in `FoodPrompt.systemPrompt` and `GeminiService.swift`.
+  - Enforced strict nutrition integrity in `structuredDebriefSystemPrompt` and `analystChatSystemPrompt`: when 0 meals are logged, AI strictly avoids hallucinating carbohydrate numbers, glycogen depletion, or diet claims.
+  - Fixed offline meal and conversational analyst responses in `GeminiService.swift` to truthfully handle empty meal logs.
+
+### ⌨️ Universal Keyboard Dismissal:
+- **Global Toolbar Accessory (`LifecoreDesignSystem.swift`):**
+  - Added `View.lifecoreKeyboardDismissToolbar()` which attaches an accessible capsule button `[ ⌨️˅ Сховати клавіатуру ]` to the software keyboard accessory bar across both standard text and numeric keypads.
+- **Dedicated In-View Dismiss Buttons & Focus State:**
+  - Added dedicated keyboard hide button directly inside the chat input bar in `LifecoreIntelligenceChatView.swift` and in the text description header in `FoodInputSheet.swift`.
+  - Added `.focused($isInputFocused)` and `.focused($isTextFocused)` with smooth animated transitions.
+  - Enabled interactive scroll dismissal (`.scrollDismissesKeyboard(.interactively)`) and background tap-to-dismiss across `LifecoreIntelligenceChatView`, `FoodInputSheet`, and `AthleteProfileSheet`.
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/UI/LifecoreDesignSystem.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/LifecoreContextRAG.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/FoodPrompt.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/LifecoreIntelligenceChatView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/CoachReportView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/FoodInputSheet.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/AthleteProfileSheet.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`
+- `CHANGELOG.md`
+- `PROJECT_KNOWLEDGE.md`
+
+---
+
 ## [2026-10-28] - Release: Lifecore v3.4 Hierarchical Health RAG & Multi-Layered Conversational Analyst (`LifecoreIntelligenceEngine`)
 
 ### 🧠 Hierarchical Health RAG & Bevel Intelligence Coach:

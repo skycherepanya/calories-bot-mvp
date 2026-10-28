@@ -19,11 +19,22 @@ public final class MealStorageService: ObservableObject {
     private init() {
         migrateFromUserDefaultsIfNeeded()
         loadMealsFromSwiftData()
+        removeLegacySeedMealsIfNeeded()
+    }
 
-        let hasSeeded = UserDefaults.standard.bool(forKey: hasSeededKey)
-        if allMeals.isEmpty && !hasSeeded {
-            seedSampleMeals()
-            UserDefaults.standard.set(true, forKey: hasSeededKey)
+    private func removeLegacySeedMealsIfNeeded() {
+        let cleanedKey = "lifecore_cleaned_seed_meals_v2"
+        if !UserDefaults.standard.bool(forKey: cleanedKey) {
+            let seedNames = [
+                "Вівсянка з бананом та протеїном",
+                "Куряче філе з гречкою та огірком",
+                "Лосось на пару з рисом басматі"
+            ]
+            let toRemove = allMeals.filter { seedNames.contains($0.name) }
+            for m in toRemove {
+                deleteMeal(id: m.id)
+            }
+            UserDefaults.standard.set(true, forKey: cleanedKey)
             loadMealsFromSwiftData()
         }
     }
@@ -34,6 +45,15 @@ public final class MealStorageService: ObservableObject {
         allMeals
             .filter { $0.dietaryDate == dietaryDate }
             .sorted(by: { $0.createdAt > $1.createdAt })
+    }
+
+    /// Fetches meals logged in the 36-hour acute window up to and including the workout execution time.
+    public static func fetchAcuteNutritionMeals(for date: Date = Date()) -> [MealRecord] {
+        let windowStart = date.addingTimeInterval(-36.0 * 3600.0)
+        let windowEnd = date.addingTimeInterval(3600.0) // Small 1h tolerance for post-workout logging
+        return shared.allMeals.filter {
+            !$0.isOptimisticPending && $0.createdAt >= windowStart && $0.createdAt <= windowEnd
+        }
     }
 
     public func dailyTotals(for dietaryDate: String) -> (kcal: Double, protein: Double, fat: Double, carbs: Double, sodiumMg: Double, leucineG: Double, wholeFoodCount: Int, ultraProcessedCount: Int) {

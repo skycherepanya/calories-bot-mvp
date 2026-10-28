@@ -203,6 +203,8 @@ public struct AthleteProfileSheet: View {
                     .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .lifecoreKeyboardDismissToolbar()
             .accessibilityIdentifier("sheet_athlete_profile")
             .onAppear { loadCurrentProfile() }
         }

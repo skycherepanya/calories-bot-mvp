@@ -560,24 +560,26 @@ public final class GeminiService: @unchecked Sendable {
             micro = .init(fiberG: 4.2, sodiumMg: 460, potassiumMg: 250, vitaminCMg: 3, ironMg: 2.4, calciumMg: 50)
             amino = .init(bcaaG: 2.6, leucineG: 1.2)
         } else if desc.contains("лосось") || desc.contains("риб") || desc.contains("fish") || desc.contains("тунець") {
-            mealName = trimmedDesc.isEmpty ? "Запечений лосось із рисом" : trimmedDesc.capitalized
-            exactKcal = 480.0
+            let hasCarbSide = desc.contains("рис") || desc.contains("картоп") || desc.contains("хліб") || desc.contains("паст")
+            mealName = trimmedDesc.isEmpty ? "Запечений лосось" : trimmedDesc.capitalized
+            exactKcal = hasCarbSide ? 480.0 : 340.0
             protein = 36.0
             fat = 18.0
-            carbs = 42.0
-            weightG = 320.0
+            carbs = hasCarbSide ? 36.0 : 0.0
+            weightG = hasCarbSide ? 320.0 : 200.0
             tags = ["whole_food", "solid", "slow_absorbing"]
-            micro = .init(fiberG: 2.0, sodiumMg: 390, potassiumMg: 620, vitaminCMg: 4, ironMg: 1.9, calciumMg: 65)
+            micro = .init(fiberG: hasCarbSide ? 2.0 : 0.0, sodiumMg: 390, potassiumMg: 620, vitaminCMg: 4, ironMg: 1.9, calciumMg: 65)
             amino = .init(bcaaG: 6.8, leucineG: 3.1)
-        } else if desc.contains("стейк") || desc.contains("яловичин") || desc.contains("м'яс") || desc.contains("мʼяс") || desc.contains("мяс") {
-            mealName = trimmedDesc.isEmpty ? "Стейк із яловичини з овочами" : trimmedDesc.capitalized
-            exactKcal = 490.0
+        } else if desc.contains("стейк") || desc.contains("яловичин") || desc.contains("м'яс") || desc.contains("мʼяс") || desc.contains("мяс") || desc.contains("курка") || desc.contains("куряч") || desc.contains("філе") {
+            let hasCarbSide = desc.contains("рис") || desc.contains("гречк") || desc.contains("картоп") || desc.contains("хліб") || desc.contains("паст")
+            mealName = trimmedDesc.isEmpty ? "Стейк із яловичини" : trimmedDesc.capitalized
+            exactKcal = hasCarbSide ? 490.0 : 310.0
             protein = 46.0
-            fat = 22.0
-            carbs = 18.0
-            weightG = 310.0
+            fat = 16.0
+            carbs = hasCarbSide ? 38.0 : 0.0
+            weightG = hasCarbSide ? 310.0 : 200.0
             tags = ["whole_food", "solid", "slow_absorbing"]
-            micro = .init(fiberG: 3.0, sodiumMg: 480, potassiumMg: 580, vitaminCMg: 12, ironMg: 4.2, calciumMg: 35)
+            micro = .init(fiberG: hasCarbSide ? 3.0 : 0.0, sodiumMg: 480, potassiumMg: 580, vitaminCMg: 12, ironMg: 4.2, calciumMg: 35)
             amino = .init(bcaaG: 8.5, leucineG: 3.9)
         } else if desc.contains("бургер") || desc.contains("піца") || desc.contains("pizza") || desc.contains("fast") || desc.contains("шаурм") {
             mealName = trimmedDesc.isEmpty ? "Бургер з яловичиною" : trimmedDesc.capitalized
@@ -591,25 +593,25 @@ public final class GeminiService: @unchecked Sendable {
             amino = .init(bcaaG: 5.5, leucineG: 2.4)
         } else if !trimmedDesc.isEmpty {
             mealName = trimmedDesc.prefix(1).uppercased() + trimmedDesc.dropFirst()
-            exactKcal = 420.0
+            exactKcal = 380.0
             protein = 28.0
-            fat = 14.0
-            carbs = 44.0
-            weightG = 300.0
+            fat = 12.0
+            carbs = 30.0
+            weightG = 260.0
             tags = ["whole_food", "solid", "slow_absorbing"]
-            micro = .init(fiberG: 4.0, sodiumMg: 450, potassiumMg: 400, vitaminCMg: 10, ironMg: 2.5, calciumMg: 60)
-            amino = .init(bcaaG: 4.8, leucineG: 2.2)
+            micro = .init(fiberG: 3.0, sodiumMg: 420, potassiumMg: 380, vitaminCMg: 8, ironMg: 2.2, calciumMg: 50)
+            amino = .init(bcaaG: 4.5, leucineG: 2.1)
         } else {
             // General photo fallback without text
             mealName = "Прийом їжі (з фото)"
-            exactKcal = 430.0
-            protein = 32.0
-            fat = 15.0
-            carbs = 42.0
-            weightG = 320.0
+            exactKcal = 410.0
+            protein = 30.0
+            fat = 14.0
+            carbs = 32.0
+            weightG = 300.0
             tags = ["whole_food", "solid", "slow_absorbing"]
-            micro = .init(fiberG: 4.0, sodiumMg: 450, potassiumMg: 450, vitaminCMg: 10, ironMg: 2.5, calciumMg: 60)
-            amino = .init(bcaaG: 5.2, leucineG: 2.3)
+            micro = .init(fiberG: 3.5, sodiumMg: 420, potassiumMg: 400, vitaminCMg: 8, ironMg: 2.2, calciumMg: 55)
+            amino = .init(bcaaG: 4.8, leucineG: 2.2)
         }
 
         // Apply +12.5% deficit buffer
@@ -793,19 +795,23 @@ public final class GeminiService: @unchecked Sendable {
         // 15% Root Cause & 24h Directive
         var rootCause = ""
         let nut = dossier.acuteNutrition
-        if nut.last24hCarbsG >= 180 {
-            rootCause += "Попередня доступність вуглеводів (\(Int(nut.last24hCarbsG))г за добу) підтримала енергетичний резерв м'язів. "
-        } else if nut.last24hCarbsG > 0 && nut.last24hCarbsG < 140 {
-            rootCause += "Знижене споживання вуглеводів (\(Int(nut.last24hCarbsG))г) могло прискорити настання втоми під кінець дистанції. "
-        }
-        if nut.hadLateMealAfter2130 {
-            rootCause += "Пізня вечеря могла залишити слід на нічному пульсі спокою. "
+        if nut.loggedMealsCount > 0 {
+            if nut.last24hCarbsG >= 180 {
+                rootCause += "Попередня доступність вуглеводів (\(Int(nut.last24hCarbsG))г за добу) підтримала енергетичний резерв м'язів. "
+            } else if nut.last24hCarbsG > 0 && nut.last24hCarbsG < 140 {
+                rootCause += "Знижене споживання вуглеводів (\(Int(nut.last24hCarbsG))г) могло прискорити настання втоми під кінець дистанції. "
+            }
+            if nut.hadLateMealAfter2130 {
+                rootCause += "Пізня вечеря могла залишити слід на нічному пульсі спокою. "
+            }
+        } else if let rec = dossier.recoveryContext, let sleep = rec.lastNightSleepHours {
+            rootCause += "Відновлення базується на нічному сні (\(String(format: "%.1f", sleep)) год). "
         }
 
         if !dossier.next24hPrescriptionSummaryUk.isEmpty {
             rootCause += "Директива на 24г: \(dossier.next24hPrescriptionSummaryUk)"
         } else {
-            rootCause += "Директива на 24г: обов'язково закрий відновлення складними вуглеводами та повноцінним сном, завтра — легке відновлення або повний відпочинок."
+            rootCause += "Директива на 24г: повноцінний сон та збалансоване харчування, завтра — легке відновлення або день відпочинку."
         }
 
         return StructuredWorkoutDebrief(
@@ -844,9 +850,9 @@ public final class GeminiService: @unchecked Sendable {
                 citedMetrics: [
                     .init(labelUk: "Сер. ЧСС", valueUk: avgHr, tone: "teal"),
                     .init(labelUk: "Дрейф ЧСС", valueUk: drift, tone: "warning"),
-                    .init(labelUk: "Вуглеводи 24г", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal")
+                    .init(labelUk: "Сон", valueUk: "\(String(format: "%.1f", rec?.lastNightSleepHours ?? 7.5))г", tone: "optimal")
                 ],
-                actionableTakeawayUk: "Для утримання пульсу в зоні 2 на наступних довгих забігах поповнюй гідратацію кожні 20 хв і збільш частку складних вуглеводів за 3 години до старту.",
+                actionableTakeawayUk: "Для утримання пульсу в зоні 2 на наступних довгих забігах поповнюй гідратацію кожні 20 хв і витримуй рівномірний темп.",
                 suggestedFollowUpsUk: [
                     "Яким має бути мій цільовий пульс на завтра?",
                     "Як тренувати аеробну базу без росту пульсу?"
@@ -855,22 +861,40 @@ public final class GeminiService: @unchecked Sendable {
                 extractedMemoryCategory: candidateFact?.category
             )
         } else if lowered.contains("їж") || lowered.contains("вуглевод") || lowered.contains("харчуван") || lowered.contains("поїст") {
-            return AnalystChatTurnResponse(
-                answerHeadlineUk: "Рекомендація з відновлювального харчування",
-                answerBodyUk: "За останні 24 години ти спожив \(Int(nut.last24hKcal)) ккал (\(Int(nut.last24hCarbsG))г вуглеводів та \(Int(nut.last24hProteinG))г білка). Щоб відновити запаси глікогену та ініціювати синтез міофібрилярного білка, після забігу потрібна комбінація складних вуглеводів та лейцину.",
-                citedMetrics: [
-                    .init(labelUk: "Вуглеводи 24г", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal"),
-                    .init(labelUk: "Білок 24г", valueUk: "\(Int(nut.last24hProteinG))г", tone: "optimal"),
-                    .init(labelUk: "Якість їжі", valueUk: "\(nut.wholeFoodRatioPct)%", tone: "teal")
-                ],
-                actionableTakeawayUk: "Найкращий вибір просто зараз: порція рису, пасти або вівсянки з нежирним білком (курка, яйця, сир) та 400 мл води з електролітами.",
-                suggestedFollowUpsUk: [
-                    "Чи потрібен мені електролітний напій сьогодні?",
-                    "Як натрій вплине на мою вагу завтра?"
-                ],
-                extractedMemoryFactUk: candidateFact?.factUk,
-                extractedMemoryCategory: candidateFact?.category
-            )
+            if nut.loggedMealsCount > 0 && nut.last24hCarbsG > 0 {
+                return AnalystChatTurnResponse(
+                    answerHeadlineUk: "Рекомендація з відновлювального харчування",
+                    answerBodyUk: "За останні 24 години ти спожив \(Int(nut.last24hKcal)) ккал (\(Int(nut.last24hCarbsG))г вуглеводів та \(Int(nut.last24hProteinG))г білка). Щоб відновити запаси глікогену та ініціювати синтез міофібрилярного білка, після забігу потрібна комбінація складних вуглеводів та лейцину.",
+                    citedMetrics: [
+                        .init(labelUk: "Вуглеводи 24г", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal"),
+                        .init(labelUk: "Білок 24г", valueUk: "\(Int(nut.last24hProteinG))г", tone: "optimal"),
+                        .init(labelUk: "Якість їжі", valueUk: "\(nut.wholeFoodRatioPct)%", tone: "teal")
+                    ],
+                    actionableTakeawayUk: "Найкращий вибір просто зараз: порція рису, пасти або вівсянки з нежирним білком (курка, яйця, сир) та 400 мл води з електролітами.",
+                    suggestedFollowUpsUk: [
+                        "Чи потрібен мені електролітний напій сьогодні?",
+                        "Як натрій вплине на мою вагу завтра?"
+                    ],
+                    extractedMemoryFactUk: candidateFact?.factUk,
+                    extractedMemoryCategory: candidateFact?.category
+                )
+            } else {
+                return AnalystChatTurnResponse(
+                    answerHeadlineUk: "Дані про раціон ще не записані",
+                    answerBodyUk: "У додатку Lifecore за останні 24 години ще немає збережених прийомів їжі. Щоб бачити точне надходження вуглеводів та оцінювати глікогеновий резерв, записуй страви через фото або текст у вкладці «Харчування».",
+                    citedMetrics: [
+                        .init(labelUk: "Записів їжі", valueUk: "0", tone: "neutral"),
+                        .init(labelUk: "Сон", valueUk: "\(String(format: "%.1f", rec?.lastNightSleepHours ?? 7.5))г", tone: "optimal")
+                    ],
+                    actionableTakeawayUk: "Для якісного відновлення після навантаження спожий порцію складних вуглеводів (вівсянка, рис, гречка) та 25-30г білка.",
+                    suggestedFollowUpsUk: [
+                        "Як правильно закрити вуглеводне вікно після бігу?",
+                        "Скільки білка потрібно після тренування?"
+                    ],
+                    extractedMemoryFactUk: candidateFact?.factUk,
+                    extractedMemoryCategory: candidateFact?.category
+                )
+            }
         } else {
             // General athletic analysis turn
             let acwr = rec?.acwrRatio != nil ? String(format: "%.2f", rec!.acwrRatio!) : "1.08"

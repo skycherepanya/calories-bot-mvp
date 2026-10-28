@@ -52,6 +52,7 @@ public struct WorkoutDetailView: View {
                     // 7. 70/15/15 AI Coach Report Card
                     CoachReportView(
                         analysis: analysis,
+                        workoutDate: workout.startDate,
                         recoveryContext: recoveryContext
                     )
                 } else if let err = errorMessage {
