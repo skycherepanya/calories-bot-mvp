@@ -99,29 +99,12 @@ public struct LifecoreIntelligenceChatView: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    if isInputFocused {
-                        Button {
-                            isInputFocused = false
-                            hideKeyboard()
-                        } label: {
-                            HStack(spacing: 3) {
-                                Image(systemName: "keyboard.chevron.compact.down")
-                                Text("Сховати")
-                            }
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(LifecoreTheme.accentPrimary)
-                        }
-                        .accessibilityIdentifier("btn_hide_keyboard_chat_nav")
-                    } else {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundStyle(LifecoreTheme.inkTertiary)
-                        }
-                        .accessibilityIdentifier("btn_close_chat")
+                    Button("Готово") {
+                        dismiss()
                     }
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
+                    .accessibilityIdentifier("btn_close_chat")
                 }
             }
             .task {

@@ -22,7 +22,7 @@ All changes to the code, data structure, AI prompts, and documentation must be r
 - **Harmonious Chat Input & Keyboard Control (`LifecoreIntelligenceChatView.swift`):**
   - Eliminated left-side jumping button: `TextField` maintains a stable layout width.
   - When input is focused and empty, the trailing button dynamically displays a circular `keyboard.chevron.compact.down` dismiss button; typing text smoothly transitions it into the green `arrow.up.circle.fill` send action.
-  - Added navigation bar trailing transition: switches from `xmark.circle.fill` to `[ ⌨️˅ Сховати ]` while the keyboard is focused, preventing accidental sheet dismissal.
+  - Kept a single, clean keyboard dismiss button directly above the keyboard in `inputBar`; restored standard `[ Готово ]` sheet dismissal in navigation bar to prevent duplicate buttons and title truncation.
   - Submitting a query (via button or keyboard return) automatically hides the keyboard.
   - Added `.scrollBounceBehavior(.always)` and `.contentShape(Rectangle())` so tapping anywhere on the chat or swiping down smoothly dismisses the keyboard even with few messages.
 
