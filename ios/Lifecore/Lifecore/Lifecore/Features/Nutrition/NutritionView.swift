@@ -68,14 +68,14 @@ public struct NutritionView: View {
                     undoBanner(deleted)
                 }
             }
-            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Харчування")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingInputSheet = true }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(LifecoreTheme.statusWarning)
                     }
                     .accessibilityIdentifier("btn_add_meal")
                 }
@@ -94,11 +94,14 @@ public struct NutritionView: View {
         HStack {
             Button(action: previousDay) {
                 Image(systemName: "chevron.left")
-                    .font(.subheadline)
-                    .padding(8)
-                    .background(Color.white.opacity(0.08))
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 32, height: 32)
+                    .background(LifecoreTheme.paperCard)
                     .clipShape(Circle())
-                    .foregroundStyle(.white)
+                    .overlay(
+                        Circle().stroke(LifecoreTheme.ruleHairline, lineWidth: 1)
+                    )
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
             }
 
             Spacer()
@@ -107,22 +110,25 @@ public struct NutritionView: View {
                 Text(FoodPrompt.formattedDietaryDateHeader(dietaryDate: selectedDietaryDate))
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
 
                 Text("Зміна доби о 04:00")
                     .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
             Spacer()
 
             Button(action: nextDay) {
                 Image(systemName: "chevron.right")
-                    .font(.subheadline)
-                    .padding(8)
-                    .background(Color.white.opacity(0.08))
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 32, height: 32)
+                    .background(LifecoreTheme.paperCard)
                     .clipShape(Circle())
-                    .foregroundStyle(canGoNext ? .white : .secondary.opacity(0.4))
+                    .overlay(
+                        Circle().stroke(LifecoreTheme.ruleHairline, lineWidth: 1)
+                    )
+                    .foregroundStyle(canGoNext ? LifecoreTheme.inkPrimary : LifecoreTheme.inkTertiary.opacity(0.4))
             }
             .disabled(!canGoNext)
         }
@@ -160,11 +166,11 @@ public struct NutritionView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
                         .font(.subheadline)
-                        .foregroundStyle(LifecoreTheme.strainOrange)
+                        .foregroundStyle(LifecoreTheme.statusWarning)
                     Text("Записати їжу")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
                 .frame(maxWidth: .infinity)
                 .lifecoreGlassCard(cornerRadius: 14, padding: 12)
@@ -180,12 +186,12 @@ public struct NutritionView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(isYesterdaySelected ? Color.orange : LifecoreTheme.cardSurface)
-                .foregroundStyle(isYesterdaySelected ? Color.black : Color.white)
+                .background(isYesterdaySelected ? LifecoreTheme.statusWarning : LifecoreTheme.paperCard)
+                .foregroundStyle(isYesterdaySelected ? Color.white : LifecoreTheme.inkPrimary)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(isYesterdaySelected ? AnyShapeStyle(Color.orange) : AnyShapeStyle(LifecoreTheme.specularBorderGradient), lineWidth: 1)
+                        .stroke(isYesterdaySelected ? LifecoreTheme.statusWarning : LifecoreTheme.ruleHairline, lineWidth: 1)
                 )
             }
         }
@@ -213,11 +219,11 @@ public struct NutritionView: View {
             HStack {
                 Label("Прийоми їжі за день", systemImage: "fork.knife")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                 Spacer()
                 Text("\(currentMeals.count) записів")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
             if currentMeals.isEmpty {
@@ -250,19 +256,18 @@ public struct NutritionView: View {
         VStack(spacing: 10) {
             Image(systemName: "fork.knife.circle")
                 .font(.system(size: 40))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text("Немає записів за цей день")
-                .font(.subheadline)
-                .foregroundStyle(.white)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(LifecoreTheme.inkPrimary)
             Text("Натисніть «Записати їжу» або «+» для швидкого розпізнавання калорій.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 36)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .lifecoreGlassCard(cornerRadius: 16)
     }
 
     // MARK: - Deletion & Undo Helpers
@@ -290,10 +295,10 @@ public struct NutritionView: View {
     private func undoBanner(_ meal: MealRecord) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "trash.fill")
-                .foregroundStyle(.red)
+                .foregroundStyle(LifecoreTheme.statusDanger)
             Text("Вилучено: \(meal.name)")
                 .font(.subheadline)
-                .foregroundStyle(.white)
+                .foregroundStyle(LifecoreTheme.inkPrimary)
                 .lineLimit(1)
 
             Spacer()
@@ -306,16 +311,9 @@ public struct NutritionView: View {
             }
             .font(.subheadline)
             .fontWeight(.bold)
-            .foregroundStyle(.orange)
+            .foregroundStyle(LifecoreTheme.statusWarning)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(red: 0.14, green: 0.15, blue: 0.2))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
+        .lifecoreGlassCard(cornerRadius: 14, padding: 12)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -368,5 +366,5 @@ public struct NutritionView: View {
 
 #Preview {
     NutritionView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

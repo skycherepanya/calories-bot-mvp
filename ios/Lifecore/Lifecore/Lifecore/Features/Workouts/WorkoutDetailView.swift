@@ -16,7 +16,7 @@ public struct WorkoutDetailView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
+            VStack(spacing: 16) {
                 // 1. Header Overview Card
                 headerOverviewCard
 
@@ -61,7 +61,7 @@ public struct WorkoutDetailView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
-        .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
+        .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
         .navigationTitle(workoutTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -73,13 +73,13 @@ public struct WorkoutDetailView: View {
 
     private var workoutTitle: String {
         switch workout.workoutActivityType {
-        case .running: return "Running"
-        case .cycling: return "Cycling"
-        case .walking: return "Walking"
-        case .traditionalStrengthTraining, .functionalStrengthTraining: return "Strength"
+        case .running: return "Біг"
+        case .cycling: return "Велосипед"
+        case .walking: return "Прогулянка"
+        case .traditionalStrengthTraining, .functionalStrengthTraining: return "Силове тренування"
         case .highIntensityIntervalTraining: return "HIIT"
-        case .swimming: return "Swimming"
-        default: return "Workout"
+        case .swimming: return "Плавання"
+        default: return "Тренування"
         }
     }
 
@@ -88,35 +88,34 @@ public struct WorkoutDetailView: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: iconName(for: workout.workoutActivityType))
-                        .font(.title2)
-                        .foregroundStyle(.green)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                     Text(workoutTitle)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
 
                 Spacer()
 
                 Text(formattedDate(workout.startDate))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            LifecoreHairlineDivider()
 
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 metricCell(
                     title: "Тривалість",
                     value: String(format: "%.0f хв", workout.duration / 60.0),
-                    highlight: .white
+                    highlight: LifecoreTheme.inkPrimary
                 )
 
                 if let dist = workout.totalDistance?.doubleValue(for: .meter()) {
                     metricCell(
                         title: "Дистанція",
                         value: String(format: "%.2f км", dist / 1000.0),
-                        highlight: .cyan
+                        highlight: LifecoreTheme.accentTeal
                     )
                 }
 
@@ -124,7 +123,7 @@ public struct WorkoutDetailView: View {
                     metricCell(
                         title: "Калорії",
                         value: "\(Int(kcal)) ккал",
-                        highlight: .orange
+                        highlight: LifecoreTheme.statusWarning
                     )
                 }
 
@@ -132,24 +131,22 @@ public struct WorkoutDetailView: View {
                     metricCell(
                         title: "Сер. ЧСС",
                         value: "\(Int(hr)) bpm",
-                        highlight: .red
+                        highlight: LifecoreTheme.statusDanger
                     )
                 }
             }
         }
-        .padding(18)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard(cornerRadius: 20)
     }
 
     private func metricCell(title: String, value: String, highlight: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.bold)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
                 .foregroundStyle(highlight)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -158,25 +155,24 @@ public struct WorkoutDetailView: View {
     private var loadingCard: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(.cyan)
-            Text("Витягую детальну телеметрію з Apple Watch Ultra...")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .tint(LifecoreTheme.accentPrimary)
+            Text("Витягую детальну телеметрію з Apple Watch...")
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard(cornerRadius: 20)
     }
 
     private func errorCard(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.title)
-                .foregroundStyle(.orange)
+                .font(.system(size: 28))
+                .foregroundStyle(LifecoreTheme.statusWarning)
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 13))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 16)
 
@@ -189,19 +185,18 @@ public struct WorkoutDetailView: View {
                     Image(systemName: "arrow.clockwise")
                     Text("Спробувати знову")
                 }
-                .font(.footnote)
-                .fontWeight(.semibold)
+                .font(.system(size: 12, weight: .semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white.opacity(0.12))
-                .foregroundStyle(.white)
+                .background(LifecoreTheme.paperWell)
+                .foregroundStyle(LifecoreTheme.inkPrimary)
                 .clipShape(Capsule())
             }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard(cornerRadius: 20)
     }
 
     // MARK: - Actions

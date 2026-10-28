@@ -1,15 +1,15 @@
-# Lifecore 3.2 System Architecture: Native iOS-First, Deterministic Adaptive Training Prescription & Athletic Intelligence
+# Lifecore 3.4 System Architecture: Native iOS-First, Hallmark Daylight UI, Multilayer Health RAG & Conversational Analyst Engine
 
-> **Document Status:** Master Architecture Reference (Active v3.2)  
+> **Document Status:** Master Architecture Reference (Active v3.4)  
 > **Target Platform:** Native iOS (Swift 6, SwiftUI, Swift Charts, HealthKit, SwiftData) + Cloud Synchronization (Supabase PostgreSQL, Gemini API) + Maestro E2E
 
 ---
 
 ## 1. Executive Architectural Summary
 
-**Lifecore 3.1** represents the evolution of the Lifecore platform from an initial multi-backend Telegram prototype (v1.0) into a **native, on-device iOS-first quantified self and athletic performance ecosystem** (v2.0), elevated with **clinical-grade physiological intelligence** (v3.0), and culminating in a **self-learning adaptive physiology engine and Liquid Glass Bento UI overhaul** (v3.1).
+**Lifecore 3.4** introduces a unified **Hierarchical Health Context Graph (3-Tier On-Device RAG)** and **Conversational Analyst Engine (Lifecore Intelligence Chat)**, solving the problem of context-blind raw AI summaries and template cliches. This builds directly upon the Hallmark Daylight UI (v3.3), deterministic training prescription (v3.2), clinical physiological intelligence (v3.0), and self-learning adaptive engine (v3.1).
 
-Commercial health platforms (Whoop, Oura, Strava, MyFitnessPal) enforce vendor lock-in, fragment metrics across disparate apps, and fail to provide unified physiological intelligence. Lifecore consolidates continuous autonomic telemetry (Apple Watch), granular running split dynamics (HealthKit), and vision-based nutrition tracking into a cohesive, private, on-device ecosystem.
+Commercial health platforms (Whoop, Oura, Strava, MyFitnessPal) enforce vendor lock-in, fragment metrics across disparate apps, and fail to provide unified physiological intelligence. Lifecore consolidates continuous autonomic telemetry (Apple Watch), granular running split dynamics (HealthKit), and vision-based nutrition tracking into a cohesive, private, on-device ecosystem styled as a precision athletic daylight instrument.
 
 ### Architectural Core Principles:
 1. **Local-First & HealthKit as Canonical Truth:** Apple Health on iOS is the primary source of truth for all biological and physical telemetry. Telemetry is parsed directly on-device in <5ms without third-party API dependencies.
@@ -201,22 +201,29 @@ Computes personalized tactical training prescriptions and maintains a non-destru
 
 ---
 
-### 3.4. Layer 4: Presentation (Lifecore UI 3.1) & AI Athletic Coach
-* **Presentation Layer (`LifecoreDesignSystem` — Liquid Glass Bento Cockpit):**
-  - **Today View 3.1:** Hero Cockpit with `AdaptiveEngineBadgeBar` and `RPEQuickCalibrationRow`; Readiness, Strain, and Active Move rings; **5-Pill Overnight Vitals Corridor Bar** with **Illness Prodrome Radar Banner**; **24h Energy Bank (Body Battery)** curve; Sleep Architecture Bento; and Pure NEAT with real-time accrued dynamic BMR.
-  - **Workouts View 3.1:** Activity category filters (Running, Strength, Cycling, HIIT), live Banister TRIMP badges, granular 1km auto-splits and interval laps; synchronized Swift Charts for pace, HR, and elevation; EF, Cardiac Drift %, and Benchmark Delta cards.
-  - **Nutrition View 3.1:** Unified «Записати їжу» action button; two-tier zero-lag modal (`FoodInputSheet`) separating cached camera/photo capture from decoupled text input; gesture-driven swipeable meal container (`SwipeableMealCardContainer`) with localized in-place destructive confirmation under touch; +12.5% deficit buffer badge; Whole Food vs UPF ratio; Tomorrow Sodium Water Retention Forecast; and leucine MPS threshold.
-  - **Trends View 3.1:** Segmented Glass Category Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`); `AdaptiveEngineStatusCard`; 7d/14d rolling weight trend (water noise filter); 30d/60d autonomic baseline corridors; **Time-Lagged Correlations Hub** ($r, r_{pb}$); and **EWMA ACWR Workload Ratio Chart**.
-* **AI Athletic Coach (Gemini API via `GeminiService.swift`):**
-  - Evaluates pre-calculated Swift telemetry, Overnight Vitals confluence, EWMA ACWR, and personal time-lagged correlations.
-  - Delivers structured, motivating Ukrainian debriefs across 3 clear sections:
-    1. **🏃 Аналіз тренування (70%):** Pacing strategy, split execution, cardiac drift km, elevation response.
-    2. **⚖️ Порівняння з бенчмарком (15%):** Objective delta against previous 3 similar sessions.
-    3. **🧬 Фізіологічний контекст & Дія на 24г (15%):** Root causes (sleep stages, vitals, nutrition) + exactly 1 actionable athletic directive for the next 24 hours.
+### 3.4. Layer 4: Presentation (Lifecore Hallmark Daylight UI) & Intelligence Chat
+* **Presentation Layer (`LifecoreDesignSystem` — Hallmark Daylight UI):**
+  - **Today View 3.4:** Hero Cockpit with `AdaptiveEngineBadgeBar` and `RPEQuickCalibrationRow`; Readiness, Strain, and Active Move rings; **5-Pill Overnight Vitals Corridor Bar** with **Illness Prodrome Radar Banner**; **24h Energy Bank (Body Battery)** curve; Sleep Architecture Bento; Pure NEAT with real-time accrued dynamic BMR; and top-right **✨ Lifecore Intelligence Chat launcher**.
+  - **Workouts View 3.4:** Interactive 7-day Workout Calendar Strip; activity category filters (Running, Strength, Cycling, HIIT); live Banister TRIMP badges; granular 1km auto-splits and interval laps; synchronized Swift Charts for pace, HR, and elevation; EF, Cardiac Drift %, and **Regime-Aware Benchmark Delta cards** (`BenchmarkRegime`).
+  - **Nutrition View 3.4:** Unified «Записати їжу» action button; two-tier zero-lag modal (`FoodInputSheet`) separating cached camera/photo capture from decoupled text input; gesture-driven swipeable meal container (`SwipeableMealCardContainer`) with localized in-place destructive confirmation under touch; +12.5% deficit buffer badge; Whole Food vs UPF ratio; Tomorrow Sodium Water Retention Forecast; and leucine MPS threshold.
+  - **Trends View 3.4:** Segmented Glass Category Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`); `AdaptiveEngineStatusCard`; 7d/14d rolling weight trend (water noise filter); 30d/60d autonomic baseline corridors; **Time-Lagged Correlations Hub** ($r, r_{pb}$); and **EWMA ACWR Workload Ratio Chart**.
+  - **Coach Report View 3.4:** Hallmark Daylight card without Markdown hashes (`###`) or template cliches, rendering strongly typed `StructuredWorkoutDebrief` with metric evidence pills, pacing narrative, benchmark comparison with regime tag, and physiological context with actionable next-day directives.
+  - **Lifecore Intelligence Chat Sheet (`LifecoreIntelligenceChatView.swift`):** Bevel Intelligence multi-turn analyst sheet displaying RAG context bar, athlete memory drawer, cited metric chips, recommended questions, and structured responses (`AnalystChatTurnResponse`).
 
 ---
 
-### 3.5. Layer 5: Automated High-Leverage E2E Testing Layer (Maestro E2E)
+### 3.5. Layer 5: Hierarchical Health Context Graph (3-Tier On-Device RAG) & Memory Engine (Phase 3.4)
+* **3-Tier On-Device Health Context Graph (`LifecoreContextRAG.swift`):**
+  - **L1 (Acute 48h):** Granular 1km workout splits, cardiac drift %, nocturnal sleep architecture, 5-metric Overnight Vitals deviations, and meals eaten within the last 48 hours.
+  - **L2 (Contextual 30d):** EWMA ACWR strain envelope, dynamic TDEE slope, learned biological sensitivities ($\beta_{\text{Na}\to\text{H2O}}$, $\beta_{\text{LateMeal}\to\text{RHR}}$, etc.), and training prescription status.
+  - **L3 (Episodic Longitudinal Memory):** SwiftData `AthleteMemoryEntity` indexed and retrieved via hybrid BM25 lexical token matching + semantic tags + 21-day exponential recency decay.
+* **Conversational Analyst Loop:**
+  - Automated post-turn factual extraction via regex pattern matching stores athlete injuries, dietary preferences, personal bests, and race goals into persistent episodic memory.
+  - Offline fallback engine (`generateOfflineAnalystChatResponse`) guarantees immediate, non-blocking coach responses even when network connectivity or Gemini quota is unavailable.
+
+---
+
+### 3.6. Layer 6: Automated High-Leverage E2E Testing Layer (Maestro E2E)
 * **Philosophy:** Minimal set of high-leverage end-to-end tests validating actual state transitions, mathematical calculations, and optimistic pipelines rather than superficial UI checks.
 * **Architecture:**
   - Non-invasive `.accessibilityIdentifier(...)` hooks across all 4 primary screens (`TodayView`, `WorkoutsView`, `NutritionView`, `TrendsView`) and modal sheets (`AthleteProfileSheet`, `FoodInputSheet`).

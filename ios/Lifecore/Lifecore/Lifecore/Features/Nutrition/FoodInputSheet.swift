@@ -36,14 +36,14 @@ public struct FoodInputSheet: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("sheet_food_input")
-            .background(Color(red: 0.05, green: 0.06, blue: 0.08).ignoresSafeArea())
+            .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Новий прийом їжі")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Скасувати") { dismiss() }
                         .accessibilityIdentifier("btn_close_food_input")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
             }
             .sheet(isPresented: $showCamera) {
@@ -79,7 +79,7 @@ public struct FoodInputSheet: View {
             Label("Фото страви (опціонально)", systemImage: "camera.fill")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
 
             if let imgData = selectedImageData, let uiImage = UIImage(data: imgData) {
                 ZStack(alignment: .topTrailing) {
@@ -114,12 +114,12 @@ public struct FoodInputSheet: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(LifecoreTheme.strainOrange.opacity(0.14))
-                            .foregroundStyle(LifecoreTheme.strainOrange)
+                            .background(LifecoreTheme.paperWell)
+                            .foregroundStyle(LifecoreTheme.statusWarning)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .stroke(LifecoreTheme.strainOrange.opacity(0.3), lineWidth: 1)
+                                    .stroke(LifecoreTheme.ruleHairline, lineWidth: 1)
                             )
                         }
                     }
@@ -134,12 +134,12 @@ public struct FoodInputSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-                        .foregroundStyle(.white)
+                        .background(LifecoreTheme.paperCard)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                .stroke(LifecoreTheme.ruleHairline, lineWidth: 1)
                         )
                     }
                 }
@@ -154,31 +154,31 @@ public struct FoodInputSheet: View {
             Label("Опис страви", systemImage: "pencil.line")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
 
             ZStack(alignment: .topLeading) {
                 if textInput.isEmpty {
                     Text("Наприклад: Гречка 150г, куряче філе 120г, огірок...")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary.opacity(0.7))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                 }
 
                 TextEditor(text: $textInput)
                     .font(.subheadline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .frame(minHeight: 80, maxHeight: 110)
                     .accessibilityIdentifier("input_food_text")
             }
-            .background(Color(red: 0.1, green: 0.11, blue: 0.15))
+            .background(LifecoreTheme.paperCard)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(LifecoreTheme.ruleHairline, lineWidth: 1)
             )
 
             quickPresetsSection
@@ -190,7 +190,7 @@ public struct FoodInputSheet: View {
             HStack(spacing: 8) {
                 if isProcessingImage {
                     ProgressView()
-                        .tint(.black)
+                        .tint(canSubmit ? .white : LifecoreTheme.inkTertiary)
                     Text("Обробка фото...")
                         .fontWeight(.bold)
                 } else {
@@ -201,14 +201,9 @@ public struct FoodInputSheet: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(
-                canSubmit ?
-                LinearGradient(colors: [LifecoreTheme.strainOrange, Color(red: 1.0, green: 0.35, blue: 0.0)], startPoint: .leading, endPoint: .trailing) :
-                LinearGradient(colors: [.gray.opacity(0.25), .gray.opacity(0.25)], startPoint: .leading, endPoint: .trailing)
-            )
-            .foregroundStyle(canSubmit ? .black : .secondary)
+            .background(canSubmit ? LifecoreTheme.accentPrimary : LifecoreTheme.paperWell)
+            .foregroundStyle(canSubmit ? Color.white : LifecoreTheme.inkTertiary)
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: canSubmit ? LifecoreTheme.strainOrange.opacity(0.3) : .clear, radius: 8, y: 3)
         }
         .accessibilityIdentifier("btn_submit_food")
         .disabled(!canSubmit || isProcessingImage)
@@ -238,7 +233,7 @@ public struct FoodInputSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Швидкі варіанти")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -261,8 +256,8 @@ public struct FoodInputSheet: View {
                 .font(.caption)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.white.opacity(0.08))
-                .foregroundStyle(.white)
+                .background(LifecoreTheme.paperWell)
+                .foregroundStyle(LifecoreTheme.inkPrimary)
                 .clipShape(Capsule())
         }
         .accessibilityIdentifier(text == "Вівсянка з ягодами" ? "preset_oatmeal" : "preset_\(text)")

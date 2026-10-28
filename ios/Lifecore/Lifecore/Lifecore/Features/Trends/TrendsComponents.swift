@@ -39,21 +39,25 @@ public struct TrendsRangePickerView: View {
                     Text(range.titleUk)
                         .font(.subheadline)
                         .fontWeight(selectedRange == range ? .semibold : .medium)
-                        .foregroundStyle(selectedRange == range ? .black : .white.opacity(0.7))
+                        .foregroundStyle(selectedRange == range ? LifecoreTheme.inkPrimary : LifecoreTheme.inkSecondary)
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
                         .background(
                             selectedRange == range
-                                ? Color.cyan
-                                : Color.white.opacity(0.06)
+                                ? LifecoreTheme.paperCard
+                                : Color.clear
                         )
                         .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(selectedRange == range ? LifecoreTheme.ruleHairline : Color.clear, lineWidth: 1.0)
+                        )
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(4)
-        .background(Color(red: 0.08, green: 0.09, blue: 0.12))
+        .background(LifecoreTheme.paperWell)
         .clipShape(Capsule())
     }
 }
@@ -77,11 +81,12 @@ public struct TrendStatItem: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
 
             Text(value)
                 .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
 
             if let delta = delta {
                 HStack(spacing: 2) {
@@ -92,8 +97,9 @@ public struct TrendStatItem: View {
                     Text(delta)
                         .font(.caption2)
                         .fontWeight(.medium)
+                        .monospacedDigit()
                 }
-                .foregroundStyle(isPositive == nil ? .secondary : (isPositive! ? Color(red: 0.0, green: 0.9, blue: 0.45) : Color(red: 1.0, green: 0.35, blue: 0.35)))
+                .foregroundStyle(isPositive == nil ? LifecoreTheme.inkSecondary : (isPositive! ? LifecoreTheme.statusOptimal : LifecoreTheme.statusDanger))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -135,7 +141,7 @@ public struct WeightTrendCard: View {
             HStack(alignment: .center) {
                 Label("Динаміка Ваги", systemImage: "scalemass.fill")
                     .font(.headline)
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(LifecoreTheme.accentTeal)
 
                 Spacer()
 
@@ -149,8 +155,8 @@ public struct WeightTrendCard: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.18))
-                    .foregroundStyle(Color.orange)
+                    .background(LifecoreTheme.statusWarning.opacity(0.14))
+                    .foregroundStyle(LifecoreTheme.statusWarning)
                     .clipShape(Capsule())
                 }
             }
@@ -181,22 +187,22 @@ public struct WeightTrendCard: View {
                 let diff = latest.rawWeightKg - avg7
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "info.circle.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(LifecoreTheme.statusWarning)
                         .font(.subheadline)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Стрибок затримки рідини (\(String(format: "%+.1f", diff)) кг)")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
                         Text("Різке збільшення ваги зумовлене гідратацією глікогену або сіллю, а не жировою тканиною. 7-денна ковзна середня залишається стабільною.")
                             .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.75))
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                             .lineSpacing(2)
                     }
                 }
                 .padding(10)
-                .background(Color.orange.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .background(LifecoreTheme.statusWarning.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
             // Scrub Tooltip Callout
@@ -205,37 +211,41 @@ public struct WeightTrendCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(sel.date.formatted(date: .abbreviated, time: .omitted))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                         HStack(spacing: 8) {
                             Text("Замір: \(String(format: "%.1f", sel.rawWeightKg)) кг")
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.white)
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.inkPrimary)
 
                             if let r7 = sel.rolling7dKg {
                                 Text("7d: \(String(format: "%.1f", r7)) кг")
                                     .font(.caption)
-                                    .foregroundStyle(.cyan)
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.accentTeal)
                             }
 
                             if let r14 = sel.rolling14dKg {
                                 Text("14d: \(String(format: "%.1f", r14)) кг")
                                     .font(.caption)
-                                    .foregroundStyle(Color(red: 0.75, green: 0.5, blue: 1.0))
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.accentIndigo)
                             }
                         }
                     }
                     Spacer()
                     if sel.isWaterSpike {
-                        Text("💧 Водний сплеск")
+                        Label("Водний сплеск", systemImage: "drop.fill")
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(LifecoreTheme.statusWarning)
                     }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(LifecoreTheme.paperWell)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             // Swift Chart
@@ -245,31 +255,31 @@ public struct WeightTrendCard: View {
             // Legend
             HStack(spacing: 14) {
                 HStack(spacing: 5) {
-                    Circle().fill(Color.white.opacity(0.6)).frame(width: 6, height: 6)
+                    Circle().fill(LifecoreTheme.inkTertiary.opacity(0.6)).frame(width: 6, height: 6)
                     Text("Замір")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
 
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2).fill(Color.cyan).frame(width: 12, height: 3)
+                    RoundedRectangle(cornerRadius: 2).fill(LifecoreTheme.accentTeal).frame(width: 12, height: 3)
                     Text("7d фільтр")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
 
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2).fill(Color(red: 0.75, green: 0.5, blue: 1.0)).frame(width: 12, height: 3)
+                    RoundedRectangle(cornerRadius: 2).fill(LifecoreTheme.accentIndigo).frame(width: 12, height: 3)
                     Text("14d тренд")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
 
                 HStack(spacing: 5) {
-                    Circle().fill(Color.orange).frame(width: 6, height: 6)
+                    Circle().fill(LifecoreTheme.statusWarning).frame(width: 6, height: 6)
                     Text("Водний шум")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
             }
         }
@@ -287,7 +297,7 @@ public struct WeightTrendCard: View {
                     x: .value("Дата", p.date, unit: .day),
                     y: .value("Вага", p.rawWeightKg)
                 )
-                .foregroundStyle(p.isWaterSpike ? Color.orange : Color.white.opacity(0.35))
+                .foregroundStyle(p.isWaterSpike ? LifecoreTheme.statusWarning : LifecoreTheme.inkTertiary.opacity(0.45))
                 .symbolSize(p.isWaterSpike ? 40 : 16)
 
                 // 7-day rolling average line (Metabolic trend)
@@ -297,7 +307,7 @@ public struct WeightTrendCard: View {
                         y: .value("7d Ковзна", r7),
                         series: .value("Серія", "7d")
                     )
-                    .foregroundStyle(Color.cyan)
+                    .foregroundStyle(LifecoreTheme.accentTeal)
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                 }
 
@@ -308,7 +318,7 @@ public struct WeightTrendCard: View {
                         y: .value("14d Ковзна", r14),
                         series: .value("Серія", "14d")
                     )
-                    .foregroundStyle(Color(red: 0.75, green: 0.5, blue: 1.0))
+                    .foregroundStyle(LifecoreTheme.accentIndigo)
                     .lineStyle(StrokeStyle(lineWidth: 1.8, dash: [4, 4]))
                 }
             }
@@ -316,14 +326,14 @@ public struct WeightTrendCard: View {
             // Interactive scrub rule
             if let sel = selectedPoint {
                 RuleMark(x: .value("Дата", sel.date, unit: .day))
-                    .foregroundStyle(Color.cyan.opacity(0.8))
+                    .foregroundStyle(LifecoreTheme.accentTeal.opacity(0.8))
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                 PointMark(
                     x: .value("Дата", sel.date, unit: .day),
                     y: .value("Вага", sel.rawWeightKg)
                 )
-                .foregroundStyle(Color.cyan)
+                .foregroundStyle(LifecoreTheme.accentTeal)
                 .symbolSize(60)
             }
         }
@@ -332,20 +342,22 @@ public struct WeightTrendCard: View {
         .chartXAxis {
             AxisMarks(values: .stride(by: .day, count: points.count > 45 ? 14 : 7)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
-                    .foregroundStyle(Color.white.opacity(0.08))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
                 AxisValueLabel(format: .dateTime.day().month(.defaultDigits))
-                    .foregroundStyle(Color.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
             }
         }
         .chartYAxis {
             AxisMarks(position: .leading) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Color.white.opacity(0.08))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
                 AxisValueLabel {
                     if let d = value.as(Double.self) {
                         Text(String(format: "%.1f", d))
                             .font(.caption2)
-                            .foregroundStyle(Color.secondary)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
                     }
                 }
             }
@@ -383,11 +395,11 @@ public struct AutonomicTrendCard: View {
 
     private func autonomicStatus(hrvDiff: Double) -> (text: String, color: Color) {
         if hrvDiff >= 0 {
-            return ("Оптимум", Color(red: 0.0, green: 0.9, blue: 0.45))
+            return ("Оптимум", LifecoreTheme.statusOptimal)
         } else if hrvDiff >= -8 {
-            return ("Стабільно", .cyan)
+            return ("Стабільно", LifecoreTheme.accentTeal)
         } else {
-            return ("Напруження", .orange)
+            return ("Напруження", LifecoreTheme.statusWarning)
         }
     }
 
@@ -397,7 +409,7 @@ public struct AutonomicTrendCard: View {
             HStack(alignment: .center) {
                 Label("Вегетативна Стабільність", systemImage: "waveform.path.ecg")
                     .font(.headline)
-                    .foregroundStyle(Color(red: 0.0, green: 0.9, blue: 0.45))
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
 
                 Spacer()
 
@@ -437,13 +449,13 @@ public struct AutonomicTrendCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Стан ВНС")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                     Text(status.text)
                         .font(.system(.title3, design: .rounded, weight: .bold))
                         .foregroundStyle(status.color)
                     Text("Середня ± 0.5σ")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -454,23 +466,27 @@ public struct AutonomicTrendCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(sel.date.formatted(date: .abbreviated, time: .omitted))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                         HStack(spacing: 10) {
                             if let hrv = sel.hrvMs {
                                 Text("HRV: \(Int(hrv)) мс")
                                     .font(.caption)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(Color(red: 0.0, green: 0.9, blue: 0.45))
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.statusOptimal)
                             }
                             if let mean = sel.hrvBaselineMean {
                                 Text("База: \(Int(mean)) мс")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.inkSecondary)
                             }
                             if let rhr = sel.rhrBpm {
                                 Text("RHR: \(Int(rhr)) уд/хв")
                                     .font(.caption)
-                                    .foregroundStyle(.orange)
+                                    .fontWeight(.bold)
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.statusWarning)
                             }
                         }
                     }
@@ -478,8 +494,8 @@ public struct AutonomicTrendCard: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(LifecoreTheme.paperWell)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             // Swift Chart
@@ -490,31 +506,31 @@ public struct AutonomicTrendCard: View {
             HStack(spacing: 14) {
                 if selectedMetric == .hrv {
                     HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 2).fill(Color(red: 0.0, green: 0.9, blue: 0.45)).frame(width: 12, height: 3)
+                        RoundedRectangle(cornerRadius: 2).fill(LifecoreTheme.statusOptimal).frame(width: 12, height: 3)
                         Text("HRV за день")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
 
                     HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 2).fill(Color.green.opacity(0.2)).frame(width: 12, height: 8)
+                        RoundedRectangle(cornerRadius: 2).fill(LifecoreTheme.statusOptimal.opacity(0.2)).frame(width: 12, height: 8)
                         Text("30d Коридор (±0.5σ)")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
 
                     HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 2).fill(Color.green.opacity(0.5)).frame(width: 12, height: 1)
+                        RoundedRectangle(cornerRadius: 2).fill(LifecoreTheme.statusOptimal.opacity(0.5)).frame(width: 12, height: 1)
                         Text("Медіана")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                 } else {
                     HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 2).fill(Color.orange).frame(width: 12, height: 3)
+                        RoundedRectangle(cornerRadius: 2).fill(LifecoreTheme.statusWarning).frame(width: 12, height: 3)
                         Text("Нічний пульс спокою (уд/хв)")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                 }
             }
@@ -548,7 +564,7 @@ public struct AutonomicTrendCard: View {
                             yStart: .value("Нижня база", lower),
                             yEnd: .value("Верхня база", upper)
                         )
-                        .foregroundStyle(Color.green.opacity(0.12))
+                        .foregroundStyle(LifecoreTheme.statusOptimal.opacity(0.12))
                     }
 
                     if let mean = s.hrvBaselineMean {
@@ -557,7 +573,7 @@ public struct AutonomicTrendCard: View {
                             y: .value("Базова середня", mean),
                             series: .value("Серія", "Базова")
                         )
-                        .foregroundStyle(Color.green.opacity(0.4))
+                        .foregroundStyle(LifecoreTheme.statusOptimal.opacity(0.4))
                         .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
                     }
 
@@ -567,14 +583,14 @@ public struct AutonomicTrendCard: View {
                             y: .value("HRV", hrv),
                             series: .value("Серія", "HRV")
                         )
-                        .foregroundStyle(Color(red: 0.0, green: 0.9, blue: 0.45))
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                         .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
 
                         PointMark(
                             x: .value("Дата", s.date, unit: .day),
                             y: .value("HRV", hrv)
                         )
-                        .foregroundStyle(Color(red: 0.0, green: 0.9, blue: 0.45))
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                         .symbolSize(20)
                     }
                 }
@@ -589,7 +605,7 @@ public struct AutonomicTrendCard: View {
                         )
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [Color.orange.opacity(0.25), Color.clear],
+                                colors: [LifecoreTheme.statusWarning.opacity(0.25), Color.clear],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -600,14 +616,14 @@ public struct AutonomicTrendCard: View {
                             y: .value("RHR", rhr),
                             series: .value("Серія", "RHR")
                         )
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(LifecoreTheme.statusWarning)
                         .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
 
                         PointMark(
                             x: .value("Дата", s.date, unit: .day),
                             y: .value("RHR", rhr)
                         )
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(LifecoreTheme.statusWarning)
                         .symbolSize(20)
                     }
                 }
@@ -616,7 +632,7 @@ public struct AutonomicTrendCard: View {
             // Interactive scrub rule
             if let sel = selectedSample {
                 RuleMark(x: .value("Дата", sel.date, unit: .day))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                 if selectedMetric == .hrv, let val = sel.hrvMs {
@@ -624,14 +640,14 @@ public struct AutonomicTrendCard: View {
                         x: .value("Дата", sel.date, unit: .day),
                         y: .value("HRV", val)
                     )
-                    .foregroundStyle(Color(red: 0.0, green: 0.9, blue: 0.45))
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
                     .symbolSize(50)
                 } else if selectedMetric == .rhr, let val = sel.rhrBpm {
                     PointMark(
                         x: .value("Дата", sel.date, unit: .day),
                         y: .value("RHR", val)
                     )
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(LifecoreTheme.statusWarning)
                     .symbolSize(50)
                 }
             }
@@ -641,20 +657,22 @@ public struct AutonomicTrendCard: View {
         .chartXAxis {
             AxisMarks(values: .stride(by: .day, count: samples.count > 45 ? 14 : 7)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
-                    .foregroundStyle(Color.white.opacity(0.08))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
                 AxisValueLabel(format: .dateTime.day().month(.defaultDigits))
-                    .foregroundStyle(Color.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
             }
         }
         .chartYAxis {
             AxisMarks(position: .leading) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Color.white.opacity(0.08))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
                 AxisValueLabel {
                     if let d = value.as(Double.self) {
                         Text("\(Int(d))")
                             .font(.caption2)
-                            .foregroundStyle(Color.secondary)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
                     }
                 }
             }
@@ -693,23 +711,16 @@ public struct AerobicEfficiencyTrendCard: View {
             HStack(alignment: .center) {
                 Label("Аеробна Ефективність (EF)", systemImage: "figure.run")
                     .font(.headline)
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(LifecoreTheme.statusWarning)
 
                 Spacer()
 
                 if avgDecoupling < 5.0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.caption2)
-                        Text("Висока витривалість")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.18))
-                    .foregroundStyle(Color(red: 0.0, green: 0.9, blue: 0.45))
-                    .clipShape(Capsule())
+                    LifecoreGlowPill(
+                        text: "Висока витривалість",
+                        systemIcon: "checkmark.seal.fill",
+                        color: LifecoreTheme.statusOptimal
+                    )
                 }
             }
 
@@ -744,39 +755,43 @@ public struct AerobicEfficiencyTrendCard: View {
                         Text(sel.workoutName)
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
                         Spacer()
                         Text(sel.date.formatted(date: .abbreviated, time: .omitted))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
 
                     HStack(spacing: 10) {
                         Text("EF: \(String(format: "%.3f", sel.efficiencyFactor))")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.orange)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.statusWarning)
 
                         Text("Темп: \(String(format: "%.2f", sel.avgPaceMinKm)) хв/км")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
 
                         Text("ЧСС: \(Int(sel.avgHrBpm)) уд/хв")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
 
                         if let dec = sel.aerobicDecouplingPct {
                             Text("Дрейф: \(String(format: "%.1f%%", dec))")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(dec < 5.0 ? Color.green : Color.orange)
+                                .monospacedDigit()
+                                .foregroundStyle(dec < 5.0 ? LifecoreTheme.statusOptimal : LifecoreTheme.statusWarning)
                         }
                     }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(LifecoreTheme.paperWell)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
 
             // Swift Chart: Historical EF Progression
@@ -787,10 +802,10 @@ public struct AerobicEfficiencyTrendCard: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "lightbulb.fill")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(LifecoreTheme.statusWarning)
                 Text("Efficiency Factor (EF) розраховується як швидкість (м/хв) поділена на ЧСС (уд/хв). Зростання лінії свідчить про збільшення аеробної потужності без додаткового серцевого навантаження.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                     .lineSpacing(2)
             }
         }
@@ -807,28 +822,28 @@ public struct AerobicEfficiencyTrendCard: View {
                     x: .value("Дата", s.date, unit: .day),
                     y: .value("EF", s.efficiencyFactor)
                 )
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(LifecoreTheme.statusWarning)
                 .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
 
                 PointMark(
                     x: .value("Дата", s.date, unit: .day),
                     y: .value("EF", s.efficiencyFactor)
                 )
-                .foregroundStyle((s.aerobicDecouplingPct ?? 0) < 5.0 ? Color(red: 0.0, green: 0.9, blue: 0.45) : Color.orange)
+                .foregroundStyle((s.aerobicDecouplingPct ?? 0) < 5.0 ? LifecoreTheme.statusOptimal : LifecoreTheme.statusWarning)
                 .symbolSize(35)
             }
 
             // Interactive scrub rule
             if let sel = selectedSample {
                 RuleMark(x: .value("Дата", sel.date, unit: .day))
-                    .foregroundStyle(Color.orange.opacity(0.7))
+                    .foregroundStyle(LifecoreTheme.statusWarning.opacity(0.7))
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                 PointMark(
                     x: .value("Дата", sel.date, unit: .day),
                     y: .value("EF", sel.efficiencyFactor)
                 )
-                .foregroundStyle(Color.white)
+                .foregroundStyle(LifecoreTheme.inkPrimary)
                 .symbolSize(55)
             }
         }
@@ -850,20 +865,22 @@ public struct AerobicEfficiencyTrendCard: View {
         .chartXAxis {
             AxisMarks(values: .stride(by: .day, count: max(5, samples.count * 2))) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
-                    .foregroundStyle(Color.white.opacity(0.08))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
                 AxisValueLabel(format: .dateTime.day().month(.defaultDigits))
-                    .foregroundStyle(Color.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
             }
         }
         .chartYAxis {
             AxisMarks(position: .leading) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Color.white.opacity(0.08))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
                 AxisValueLabel {
                     if let d = value.as(Double.self) {
                         Text(String(format: "%.2f", d))
                             .font(.caption2)
-                            .foregroundStyle(Color.secondary)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
                     }
                 }
             }

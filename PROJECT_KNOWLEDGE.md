@@ -1,4 +1,4 @@
-# Project Master Context: Lifecore 3.2 (Native iOS-First, Deterministic Adaptive Training Prescription & Athletic Performance Platform)
+# Project Master Context: Lifecore 3.4 (Native iOS-First, Hallmark v2.0.0 Daylight Redesign, Hierarchical Health RAG & Conversational Analyst Platform)
 
 > **File Purpose:** Single Source of Truth for AI agents and developers. Contains the full project description, physiological mathematics, on-device Swift telemetry rules, AI coach prompt engineering, database schema, and roadmap. **Do not search other files redundantly — all critical information is consolidated here.**
 
@@ -8,7 +8,7 @@
 
 * **Project Name:** Lifecore (Native iOS-First Quantified Self & Athletic Performance Platform)
 * **Repository:** `calories-bot-mvp` (planned rename to `lifecore`)
-* **Core Philosophy:** Personal on-device health and athletic intelligence platform. Lifecore combines continuous physiological telemetry from Apple Watch (Apple HealthKit), frictionless vision-based nutrition tracking, deterministic Swift telemetry math, and an elite AI Athletic Performance Analyst.
+* **Core Philosophy:** Personal on-device health and athletic intelligence platform. Lifecore combines continuous physiological telemetry from Apple Watch (Apple HealthKit), frictionless vision-based nutrition tracking, deterministic Swift telemetry math, and an elite AI Athletic Performance Analyst presented in an Apple Health & Bevel Daylight visual system (`Lifecore v3.3`).
 
 ### Core Architectural Principles:
 1. **iOS-First, On-Device Architecture:** The primary user interface and processing engine is a native iOS application (`ios/Lifecore/`) built with Swift 6, SwiftUI, Swift Charts, HealthKit, and SwiftData.
@@ -131,7 +131,18 @@ $$\text{RMSSD} = \sqrt{\frac{1}{N-1}\sum_{i=1}^{N-1}(RR_{i+1}-RR_i)^2}, \quad Z_
 
 ---
 
-### 2.9. Dietary Date Convention
+### 2.10. Hierarchical Health RAG & Multi-Layered Conversational Analyst (Lifecore v3.4)
+* **Effort-Normalized Benchmark Regimes (`BenchmarkRegime`):** Solves effort-blind benchmark comparisons. When an athlete runs $-89.7\text{ s/km}$ faster at $+27.0\text{ bpm}$ higher HR, the engine classifies it as `.higherIntensityEffort` (working in a higher aerobic/threshold zone with efficiency assessment) rather than misinterpreting it as low-effort aerobic gain (`.trueAerobicGain`).
+* **3-Tier Context Graph (`LifecoreContextRAG.swift`):**
+  - **Tier L1 (Acute 48h Slice):** Split telemetry, 48h meals (calories, carbs, protein, fat, sodium, late meal timing), overnight Vitals corridor, and Body Battery.
+  - **Tier L2 (Mesocycle 30d Dossier):** EWMA ACWR, $EF_{75}$, learned $\beta$-sensitivities ($\beta_{\text{Carbs}\to\text{Drift}}$, $\beta_{\text{LateMeal}\to\text{RHR}}$, $\beta_{\text{Na}\to\text{H2O}}$), and tactical prescription queue.
+  - **Tier L3 (Episodic Memory RAG):** SwiftData `AthleteMemoryEntity` ranked via deterministic Hybrid BM25 ($0.45$) + Tag Overlap ($0.35$) + 21-day Recency Decay ($0.20$, $\lambda = \frac{\ln 2}{21.0}$) algorithm.
+* **Structured Hallmark Daylight Debrief (`StructuredWorkoutDebrief`):** Eliminates raw Markdown `###` and emojis. Renders native Hallmark Daylight cards with tabular metric pills, execution analysis ($70\%$), benchmark dynamics ($15\%$), and root cause + 24h actionable directive ($15\%$).
+* **Conversational Analyst (`LifecoreIntelligenceChatView.swift`):** Bevel Intelligence-style multi-turn chat accessible from `WorkoutDetailView` and `TodayView` that quotes exact dossier metrics and automatically extracts new athlete facts (`extractedMemoryFactUk`) into episodic memory.
+
+---
+
+### 2.11. Dietary Date Convention
 * The dietary day shifts at **04:00 AM** (`shiftHours = 4`), not midnight.
 * Meals, post-midnight workouts, and sleep cycles occurring between 00:00 and 03:59 AM belong to the physiological cycle of the preceding calendar day.
 
@@ -148,51 +159,60 @@ Built with **Swift 6 concurrency, SwiftUI, Swift Charts, HealthKit, and SwiftDat
 ios/Lifecore/
 └── Lifecore/
     ├── App/
-    │   ├── LifecoreApp.swift             # App lifecycle, SwiftData container setup
-    │   └── MainTabView.swift             # 4-tab navigation (Сьогодні, Тренування, Харчування, Тренди)
+    │   ├── LifecoreApp.swift             # App lifecycle, SwiftData container setup, light color scheme
+    │   └── MainTabView.swift             # 4-tab navigation (Сьогодні, Тренування, Харчування, Тренди), Bevel Emerald tint
     ├── Core/
     │   ├── HealthKit/
     │   │   ├── HealthKitManager.swift    # Queries raw biometrics, 5-metric Vitals, R-R Heartbeat series, sleep stages, dietary write-back & deletion sync (LifecoreMealID)
     │   │   └── WorkoutTelemetryExtractor.swift # Extracts HKQuantitySeriesSample (HR, GPS, Altitude, Cadence)
     │   ├── MathEngine/
     │   │   ├── ReadinessCalculator.swift # Recovery score (0-100%), Strain score, Pure NEAT, rolling averages
-    │   │   ├── WorkoutMathEngine.swift   # 1km auto-splits, interval laps, EF, cardiac drift %, GAP, benchmarks
+    │   │   ├── WorkoutMathEngine.swift   # 1km auto-splits, interval laps, EF, cardiac drift %, GAP, benchmarks, BenchmarkRegime
     │   │   ├── VitalsAndIllnessEngine.swift # (Phase 3) 20% R-R filter, ln(RMSSD), 5-metric Vitals & Illness Prodrome
     │   │   ├── TrainingLoadAndBatteryEngine.swift # (Phase 3) Banister TRIMP, EWMA ACWR (7d/28d), 24h Body Battery
     │   │   ├── CorrelationEngine.swift   # (Phase 3) Multi-day time-lagged (T+0, T+1, T+2) r_pb & Pearson r engine
     │   │   ├── AdaptivePhysiologyEngine.swift # (Phase 3.1) Bayesian shrinkage, Dynamic TDEE, Ridge OLS β-slopes, 60d EWMA
     │   │   ├── TrainingPrescriptionEngine.swift # (Phase 3.2) Inverse EWMA TRIMP budget, 3-Gate override, EF_75 zones, 4-slot queue
-    │   │   └── MathEngineVerification.swift # 12-suite mathematical verification test harness
+    │   │   └── MathEngineVerification.swift # 13-suite mathematical verification test harness (Suite 13: RAG & Intelligence)
     │   ├── UI/
-    │   │   └── LifecoreDesignSystem.swift # (Phase 3.1) Liquid Glass Bento Cockpit, AdaptiveEngineBadgeBar, RPE calibration
+    │   │   └── LifecoreDesignSystem.swift # (Phase 3.3) Hallmark v2.0.0 Bevel Daylight 4-Rung Surface Ladder, AdaptiveEngineBadgeBar, RPE calibration
     │   ├── AI/
-    │   │   ├── GeminiService.swift       # Direct Google AI Studio client (Vision & Text models)
+    │   │   ├── GeminiService.swift       # Direct Google AI Studio client (Vision, JSON-mode Structured Debrief & Multi-turn Analyst)
     │   │   ├── FoodPrompt.swift          # English system prompt for optimistic vision food parsing
-    │   │   └── CoachPrompt.swift         # English system prompt for athletic performance analyst + Vitals/ACWR context
+    │   │   ├── CoachPrompt.swift         # StructuredWorkoutDebrief & AnalystChatTurnResponse JSON prompts + 3-tier dossier builder
+    │   │   └── LifecoreContextRAG.swift  # (Phase 3.4) 3-tier Health Context Graph & Hybrid BM25/Tag/Recency Retriever
     │   └── Storage/
-    │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity, AthleteTrainingPlanState)
+    │       ├── SwiftDataModels.swift     # Local-first @Model entities (MealEntity, WorkoutAnalysisEntity, AthleteTrainingPlanState, AthleteMemoryEntity)
     │       ├── AthleteProfileStore.swift # (Phase 3) Editable physiological & macro calibration store
     │       ├── TrainingPlanModels.swift  # (Phase 3.2) AthleteTrainingPlanState & TrainingPlanStore
+    │       └── MealStorageService.swift  # SwiftData meal service with +12.5% buffer and fetchTodayMeals()
+    ├── Features/
+    │   ├── Today/                        # Cockpit, TacticalPrescriptionCard, OvernightVitalsCard, EnergyBankCard, Lifecore Intelligence shortcut
+    │   ├── Workouts/                     # WorkoutsView, WorkoutDetailView, CoachReportView (Structured Daylight Debrief), LifecoreIntelligenceChatView (Bevel Chat Sheet)
+    │   ├── Nutrition/                    # NutritionView, FoodInputSheet, SwipeableMealCardContainer
+    │   └── Trends/                       # TrendsView, CorrelationInsightsCard, ACWRWorkloadTrendCard
     │       ├── MealStorageService.swift  # SwiftData meal repository, optimistic state & HealthKit deletion sync
     │       ├── HealthPayload.swift       # Direct payload codable definitions
     │       └── SupabaseSyncService.swift # Bidirectional cloud persistence for meals, workout_analyses & vitals
     ├── Features/
-    │   ├── Today/                        # Dark-mode dashboard: Hero Cockpit, Bevel 1-Row Today's Activity Banner, Rings, 5-Pill Vitals, Illness Radar, Energy Bank
-    │   ├── Workouts/                     # Bevel Fitness Cockpit (7-day calendar strip, AI Coach Banner, Today's Activity card, 1-tap club run toggle, upcoming horizon), workout list with human load labels
-    │   ├── Nutrition/                    # Unified "Записати їжу" log, two-tier input modal, gesture swipe-to-delete with HealthKit sync, macro cards
-    │   └── Trends/                       # Segmented Glass Switcher, Adaptive Engine status, weight trend, Correlations & ACWR
+    │   ├── Today/                        # Bevel Daylight dashboard: Hero Cockpit, Bevel Rings, 5-Pill Vitals, Illness Radar, Energy Bank
+    │   ├── Workouts/                     # Bevel Fitness Cockpit (Interactive 7-day calendar strip, AI Coach Banner, Today's Activity card, 1-tap club run toggle, upcoming horizon), workout list with tabular load labels
+    │   ├── Nutrition/                    # Unified "Записати їжу" log, daylight input modal, gesture swipe-to-delete with HealthKit sync, macro cards
+    │   └── Trends/                       # Segmented Daylight Switcher, Adaptive Engine status, weight trend, Correlations & ACWR
     └── Intents/
         ├── LogMealIntent.swift           # Fast Siri / Action button meal logger
         └── LifecoreSyncIntent.swift      # AppIntent for background and manual HealthKit sync
 ```
 
-> **Phase 3, Phase 3.1, Phase 3.2 & E2E Architectural Specs & Implementation Plans:**
+> **Phase 3, Phase 3.1, Phase 3.2, Phase 3.3 & E2E Architectural Specs & Implementation Plans:**
 > - **Phase 3 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-physiological-engine-and-ui-design.md)
 > - **Phase 3 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-physiological-engine-vitals-and-ui-v3.md)
 > - **Phase 3.1 Spec:** [`docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-lifecore-v3-1-adaptive-engine-and-ui-overhaul-design.md)
 > - **Phase 3.1 Plan:** [`docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-phase-3-1-adaptive-engine-and-ui-overhaul.md)
 > - **Phase 3.2 Spec:** [`docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-23-lifecore-v3-2-training-prescription-engine-design.md)
 > - **Phase 3.2 Plan:** [`docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-23-phase-3-2-training-prescription-engine.md)
+> - **Phase 3.3 Spec:** [`docs/superpowers/specs/2026-10-26-lifecore-v3-3-hallmark-daylight-redesign-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-26-lifecore-v3-3-hallmark-daylight-redesign-design.md)
+> - **Phase 3.3 Plan:** [`docs/superpowers/plans/2026-10-26-phase-3-3-hallmark-daylight-redesign.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-26-phase-3-3-hallmark-daylight-redesign.md)
 > - **E2E Testing Spec:** [`docs/superpowers/specs/2026-10-21-maestro-e2e-design.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/specs/2026-10-21-maestro-e2e-design.md)
 > - **E2E Testing Plan:** [`docs/superpowers/plans/2026-10-21-maestro-e2e.md`](file:///Users/skycherepanya/Developer/GitHub/calories-bot-mvp/docs/superpowers/plans/2026-10-21-maestro-e2e.md)
 

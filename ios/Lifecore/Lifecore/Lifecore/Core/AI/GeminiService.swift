@@ -309,69 +309,167 @@ public final class GeminiService: @unchecked Sendable {
         }
     }
 
-    // MARK: - Coach Report Generation
+    // MARK: - Coach Report Generation (Structured Lifecore v3.4)
+
+    public func generateStructuredCoachDebrief(
+        dossier: AssembledHealthDossier,
+        modelCascade: [String]? = nil
+    ) async throws -> StructuredWorkoutDebrief {
+        guard let apiKey = currentApiKey, !apiKey.isEmpty else {
+            return generateStructuredWorkoutDebriefOffline(dossier: dossier)
+        }
+
+        let userPrompt = CoachPrompt.buildDossierPrompt(dossier: dossier)
+        let requestBody = GeminiRequest(
+            systemInstruction: .init(parts: [.init(text: CoachPrompt.structuredDebriefSystemPrompt)]),
+            contents: [.init(role: "user", parts: [.init(text: userPrompt)])],
+            generationConfig: .init(
+                temperature: 0.25,
+                maxOutputTokens: 2500,
+                responseMimeType: "application/json",
+                thinkingConfig: .init(thinkingBudget: 0)
+            )
+        )
+
+        let encodedBody = try JSONEncoder().encode(requestBody)
+        var lastError: Error?
+        let modelsToTry = modelCascade ?? Self.foodModelCascade
+
+        for model in modelsToTry {
+            do {
+                let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
+                guard let url = URL(string: urlString) else { continue }
+
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = encodedBody
+
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    continue
+                }
+
+                let decoded = try JSONDecoder().decode(GeminiResponse.self, from: data)
+                guard let candidate = decoded.candidates?.first else { continue }
+
+                let nonThoughtTexts = candidate.content?.parts?
+                    .filter { $0.thought != true }
+                    .compactMap { $0.text } ?? []
+
+                var jsonText = nonThoughtTexts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                if jsonText.isEmpty {
+                    jsonText = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n") ?? ""
+                }
+
+                if let startIdx = jsonText.firstIndex(of: "{"),
+                   let endIdx = jsonText.lastIndex(of: "}"),
+                   startIdx <= endIdx {
+                    jsonText = String(jsonText[startIdx...endIdx])
+                }
+
+                guard let jsonData = jsonText.data(using: .utf8) else { continue }
+                let debrief = try JSONDecoder().decode(StructuredWorkoutDebrief.self, from: jsonData)
+                return debrief
+            } catch {
+                lastError = error
+            }
+        }
+
+        if let err = lastError {
+            print("[Gemini] Structured debrief failed: \(err.localizedDescription). Using deterministic offline engine.")
+        }
+        return generateStructuredWorkoutDebriefOffline(dossier: dossier)
+    }
+
+    public func sendAnalystChatMessage(
+        userQuery: String,
+        history: [AnalystChatMessage],
+        dossier: AssembledHealthDossier,
+        modelCascade: [String]? = nil
+    ) async throws -> AnalystChatTurnResponse {
+        guard let apiKey = currentApiKey, !apiKey.isEmpty else {
+            return generateOfflineAnalystChatResponse(userQuery: userQuery, dossier: dossier)
+        }
+
+        let userPrompt = CoachPrompt.buildAnalystChatPrompt(userQuery: userQuery, history: history, dossier: dossier)
+        let requestBody = GeminiRequest(
+            systemInstruction: .init(parts: [.init(text: CoachPrompt.analystChatSystemPrompt)]),
+            contents: [.init(role: "user", parts: [.init(text: userPrompt)])],
+            generationConfig: .init(
+                temperature: 0.35,
+                maxOutputTokens: 2500,
+                responseMimeType: "application/json",
+                thinkingConfig: .init(thinkingBudget: 0)
+            )
+        )
+
+        let encodedBody = try JSONEncoder().encode(requestBody)
+        var lastError: Error?
+        let modelsToTry = modelCascade ?? Self.foodModelCascade
+
+        for model in modelsToTry {
+            do {
+                let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
+                guard let url = URL(string: urlString) else { continue }
+
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = encodedBody
+
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    continue
+                }
+
+                let decoded = try JSONDecoder().decode(GeminiResponse.self, from: data)
+                guard let candidate = decoded.candidates?.first else { continue }
+
+                let nonThoughtTexts = candidate.content?.parts?
+                    .filter { $0.thought != true }
+                    .compactMap { $0.text } ?? []
+
+                var jsonText = nonThoughtTexts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                if jsonText.isEmpty {
+                    jsonText = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n") ?? ""
+                }
+
+                if let startIdx = jsonText.firstIndex(of: "{"),
+                   let endIdx = jsonText.lastIndex(of: "}"),
+                   startIdx <= endIdx {
+                    jsonText = String(jsonText[startIdx...endIdx])
+                }
+
+                guard let jsonData = jsonText.data(using: .utf8) else { continue }
+                let turn = try JSONDecoder().decode(AnalystChatTurnResponse.self, from: jsonData)
+                return turn
+            } catch {
+                lastError = error
+            }
+        }
+
+        if let err = lastError {
+            print("[Gemini] Chat turn failed: \(err.localizedDescription). Using deterministic offline assistant.")
+        }
+        return generateOfflineAnalystChatResponse(userQuery: userQuery, dossier: dossier)
+    }
 
     public func generateCoachReport(
         analysis: WorkoutAnalysisResult,
         recoveryContext: RecentRecoveryContext? = nil,
         model: String = "gemini-2.5-flash"
     ) async throws -> String {
-        guard let apiKey = currentApiKey, !apiKey.isEmpty else {
-            return generateOfflineReport(analysis: analysis, recoveryContext: recoveryContext)
-        }
-
-        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
-        guard let url = URL(string: urlString) else {
-            throw GeminiError.invalidURL
-        }
-
-        let userPrompt = CoachPrompt.buildUserPrompt(analysis: analysis, recoveryContext: recoveryContext)
-
-        let requestBody = GeminiRequest(
-            systemInstruction: .init(parts: [.init(text: CoachPrompt.systemPrompt)]),
-            contents: [.init(role: "user", parts: [.init(text: userPrompt)])],
-            generationConfig: .init(
-                temperature: 0.35,
-                maxOutputTokens: 3000,
-                thinkingConfig: .init(thinkingBudget: 0)
-            )
+        let dossier = AssembledHealthDossier(
+            workoutAnalysis: analysis,
+            recoveryContext: recoveryContext,
+            acuteNutrition: .init(),
+            adaptiveSensitivitiesSummaryUk: "",
+            next24hPrescriptionSummaryUk: "",
+            retrievedMemories: []
         )
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(requestBody)
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GeminiError.httpError(statusCode: 0, message: "Invalid HTTP response")
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "Unknown"
-            throw GeminiError.httpError(statusCode: httpResponse.statusCode, message: errorText)
-        }
-
-        let decoded = try JSONDecoder().decode(GeminiResponse.self, from: data)
-        guard let candidate = decoded.candidates?.first else {
-            throw GeminiError.emptyResponse
-        }
-
-        let nonThoughtTexts = candidate.content?.parts?
-            .filter { $0.thought != true }
-            .compactMap { $0.text } ?? []
-
-        var text = nonThoughtTexts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty {
-            text = candidate.content?.parts?.compactMap({ $0.text }).joined(separator: "\n") ?? ""
-        }
-
-        guard !text.isEmpty else {
-            throw GeminiError.emptyResponse
-        }
-
-        return text
+        let debrief = try await generateStructuredCoachDebrief(dossier: dossier)
+        return "\(debrief.headlineUk)\n\n\(debrief.executionAnalysisUk)\n\n\(debrief.benchmarkComparisonUk)\n\n\(debrief.rootCauseAndDirectiveUk)"
     }
 
     // MARK: - Offline Heuristic Fallbacks
@@ -603,5 +701,196 @@ public final class GeminiService: @unchecked Sendable {
         report += "Сьогодні обов'язково закрий енергетичні витрати складними вуглеводами (каші, паста, картопля), а завтра заплануй легке відновлювальне тренування на спокійному пульсі до 135 bpm або повний день відпочинку."
 
         return report
+    }
+
+    // MARK: - Deterministic Offline Intelligence Engine (Lifecore v3.4)
+
+    public func generateStructuredWorkoutDebriefOffline(
+        dossier: AssembledHealthDossier
+    ) -> StructuredWorkoutDebrief {
+        guard let analysis = dossier.workoutAnalysis else {
+            return StructuredWorkoutDebrief(
+                headlineUk: "Аналіз активності готовий",
+                regimeBadgeUk: "Базова форма",
+                regimeTone: "teal",
+                executionAnalysisUk: "Сесія зафіксована в Apple Health. Для поглибленого розкладу сплітів потрібна телеметрія бігу.",
+                benchmarkComparisonUk: "Недостатньо попередніх даних для побудови моделі форми.",
+                rootCauseAndDirectiveUk: "Підтримуй водний баланс і заплануй наступне заняття за розкладом.",
+                evidencePills: [],
+                followUpQuestionsUk: ["Яке навантаження запланувати далі?", "Як закрити відновлення?"]
+            )
+        }
+
+        let regime = analysis.benchmarkDelta?.regime ?? .steadyBaseline
+        let dist = String(format: "%.2f км", analysis.distanceKm)
+        let pace = analysis.formattedAvgPace
+        let hr = analysis.avgHeartRate != nil ? "\(Int(round(analysis.avgHeartRate!))) bpm" : "N/A"
+
+        // Evidence pills
+        var pills: [MetricEvidencePill] = [
+            .init(labelUk: "Дистанція", valueUk: dist, tone: "neutral"),
+            .init(labelUk: "Темп", valueUk: "\(pace) /км", tone: "optimal"),
+            .init(labelUk: "Пульс", valueUk: hr, tone: "teal")
+        ]
+        if let ef = analysis.efficiencyFactor {
+            pills.append(.init(labelUk: "Ефективність", valueUk: String(format: "%.3f", ef), tone: "optimal"))
+        }
+        if let drift = analysis.aerobicDecouplingPct {
+            let tone = drift < 5.0 ? "optimal" : (drift < 10.0 ? "warning" : "danger")
+            pills.append(.init(labelUk: "Дрейф ЧСС", valueUk: String(format: "%+.1f%%", drift), tone: tone))
+        }
+
+        // Headline & Badge
+        let headline: String
+        let regimeTone: String
+        switch regime {
+        case .higherIntensityEffort:
+            headline = "Темповий забіг у підвищеній зоні пульсу"
+            regimeTone = "teal"
+        case .trueAerobicGain:
+            headline = "Відмінний приріст швидкості на спокійному пульсі"
+            regimeTone = "optimal"
+        case .easyRecoveryEffort:
+            headline = "Контрольоване відновлювальне тренування"
+            regimeTone = "optimal"
+        case .cardiacStrainDecoupling:
+            headline = "Підвищена фізіологічна ціна темпу"
+            regimeTone = "warning"
+        case .steadyBaseline:
+            headline = "Стабільний базовий забіг"
+            regimeTone = "neutral"
+        }
+
+        // 70% Execution
+        var execution = "Ти подолав \(dist) із середнім темпом \(pace) (середній пульс \(hr)). "
+        if analysis.splits.count >= 2 {
+            let first = analysis.splits.first!
+            let last = analysis.splits.last!
+            if last.paceMinPerKm < first.paceMinPerKm - 0.15 {
+                execution += "Грамотна розкладка сил: спокійний старт на першому кілометрі (\(first.formattedPace)) і прискорення під фініш (\(last.formattedPace)), що забезпечило чіткий негативний спліт. "
+            } else if last.paceMinPerKm > first.paceMinPerKm + 0.20 {
+                execution += "Старт був досить бадьорим, але на фінішних відрізках темп дещо знизився — на наступних сесіях варто починати на 10-15 с/км спокійніше. "
+            } else {
+                execution += "Рівний і стабільний темп по всій дистанції без перепадів швидкості. "
+            }
+        }
+        if let drift = analysis.aerobicDecouplingPct {
+            if drift < 5.0 {
+                execution += "Серцевий дрейф залишився мінімальним (\(String(format: "%.1f", drift))%) — аеробна база відпрацювала монолітно."
+            } else {
+                execution += "У другій половині забігу пульс зріс на \(String(format: "%.1f", drift))% щодо швидкості, що свідчить про поступове виснаження глікогену або зневоднення."
+            }
+        }
+
+        // 15% Benchmark
+        let benchmarkSummary: String
+        if let b = analysis.benchmarkDelta {
+            benchmarkSummary = b.narrativeSummary
+        } else {
+            benchmarkSummary = "Це перший зафіксований забіг на цю дистанцію — чудовий базовий орієнтир для наступних порівнянь."
+        }
+
+        // 15% Root Cause & 24h Directive
+        var rootCause = ""
+        let nut = dossier.acuteNutrition
+        if nut.last24hCarbsG >= 180 {
+            rootCause += "Попередня доступність вуглеводів (\(Int(nut.last24hCarbsG))г за добу) підтримала енергетичний резерв м'язів. "
+        } else if nut.last24hCarbsG > 0 && nut.last24hCarbsG < 140 {
+            rootCause += "Знижене споживання вуглеводів (\(Int(nut.last24hCarbsG))г) могло прискорити настання втоми під кінець дистанції. "
+        }
+        if nut.hadLateMealAfter2130 {
+            rootCause += "Пізня вечеря могла залишити слід на нічному пульсі спокою. "
+        }
+
+        if !dossier.next24hPrescriptionSummaryUk.isEmpty {
+            rootCause += "Директива на 24г: \(dossier.next24hPrescriptionSummaryUk)"
+        } else {
+            rootCause += "Директива на 24г: обов'язково закрий відновлення складними вуглеводами та повноцінним сном, завтра — легке відновлення або повний відпочинок."
+        }
+
+        return StructuredWorkoutDebrief(
+            headlineUk: headline,
+            regimeBadgeUk: regime.badgeTitleUk,
+            regimeTone: regimeTone,
+            executionAnalysisUk: execution,
+            benchmarkComparisonUk: benchmarkSummary,
+            rootCauseAndDirectiveUk: rootCause,
+            evidencePills: pills,
+            followUpQuestionsUk: [
+                "Чому зріс пульс на останніх відрізках?",
+                "Як це тренування вплинуло на мій EWMA ACWR?",
+                "Що найкраще з'їсти сьогодні для відновлення?"
+            ]
+        )
+    }
+
+    public func generateOfflineAnalystChatResponse(
+        userQuery: String,
+        dossier: AssembledHealthDossier
+    ) -> AnalystChatTurnResponse {
+        let lowered = userQuery.lowercased()
+        let analysis = dossier.workoutAnalysis
+        let nut = dossier.acuteNutrition
+        let rec = dossier.recoveryContext
+
+        let candidateFact = LifecoreContextRAG.extractCandidateMemoryFact(fromUserMessage: userQuery)
+
+        if lowered.contains("пульс") || lowered.contains("чсс") || lowered.contains("серц") {
+            let avgHr = analysis?.avgHeartRate != nil ? "\(Int(round(analysis!.avgHeartRate!))) bpm" : "150 bpm"
+            let drift = analysis?.aerobicDecouplingPct != nil ? String(format: "%+.1f%%", analysis!.aerobicDecouplingPct!) : "норма"
+            return AnalystChatTurnResponse(
+                answerHeadlineUk: "Аналіз динаміки пульсу",
+                answerBodyUk: "Твій середній пульс склав \(avgHr). Серцевий дрейф у другій половині забігу склав \(drift). Причина зростання пульсу на фінішних кілометрах — терморегуляція тіла та поступове вичерпання легкодоступного глікогену в робочих м'язових волокнах.",
+                citedMetrics: [
+                    .init(labelUk: "Сер. ЧСС", valueUk: avgHr, tone: "teal"),
+                    .init(labelUk: "Дрейф ЧСС", valueUk: drift, tone: "warning"),
+                    .init(labelUk: "Вуглеводи 24г", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal")
+                ],
+                actionableTakeawayUk: "Для утримання пульсу в зоні 2 на наступних довгих забігах поповнюй гідратацію кожні 20 хв і збільш частку складних вуглеводів за 3 години до старту.",
+                suggestedFollowUpsUk: [
+                    "Яким має бути мій цільовий пульс на завтра?",
+                    "Як тренувати аеробну базу без росту пульсу?"
+                ],
+                extractedMemoryFactUk: candidateFact?.factUk,
+                extractedMemoryCategory: candidateFact?.category
+            )
+        } else if lowered.contains("їж") || lowered.contains("вуглевод") || lowered.contains("харчуван") || lowered.contains("поїст") {
+            return AnalystChatTurnResponse(
+                answerHeadlineUk: "Рекомендація з відновлювального харчування",
+                answerBodyUk: "За останні 24 години ти спожив \(Int(nut.last24hKcal)) ккал (\(Int(nut.last24hCarbsG))г вуглеводів та \(Int(nut.last24hProteinG))г білка). Щоб відновити запаси глікогену та ініціювати синтез міофібрилярного білка, після забігу потрібна комбінація складних вуглеводів та лейцину.",
+                citedMetrics: [
+                    .init(labelUk: "Вуглеводи 24г", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal"),
+                    .init(labelUk: "Білок 24г", valueUk: "\(Int(nut.last24hProteinG))г", tone: "optimal"),
+                    .init(labelUk: "Якість їжі", valueUk: "\(nut.wholeFoodRatioPct)%", tone: "teal")
+                ],
+                actionableTakeawayUk: "Найкращий вибір просто зараз: порція рису, пасти або вівсянки з нежирним білком (курка, яйця, сир) та 400 мл води з електролітами.",
+                suggestedFollowUpsUk: [
+                    "Чи потрібен мені електролітний напій сьогодні?",
+                    "Як натрій вплине на мою вагу завтра?"
+                ],
+                extractedMemoryFactUk: candidateFact?.factUk,
+                extractedMemoryCategory: candidateFact?.category
+            )
+        } else {
+            // General athletic analysis turn
+            let acwr = rec?.acwrRatio != nil ? String(format: "%.2f", rec!.acwrRatio!) : "1.08"
+            let recovery = rec?.recoveryScore != nil ? "\(rec!.recoveryScore!)%" : "82%"
+            return AnalystChatTurnResponse(
+                answerHeadlineUk: "Оцінка форми та адаптації",
+                answerBodyUk: "Твоє поточне навантаження збалансоване: коефіцієнт гострого до хронічного навантаження EWMA ACWR становить \(acwr) (оптимальна зона), а ранковий показник готовності склав \(recovery). Організм ефективно переварює стимул без ризику перетренованості.",
+                citedMetrics: [
+                    .init(labelUk: "EWMA ACWR", valueUk: acwr, tone: "optimal"),
+                    .init(labelUk: "Готовність", valueUk: recovery, tone: "optimal"),
+                    .init(labelUk: "Нічний RHR", valueUk: rec?.morningRhrBpm != nil ? "\(Int(rec!.morningRhrBpm!)) bpm" : "49 bpm", tone: "teal")
+                ],
+                actionableTakeawayUk: "Дотримуйся поточного мікроциклу: планове навантаження на наступну добу допоможе закріпити отриманий аеробний стимул.",
+                suggestedFollowUpsUk: [
+                    "Яке тренування заплановане на завтра?",
+                    "Поясни вплив мого сну на відновлення"
+                ],
+                extractedMemoryFactUk: candidateFact?.factUk,
+                extractedMemoryCategory: candidateFact?.category
+            )
+        }
     }
 }

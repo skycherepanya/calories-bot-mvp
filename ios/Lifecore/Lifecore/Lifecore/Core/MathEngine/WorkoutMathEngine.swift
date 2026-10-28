@@ -93,25 +93,46 @@ public struct LapIntervalMetric: Sendable, Codable, Identifiable {
     }
 }
 
+public enum BenchmarkRegime: String, Codable, Sendable, Equatable {
+    case trueAerobicGain = "true_aerobic_gain"
+    case higherIntensityEffort = "higher_intensity_effort"
+    case easyRecoveryEffort = "easy_recovery_effort"
+    case cardiacStrainDecoupling = "cardiac_strain_decoupling"
+    case steadyBaseline = "steady_baseline"
+
+    public var badgeTitleUk: String {
+        switch self {
+        case .trueAerobicGain: return "Чистий аеробний прогрес"
+        case .higherIntensityEffort: return "Вища зона інтенсивності"
+        case .easyRecoveryEffort: return "Контрольований легкий режим"
+        case .cardiacStrainDecoupling: return "Підвищена ціна темпу"
+        case .steadyBaseline: return "Стабільна базова форма"
+        }
+    }
+}
+
 public struct BenchmarkDelta: Sendable, Codable {
     public let comparedWorkoutsCount: Int
     public let paceDeltaSecPerKm: Double // negative means faster
     public let hrDeltaBpm: Double // positive means higher HR cost
     public let efDelta: Double // positive means higher efficiency
     public let narrativeSummary: String
+    public let regime: BenchmarkRegime
 
     public init(
         comparedWorkoutsCount: Int,
         paceDeltaSecPerKm: Double,
         hrDeltaBpm: Double,
         efDelta: Double,
-        narrativeSummary: String
+        narrativeSummary: String,
+        regime: BenchmarkRegime = .steadyBaseline
     ) {
         self.comparedWorkoutsCount = comparedWorkoutsCount
         self.paceDeltaSecPerKm = paceDeltaSecPerKm
         self.hrDeltaBpm = hrDeltaBpm
         self.efDelta = efDelta
         self.narrativeSummary = narrativeSummary
+        self.regime = regime
     }
 }
 
@@ -396,6 +417,27 @@ public enum WorkoutMathEngine {
         return result
     }
 
+    /// Classifies historical benchmark comparison into effort & physiological regimes.
+    public static func classifyBenchmarkRegime(
+        paceDeltaSecPerKm: Double,
+        hrDeltaBpm: Double,
+        efDelta: Double
+    ) -> BenchmarkRegime {
+        if hrDeltaBpm >= 10.0 && paceDeltaSecPerKm < -10.0 {
+            return .higherIntensityEffort
+        }
+        if hrDeltaBpm <= -10.0 && paceDeltaSecPerKm > 10.0 {
+            return .easyRecoveryEffort
+        }
+        if abs(hrDeltaBpm) < 10.0 && (efDelta >= 0.015 || (paceDeltaSecPerKm <= -5.0 && hrDeltaBpm <= 3.0)) {
+            return .trueAerobicGain
+        }
+        if efDelta <= -0.020 && (hrDeltaBpm >= 5.0 || paceDeltaSecPerKm >= 8.0) {
+            return .cardiacStrainDecoupling
+        }
+        return .steadyBaseline
+    }
+
     /// Evaluates current session against historical sessions within distance tolerance (default +/- 20%).
     public static func computeHistoricalBenchmark(
         current: (distanceKm: Double, paceMinKm: Double, avgHr: Double?, ef: Double?),
@@ -424,6 +466,12 @@ public enum WorkoutMathEngine {
         let hrDelta = (current.avgHr != nil && benchmarkHr != nil) ? round((current.avgHr! - benchmarkHr!) * 10) / 10 : 0.0
         let efDelta = (current.ef != nil && benchmarkEf != nil) ? round((current.ef! - benchmarkEf!) * 1000) / 1000 : 0.0
 
+        let regime = classifyBenchmarkRegime(
+            paceDeltaSecPerKm: paceDeltaSec,
+            hrDeltaBpm: hrDelta,
+            efDelta: efDelta
+        )
+
         let paceTextUk = paceDeltaSec <= 0
             ? String(format: "на %.0f с/км швидше", abs(paceDeltaSec))
             : String(format: "на %.0f с/км спокійніше", paceDeltaSec)
@@ -433,14 +481,29 @@ public enum WorkoutMathEngine {
             : String(format: "із пульсом вище на %.0f уд/хв", hrDelta)
 
         let countUk = matching.count == 1 ? "1 схожим забігом" : "\(matching.count) схожими забігами"
-        let summary = "Порівняно з минулим \(countUk): темп був \(paceTextUk), \(hrTextUk)."
+
+        let narrative: String
+        switch regime {
+        case .higherIntensityEffort:
+            let efText = efDelta >= 0 ? "зі збереженням високої економічності рухів" : "із помітним ростом внутрішньої ціни темпу"
+            narrative = "Порівняно з минулим \(countUk): темп був \(paceTextUk) за рахунок переходу у вищу пульсову зону (\(hrTextUk)), \(efText)."
+        case .trueAerobicGain:
+            narrative = "Порівняно з минулим \(countUk): чистий аеробний приріст форми — темп \(paceTextUk), \(hrTextUk) (EF \(String(format: "%+.3f", efDelta)))."
+        case .easyRecoveryEffort:
+            narrative = "Порівняно з минулим \(countUk): контрольований легкий режим — темп \(paceTextUk), але пульс значно спокійніший (\(hrTextUk))."
+        case .cardiacStrainDecoupling:
+            narrative = "Порівняно з минулим \(countUk): серце працювало важче за звичайне — темп \(paceTextUk), \(hrTextUk)."
+        case .steadyBaseline:
+            narrative = "Порівняно з минулим \(countUk): темп був \(paceTextUk), \(hrTextUk)."
+        }
 
         return BenchmarkDelta(
             comparedWorkoutsCount: matching.count,
             paceDeltaSecPerKm: paceDeltaSec,
             hrDeltaBpm: hrDelta,
             efDelta: efDelta,
-            narrativeSummary: summary
+            narrativeSummary: narrative,
+            regime: regime
         )
     }
 

@@ -6,6 +6,8 @@ public struct RollingHorizonDeckView: View {
     @ObservedObject public var athleteStore = AthleteProfileStore.shared
     public var pastWorkouts: [HKWorkout] = []
 
+    @State private var selectedDayOffset: Int = 0
+
     public init(pastWorkouts: [HKWorkout] = []) {
         self.pastWorkouts = pastWorkouts
     }
@@ -29,24 +31,24 @@ public struct RollingHorizonDeckView: View {
     private var bannerColor: Color {
         switch todayPrescription.adaptationReason {
         case .blockedByIllnessProdrome:
-            return LifecoreTheme.coralDanger
+            return LifecoreTheme.statusDanger
         case .downgradedByVitalsOrBattery, .modulatedByHRV, .cappedByCaloricDeficit, .downgradedByAcuteLoadSpike, .heldByCardiacDrift:
-            return LifecoreTheme.amberWarning
+            return LifecoreTheme.statusWarning
         case .efficiencyUnlocked, .optimalProgression, .externalClubRunAdapted:
-            return LifecoreTheme.athleticEmerald
+            return LifecoreTheme.statusOptimal
         }
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            // 1. Bevel 7-Day Calendar Strip
+        VStack(alignment: .leading, spacing: 16) {
+            // 1. Upgraded Interactive Bevel 7-Day Calendar Strip
             bevelCalendarStrip
 
             // 2. AI Coach Recommendation Banner
             bevelCoachRecommendationBanner
 
-            // 3. Today's Activity Section
-            todayActivitySection
+            // 3. Selected Day Activity Inspector (Today + Past/Future Inspection)
+            selectedDayActivitySection
 
             // 4. Upcoming Horizon Schedule
             upcomingHorizonSection
@@ -55,7 +57,7 @@ public struct RollingHorizonDeckView: View {
         .accessibilityIdentifier("deck_rolling_horizon")
     }
 
-    // MARK: - 1. Bevel 7-Day Calendar Strip
+    // MARK: - 1. Interactive Bevel 7-Day Calendar Strip
 
     private struct DaySlot: Identifiable {
         let id: Int
@@ -90,98 +92,140 @@ public struct RollingHorizonDeckView: View {
     }
 
     private var bevelCalendarStrip: some View {
-        HStack(spacing: 0) {
-            ForEach(calendarDays) { slot in
-                VStack(spacing: 6) {
-                    // Triangle pointer for today
-                    if slot.isToday {
-                        Image(systemName: "arrowtriangle.down.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(LifecoreTheme.electricTeal)
-                    } else {
-                        Color.clear.frame(height: 8)
+        VStack(spacing: 10) {
+            HStack {
+                Text(monthHeaderTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+                Spacer()
+                if selectedDayOffset != 0 {
+                    Button(action: {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            selectedDayOffset = 0
+                        }
+                    }) {
+                        Text("Повернутись до сьогодні")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
                     }
-
-                    // Day of week
-                    Text(slot.dayLetter)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(slot.isToday ? LifecoreTheme.electricTeal : .secondary)
-
-                    // Day number
-                    Text(slot.dayNumber)
-                        .font(.system(size: 15, weight: slot.isToday ? .bold : .medium))
-                        .foregroundStyle(slot.isToday ? LifecoreTheme.electricTeal : .white)
-
-                    // Activity glyph
-                    glyphForSlot(slot)
+                    .buttonStyle(.plain)
+                } else {
+                    Text("Тижневий цикл")
+                        .font(.system(size: 12))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
                 }
-                .frame(maxWidth: .infinity)
+            }
+
+            HStack(spacing: 4) {
+                ForEach(calendarDays) { slot in
+                    let isSelected = (slot.offset == selectedDayOffset)
+                    Button(action: {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            selectedDayOffset = slot.offset
+                        }
+                    }) {
+                        VStack(spacing: 6) {
+                            Text(slot.dayLetter)
+                                .font(.system(size: 11, weight: isSelected || slot.isToday ? .semibold : .regular))
+                                .foregroundStyle(
+                                    isSelected ? LifecoreTheme.inkPrimary :
+                                    (slot.isToday ? LifecoreTheme.accentPrimary : LifecoreTheme.inkTertiary)
+                                )
+
+                            Text(slot.dayNumber)
+                                .font(.system(size: 15, weight: isSelected || slot.isToday ? .bold : .medium, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(
+                                    isSelected ? LifecoreTheme.inkPrimary :
+                                    (slot.isToday ? LifecoreTheme.accentPrimary : LifecoreTheme.inkSecondary)
+                                )
+
+                            glyphForSlot(slot, isSelected: isSelected)
+
+                            Circle()
+                                .fill(slot.isToday ? LifecoreTheme.accentPrimary : Color.clear)
+                                .frame(width: 4, height: 4)
+                        }
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isSelected ? LifecoreTheme.paperWell : Color.clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
-        .padding(.vertical, 8)
-        .lifecoreGlassCard(cornerRadius: 18, borderColor: Color.white.opacity(0.08))
+        .lifecoreGlassCard(cornerRadius: 20, padding: 14)
+    }
+
+    private var monthHeaderTitle: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "uk_UA")
+        formatter.dateFormat = "LLLL yyyy"
+        return formatter.string(from: Date()).capitalized
     }
 
     @ViewBuilder
-    private func glyphForSlot(_ slot: DaySlot) -> some View {
+    private func glyphForSlot(_ slot: DaySlot, isSelected: Bool) -> some View {
         if slot.isToday {
-            // Today active glyph
             ZStack {
                 Circle()
-                    .strokeBorder(LifecoreTheme.electricTeal, style: StrokeStyle(lineWidth: 1.5, dash: [3]))
+                    .strokeBorder(
+                        LifecoreTheme.accentPrimary,
+                        style: StrokeStyle(lineWidth: 1.5, dash: [3])
+                    )
                     .frame(width: 34, height: 34)
                 Circle()
-                    .fill(LifecoreTheme.electricTeal.opacity(0.18))
+                    .fill(LifecoreTheme.accentPrimary.opacity(isSelected ? 0.18 : 0.10))
                     .frame(width: 34, height: 34)
                 Image(systemName: todayPrescription.archetype.iconName)
-                    .font(.system(size: 14))
-                    .foregroundStyle(LifecoreTheme.electricTeal)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
             }
         } else if slot.offset < 0 {
-            // Past days: match workout or rest
             if let w = workoutFor(date: slot.date) {
                 let info = glyphInfoForWorkout(w)
                 ZStack {
                     Circle()
-                        .fill(info.color.opacity(0.18))
+                        .fill(info.color.opacity(0.15))
                         .frame(width: 34, height: 34)
                     Image(systemName: info.icon)
-                        .font(.system(size: 14))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(info.color)
                 }
             } else {
-                // Rest day
                 ZStack {
                     Circle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(LifecoreTheme.paperWell)
                         .frame(width: 34, height: 34)
                     Image(systemName: "moon.zzz.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
                 }
             }
         } else {
-            // Future days: show upcoming queued session or rest
             let queueIdx = slot.offset - 1
             if queueIdx < currentPlan.horizonQueue.count {
                 let upcoming = currentPlan.horizonQueue[queueIdx]
                 if upcoming.archetype == .restDay {
                     ZStack {
                         Circle()
-                            .fill(Color.white.opacity(0.06))
+                            .fill(LifecoreTheme.paperWell)
                             .frame(width: 34, height: 34)
                         Image(systemName: "moon.zzz.fill")
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
                     }
                 } else {
                     ZStack {
                         Circle()
-                            .strokeBorder(LifecoreTheme.electricTeal.opacity(0.4), style: StrokeStyle(lineWidth: 1.2, dash: [3]))
+                            .strokeBorder(LifecoreTheme.accentTeal.opacity(0.45), style: StrokeStyle(lineWidth: 1.2, dash: [3]))
                             .frame(width: 34, height: 34)
                         Image(systemName: upcoming.archetype.iconName)
                             .font(.system(size: 13))
-                            .foregroundStyle(LifecoreTheme.electricTeal.opacity(0.8))
+                            .foregroundStyle(LifecoreTheme.accentTeal)
                     }
                 }
             }
@@ -196,184 +240,260 @@ public struct RollingHorizonDeckView: View {
     private func glyphInfoForWorkout(_ w: HKWorkout) -> (icon: String, color: Color) {
         switch w.workoutActivityType {
         case .running:
-            return ("figure.run", LifecoreTheme.athleticEmerald)
+            return ("figure.run", LifecoreTheme.statusOptimal)
         case .cycling:
-            return ("figure.outdoor.cycle", Color.purple)
+            return ("figure.outdoor.cycle", LifecoreTheme.accentTeal)
         case .traditionalStrengthTraining, .functionalStrengthTraining:
-            return ("figure.strengthtraining.traditional", LifecoreTheme.strainOrange)
+            return ("figure.strengthtraining.traditional", LifecoreTheme.statusWarning)
         case .walking:
-            return ("figure.walk", Color.cyan)
+            return ("figure.walk", LifecoreTheme.accentIndigo)
         default:
-            return ("bolt.heart.fill", LifecoreTheme.electricTeal)
+            return ("bolt.heart.fill", LifecoreTheme.accentPrimary)
         }
     }
 
     // MARK: - 2. AI Coach Recommendation Banner
 
     private var bevelCoachRecommendationBanner: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: todayPrescription.adaptationReason == .blockedByIllnessProdrome ? "cross.case.fill" : "figure.run")
-                    .font(.headline)
+                Image(systemName: todayPrescription.adaptationReason == .blockedByIllnessProdrome ? "cross.case.fill" : "sparkles")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(bannerColor)
 
                 Text(todayPrescription.adaptationReason.bevelHeadlineUk)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.white)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                     .lineLimit(2)
 
                 Spacer()
-
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
 
             Text(todayPrescription.adaptationReason.bevelExplanationUk)
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.85))
-                .lineSpacing(3)
+                .font(.system(size: 13))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
+                .lineSpacing(2)
 
             if planStore.queueState.clubOrCustomRunOverrideToday {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.caption2)
-                        .foregroundStyle(LifecoreTheme.athleticEmerald)
+                        .font(.caption)
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                     Text("Сьогодні враховано клубну сесію. Черга тренувань збережена.")
-                        .font(.caption2)
-                        .foregroundStyle(LifecoreTheme.athleticEmerald)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                 }
                 .padding(.top, 2)
             }
         }
-        .padding(16)
-        .lifecoreGlassCard(cornerRadius: 20, borderColor: bannerColor.opacity(0.35))
+        .lifecoreGlassCard(cornerRadius: 20)
     }
 
-    // MARK: - 3. Today's Activity Section
+    // MARK: - 3. Selected Day Activity Section
 
-    private var todayActivitySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private var selectedDayActivitySection: some View {
+        let activePrescription: DailyWorkoutPrescription = {
+            if selectedDayOffset > 0 {
+                let idx = selectedDayOffset - 1
+                if idx < currentPlan.horizonQueue.count {
+                    return currentPlan.horizonQueue[idx]
+                }
+            }
+            return todayPrescription
+        }()
+
+        let sectionHeaderTitle: String = {
+            if selectedDayOffset == 0 { return "Сьогоднішня активність" }
+            if selectedDayOffset < 0 { return "Архів за обраний день" }
+            return "Запланована сесія (\(slotLabel(offset: selectedDayOffset)))"
+        }()
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Сьогоднішня активність")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
+                Text(sectionHeaderTitle)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
 
                 Spacer()
 
                 LifecoreGlowPill(
-                    text: todayPrescription.archetype.loadLevelUk,
+                    text: activePrescription.archetype.loadLevelUk,
                     systemIcon: "flame.fill",
-                    color: LifecoreTheme.electricTeal
+                    color: LifecoreTheme.accentTeal
                 )
             }
 
-            // Clean Activity Card
-            VStack(spacing: 12) {
+            if selectedDayOffset < 0 {
+                if let slot = calendarDays.first(where: { $0.offset == selectedDayOffset }),
+                   let pastW = workoutFor(date: slot.date) {
+                    let distKm = (pastW.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+                    let durMin = pastW.duration / 60.0
+                    HStack(spacing: 12) {
+                        let info = glyphInfoForWorkout(pastW)
+                        ZStack {
+                            Circle()
+                                .fill(info.color.opacity(0.14))
+                                .frame(width: 44, height: 44)
+                            Image(systemName: info.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(info.color)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Виконане тренування")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
+                            Text(String(format: "%.0f хв  ·  %.2f км", durMin, distKm))
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.inkPrimary)
+                        }
+                        Spacer()
+                    }
+                    .lifecoreWell(cornerRadius: 14, padding: 12)
+                } else {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(LifecoreTheme.paperWell)
+                                .frame(width: 44, height: 44)
+                            Image(systemName: "moon.zzz.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(LifecoreTheme.inkTertiary)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("День відпочинку")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
+                            Text("Тренувань не зафіксовано")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(LifecoreTheme.inkPrimary)
+                        }
+                        Spacer()
+                    }
+                    .lifecoreWell(cornerRadius: 14, padding: 12)
+                }
+            } else {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .strokeBorder(LifecoreTheme.electricTeal, style: StrokeStyle(lineWidth: 1.5, dash: [3]))
+                            .fill(LifecoreTheme.accentPrimary.opacity(0.12))
                             .frame(width: 48, height: 48)
-                        Circle()
-                            .fill(LifecoreTheme.electricTeal.opacity(0.15))
-                            .frame(width: 48, height: 48)
-                        Image(systemName: todayPrescription.archetype.iconName)
-                            .font(.system(size: 22))
-                            .foregroundStyle(LifecoreTheme.electricTeal)
+                        Image(systemName: activePrescription.archetype.iconName)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("СЬОГОДНІ • \(todayPrescription.maxAllowedZone.titleUk)")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                        Text(activePrescription.maxAllowedZone.titleUk)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
 
-                        Text(todayPrescription.cleanTitleUk)
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+                        Text(activePrescription.cleanTitleUk)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
 
-                        if todayPrescription.totalDurationMin > 0 {
-                            HStack(spacing: 8) {
-                                Label("\(Int(round(todayPrescription.totalDurationMin))) хв", systemImage: "clock")
-                                Text("•")
-                                Label("~\(String(format: "%.1f", todayPrescription.estimatedDistanceKm)) км", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                                if let targetPace = todayPrescription.segments.first(where: { $0.targetPaceSecPerKm > 0 })?.formattedPace {
-                                    Text("•")
+                        if activePrescription.totalDurationMin > 0 {
+                            HStack(spacing: 10) {
+                                Label("\(Int(round(activePrescription.totalDurationMin))) хв", systemImage: "clock")
+                                Label("~\(String(format: "%.1f", activePrescription.estimatedDistanceKm)) км", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                                if let targetPace = activePrescription.segments.first(where: { $0.targetPaceSecPerKm > 0 })?.formattedPace {
                                     Text(targetPace)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(LifecoreTheme.statusOptimal)
                                 }
                             }
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(LifecoreTheme.athleticEmerald)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.85)
                         } else {
                             Text("День відпочинку та відновлення сил")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 12))
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
                         }
                     }
 
                     Spacer()
                 }
 
-                // Segments overview (compact pills)
-                if !todayPrescription.segments.isEmpty && todayPrescription.totalDurationMin > 0 {
+                if !activePrescription.segments.isEmpty && activePrescription.totalDurationMin > 0 {
                     HStack(spacing: 6) {
-                        ForEach(todayPrescription.segments) { seg in
+                        ForEach(activePrescription.segments) { seg in
                             HStack(spacing: 4) {
                                 Text(seg.zone.shortBadgeUk)
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(LifecoreTheme.electricTeal)
-                                Text("\(Int(seg.durationMin))хв")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(LifecoreTheme.accentTeal)
+                                Text("\(Int(seg.durationMin)) хв")
+                                    .font(.system(size: 10))
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.inkSecondary)
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.06))
+                            .background(LifecoreTheme.paperWell)
                             .clipShape(Capsule())
                         }
                         Spacer()
                     }
                 }
+            }
 
-                Divider().background(Color.white.opacity(0.08))
+            LifecoreHairlineDivider()
 
-                // 1-Tap Club / Custom Run Recalculation Button
+            if selectedDayOffset == 0 {
+                // 1-Tap Club / Custom Run Recalculation Button (Always accessible for E2E Flow 05)
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         planStore.toggleClubOrCustomRunToday()
                     }
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: planStore.queueState.clubOrCustomRunOverrideToday ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
                         Text(planStore.queueState.clubOrCustomRunOverrideToday
-                             ? "Сьогодні біжу в клубі / за своїм планом (Увімкнено)"
-                             : "Біжу в клубі або за своїм планом (Адаптувати чергу)")
-                            .font(.caption.bold())
+                             ? "Сьогодні біжу в клубі / за своїм планом (увімкнено)"
+                             : "Біжу в клубі або за своїм планом (адаптувати чергу)")
+                            .font(.system(size: 12, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
                         planStore.queueState.clubOrCustomRunOverrideToday
-                            ? LifecoreTheme.athleticEmerald.opacity(0.22)
-                            : Color.white.opacity(0.08)
+                            ? LifecoreTheme.statusOptimal.opacity(0.14)
+                            : LifecoreTheme.paperWell
                     )
                     .foregroundStyle(
                         planStore.queueState.clubOrCustomRunOverrideToday
-                            ? LifecoreTheme.athleticEmerald
-                            : LifecoreTheme.electricTeal
+                            ? LifecoreTheme.statusOptimal
+                            : LifecoreTheme.inkPrimary
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("btn_recalculate_club_queue")
+            } else {
+                Button(action: {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        selectedDayOffset = 0
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.uturn.backward")
+                        Text("Повернутись до сьогодні")
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(LifecoreTheme.paperWell)
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
             }
-            .padding(14)
-            .lifecoreGlassCard(cornerRadius: 18, borderColor: LifecoreTheme.electricTeal.opacity(0.2))
         }
+        .lifecoreGlassCard(cornerRadius: 20)
     }
 
     // MARK: - 4. Upcoming Horizon Schedule
@@ -381,8 +501,8 @@ public struct RollingHorizonDeckView: View {
     private var upcomingHorizonSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Найближчі тренування")
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(LifecoreTheme.inkPrimary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -390,32 +510,32 @@ public struct RollingHorizonDeckView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(slotLabel(offset: item.dayOffset))
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(LifecoreTheme.electricTeal)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(LifecoreTheme.accentPrimary)
                                 Spacer()
                                 Text(item.archetype.loadLevelUk)
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(LifecoreTheme.inkTertiary)
                             }
 
                             Text(item.cleanTitleUk)
-                                .font(.caption.bold())
-                                .foregroundStyle(.white)
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(LifecoreTheme.inkPrimary)
                                 .lineLimit(2)
 
                             if item.totalDurationMin > 0 {
-                                Text("\(Int(item.totalDurationMin)) хв • ~\(String(format: "%.1f", item.estimatedDistanceKm)) км")
-                                    .font(.system(size: 10).monospacedDigit())
-                                    .foregroundStyle(.secondary)
+                                Text("\(Int(item.totalDurationMin)) хв  ·  ~\(String(format: "%.1f", item.estimatedDistanceKm)) км")
+                                    .font(.system(size: 11, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.inkSecondary)
                             } else {
                                 Text("Відпочинок")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(LifecoreTheme.inkSecondary)
                             }
                         }
-                        .frame(width: 170, alignment: .leading)
-                        .padding(12)
-                        .lifecoreGlassCard(cornerRadius: 14, borderColor: Color.white.opacity(0.08))
+                        .frame(width: 172, alignment: .leading)
+                        .lifecoreGlassCard(cornerRadius: 16, padding: 12)
                     }
                 }
             }
@@ -424,10 +544,10 @@ public struct RollingHorizonDeckView: View {
 
     private func slotLabel(offset: Int) -> String {
         switch offset {
-        case 1: return "ЗАВТРА"
-        case 2: return "ЧЕРЕЗ 2 ДНІ"
-        case 3: return "ЧЕРЕЗ 3 ДНІ"
-        default: return "СЛОТ +\(offset)"
+        case 1: return "Завтра"
+        case 2: return "Через 2 дні"
+        case 3: return "Через 3 дні"
+        default: return "Слот +\(offset)"
         }
     }
 }

@@ -15,7 +15,7 @@ struct LifecoreApp: App {
     var body: some Scene {
         WindowGroup {
             MainTabView()
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
         }
         .modelContainer(LifecoreDataStore.shared.container)
     }

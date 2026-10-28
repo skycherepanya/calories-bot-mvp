@@ -30,13 +30,14 @@ public struct AthleteProfileSheet: View {
         NavigationStack {
             Form {
                 // Section 1: Антропометрія
-                Section(header: Text("Антропометрія та Пульс").foregroundColor(LifecoreTheme.electricTeal)) {
+                Section(header: Text("Антропометрія та Пульс").foregroundStyle(LifecoreTheme.inkSecondary)) {
                     HStack {
                         Text("Вага (кг)")
                         Spacer()
                         TextField("78.6", value: $weightKg, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                             .accessibilityIdentifier("input_athlete_weight")
                     }
                     HStack {
@@ -45,6 +46,7 @@ public struct AthleteProfileSheet: View {
                         TextField("181", value: $heightCm, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Вік (років)")
@@ -52,6 +54,7 @@ public struct AthleteProfileSheet: View {
                         TextField("28", value: $ageYears, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Максимальний пульс (HR Max)")
@@ -59,17 +62,19 @@ public struct AthleteProfileSheet: View {
                         TextField("192", value: $maxHeartRateBpm, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                 }
 
                 // Section 2: Базові вітальні показники (30-денна норма)
-                Section(header: Text("Базові нічні вітальні показники (Apple Watch)").foregroundColor(LifecoreTheme.electricTeal)) {
+                Section(header: Text("Базові нічні вітальні показники (Apple Watch)").foregroundStyle(LifecoreTheme.inkSecondary)) {
                     HStack {
                         Text("Базовий RHR (уд/хв)")
                         Spacer()
                         TextField("49.0", value: $restingHeartRateBaselineBpm, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Базовий HRV (мс)")
@@ -77,6 +82,7 @@ public struct AthleteProfileSheet: View {
                         TextField("102.0", value: $hrvBaselineMs, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Базова темп. зап'ястя (°C)")
@@ -84,6 +90,7 @@ public struct AthleteProfileSheet: View {
                         TextField("36.40", value: $wristTempBaselineCelsius, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Базова частота дихання (дих/хв)")
@@ -91,6 +98,7 @@ public struct AthleteProfileSheet: View {
                         TextField("14.2", value: $respiratoryRateBaselineBpm, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Базовий SpO₂ (%)")
@@ -98,11 +106,12 @@ public struct AthleteProfileSheet: View {
                         TextField("97.8", value: $spo2BaselinePct, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                 }
 
                 // Section 3: Метод розрахунку HRV
-                Section(header: Text("Алгоритм розрахунку варіабельності (HRV)").foregroundColor(LifecoreTheme.electricTeal)) {
+                Section(header: Text("Алгоритм розрахунку варіабельності (HRV)").foregroundStyle(LifecoreTheme.inkSecondary)) {
                     Picker("Метод HRV", selection: $hrvMethod) {
                         Text("Гібридний RMSSD (Bevel/Kubios)").tag(HRVCalculationMethod.hybridRMSSD)
                         Text("Apple Health SDNN (Apple Watch)").tag(HRVCalculationMethod.appleSDNN)
@@ -113,17 +122,18 @@ public struct AthleteProfileSheet: View {
                          ? "Аналізує інтервали R-R із 20% фільтром артефактів. Найвища чутливість до парасимпатичного тонусу."
                          : "Використовує стандартний 24-годинний SDNN від Apple Health із логарифмічною нормалізацією.")
                     .font(.system(size: 11))
-                    .foregroundColor(LifecoreTheme.textMuted)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
 
                 // Section 4: Енерговитрати та Нутрієнти
-                Section(header: Text("Цілі енергії та харчування").foregroundColor(LifecoreTheme.electricTeal)) {
+                Section(header: Text("Цілі енергії та харчування").foregroundStyle(LifecoreTheme.inkSecondary)) {
                     HStack {
                         Text("Базовий метаболізм (BMR, ккал)")
                         Spacer()
                         TextField("1750", value: $bmrKcalPerDay, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Ціль активної енергії (Move, ккал)")
@@ -131,6 +141,7 @@ public struct AthleteProfileSheet: View {
                         TextField("650", value: $activeMoveGoalKcal, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Ціль калорій (з буфером, ккал)")
@@ -138,6 +149,7 @@ public struct AthleteProfileSheet: View {
                         TextField("2150", value: $targetCaloriesKcal, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Ціль білка (г)")
@@ -145,6 +157,7 @@ public struct AthleteProfileSheet: View {
                         TextField("165", value: $targetProteinG, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Ціль жирів (г)")
@@ -152,6 +165,7 @@ public struct AthleteProfileSheet: View {
                         TextField("70", value: $targetFatG, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Ціль вуглеводів (г)")
@@ -159,6 +173,7 @@ public struct AthleteProfileSheet: View {
                         TextField("215", value: $targetCarbsG, format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                     HStack {
                         Text("Цільовий сон (годин)")
@@ -166,6 +181,7 @@ public struct AthleteProfileSheet: View {
                         TextField("7.5", value: $targetSleepHours, format: .number)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
                     }
                 }
             }
@@ -175,6 +191,7 @@ public struct AthleteProfileSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Скасувати") { dismiss() }
                         .accessibilityIdentifier("btn_close_profile")
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Зберегти") {
@@ -183,7 +200,7 @@ public struct AthleteProfileSheet: View {
                     }
                     .accessibilityIdentifier("btn_save_profile")
                     .fontWeight(.bold)
-                    .foregroundColor(LifecoreTheme.electricTeal)
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
             }
             .accessibilityIdentifier("sheet_athlete_profile")

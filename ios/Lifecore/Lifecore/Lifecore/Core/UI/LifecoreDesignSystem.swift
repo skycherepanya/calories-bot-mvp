@@ -1,43 +1,55 @@
 import SwiftUI
 
-// MARK: - Lifecore Design System (Liquid Glass Dark 3.0)
+/* Hallmark · scope: app · genre: modern-minimal · theme: Bevel Daylight · redesign: full · v2.0.0 */
+
+// MARK: - Lifecore Design System (Bevel & Apple Health Daylight 3.3)
 
 public enum LifecoreTheme {
-    // Deep OLED Background
-    public static let backgroundDark = Color(red: 0.05, green: 0.06, blue: 0.08)
-    public static let cardSurface = Color(red: 0.10, green: 0.12, blue: 0.16).opacity(0.75)
-    public static let cardSurfaceSecondary = Color(red: 0.13, green: 0.15, blue: 0.20).opacity(0.60)
+    // 4-Rung Surface Ladder (Warm Alabaster Paper -> Pure White Card -> Warm Stone Well -> Hairline Rule)
+    public static let paperCanvas = Color(red: 0.965, green: 0.961, blue: 0.945)   // #F6F5F1
+    public static let paperCard = Color(red: 1.000, green: 1.000, blue: 1.000)     // #FFFFFF
+    public static let paperWell = Color(red: 0.937, green: 0.929, blue: 0.902)     // #EFECE6
+    public static let ruleHairline = Color(red: 0.894, green: 0.882, blue: 0.855)  // #E4E1DA
 
-    // Specular Gradients
+    // Typography Ink Hierarchy (Obsidian Ink)
+    public static let inkPrimary = Color(red: 0.078, green: 0.082, blue: 0.094)    // #141518
+    public static let inkSecondary = Color(red: 0.345, green: 0.357, blue: 0.388)  // #585B63
+    public static let inkTertiary = Color(red: 0.545, green: 0.557, blue: 0.588)   // #8B8E96
+
+    // Semantic Athletic & Biometric Signals
+    public static let accentPrimary = Color(red: 0.067, green: 0.600, blue: 0.365) // #11995D Bevel Emerald
+    public static let accentTeal = Color(red: 0.055, green: 0.545, blue: 0.659)    // #0E8BA8 Precision Teal
+    public static let accentIndigo = Color(red: 0.310, green: 0.275, blue: 0.898)  // #4F46E5 Sleep/VNS Indigo
+    public static let statusOptimal = accentPrimary
+    public static let statusWarning = Color(red: 0.851, green: 0.467, blue: 0.024) // #D97706 Strain/Watch Amber
+    public static let statusDanger = Color(red: 0.863, green: 0.149, blue: 0.149)  // #DC2626 Alert Coral
+
+    // Backward-Compatible Semantic Aliases
+    public static let backgroundDark = paperCanvas
+    public static let deepVoidBackground = paperCanvas
+    public static let cardSurface = paperCard
+    public static let cardSurfaceSecondary = paperWell
+    public static let electricTeal = accentTeal
+    public static let athleticEmerald = statusOptimal
+    public static let recoveryGreen = statusOptimal
+    public static let amberWarning = statusWarning
+    public static let strainOrange = statusWarning
+    public static let coralDanger = statusDanger
+    public static let recoveryPurple = accentIndigo
+    public static let textMuted = inkSecondary
+    public static let textSubtle = inkTertiary
+
     public static let specularBorderGradient = LinearGradient(
-        colors: [
-            Color.white.opacity(0.22),
-            Color.white.opacity(0.06),
-            Color.white.opacity(0.02)
-        ],
+        colors: [ruleHairline, ruleHairline],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-
-    // Semantic Athletic Accents
-    public static let electricTeal = Color(red: 0.18, green: 0.82, blue: 0.96)
-    public static let athleticEmerald = Color(red: 0.16, green: 0.85, blue: 0.54)
-    public static let amberWarning = Color(red: 1.0, green: 0.68, blue: 0.15)
-    public static let coralDanger = Color(red: 1.0, green: 0.32, blue: 0.35)
-    public static let recoveryPurple = Color(red: 0.68, green: 0.40, blue: 0.98)
-    public static let textMuted = Color(white: 0.65)
-    public static let textSubtle = Color(white: 0.45)
-
-    // Liquid Glass v3.1 Theme Aliases
-    public static let deepVoidBackground = backgroundDark
-    public static let recoveryGreen = athleticEmerald
-    public static let strainOrange = amberWarning
 }
 
-// MARK: - View Modifiers
+// MARK: - Surface Ladder View Modifiers (Hallmark §3)
 
 public struct LifecoreGlassCardModifier: ViewModifier {
-    public var cornerRadius: CGFloat = 18
+    public var cornerRadius: CGFloat = 20
     public var padding: CGFloat = 16
     public var borderColor: Color? = nil
 
@@ -46,37 +58,56 @@ public struct LifecoreGlassCardModifier: ViewModifier {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(LifecoreTheme.cardSurface)
-                    .background(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    )
+                    .fill(LifecoreTheme.paperCard)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        borderColor != nil ? AnyShapeStyle(borderColor!) : AnyShapeStyle(LifecoreTheme.specularBorderGradient),
-                        lineWidth: 1.0
-                    )
+                    .stroke(borderColor ?? LifecoreTheme.ruleHairline, lineWidth: 1.0)
             )
-            .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 5)
+    }
+}
+
+public struct LifecoreWellModifier: ViewModifier {
+    public var cornerRadius: CGFloat = 12
+    public var padding: CGFloat = 12
+
+    public func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(LifecoreTheme.paperWell)
+            )
     }
 }
 
 public extension View {
-    func lifecoreGlassCard(cornerRadius: CGFloat = 18, padding: CGFloat = 16, borderColor: Color? = nil) -> some View {
+    func lifecoreGlassCard(cornerRadius: CGFloat = 20, padding: CGFloat = 16, borderColor: Color? = nil) -> some View {
         modifier(LifecoreGlassCardModifier(cornerRadius: cornerRadius, padding: padding, borderColor: borderColor))
+    }
+
+    func lifecoreWell(cornerRadius: CGFloat = 12, padding: CGFloat = 12) -> some View {
+        modifier(LifecoreWellModifier(cornerRadius: cornerRadius, padding: padding))
     }
 }
 
-// MARK: - Semantic Glow Pill
+public struct LifecoreHairlineDivider: View {
+    public init() {}
+    public var body: some View {
+        Rectangle()
+            .fill(LifecoreTheme.ruleHairline)
+            .frame(height: 1)
+    }
+}
+
+// MARK: - Semantic Status Pill (Sentence case, no glow halo)
 
 public struct LifecoreGlowPill: View {
     public let text: String
     public let systemIcon: String?
     public let color: Color
 
-    public init(text: String, systemIcon: String? = nil, color: Color = LifecoreTheme.athleticEmerald) {
+    public init(text: String, systemIcon: String? = nil, color: Color = LifecoreTheme.statusOptimal) {
         self.text = text
         self.systemIcon = systemIcon
         self.color = color
@@ -86,21 +117,18 @@ public struct LifecoreGlowPill: View {
         HStack(spacing: 4) {
             if let icon = systemIcon {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 10, weight: .semibold))
             }
             Text(text)
                 .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
         }
-        .foregroundColor(color)
+        .foregroundStyle(color)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
             Capsule()
-                .fill(color.opacity(0.15))
-        )
-        .overlay(
-            Capsule()
-                .stroke(color.opacity(0.35), lineWidth: 0.8)
+                .fill(color.opacity(0.12))
         )
     }
 }
@@ -125,11 +153,11 @@ public struct LifecoreSectionHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                 if let sub = subtitle {
                     Text(sub)
                         .font(.system(size: 12))
-                        .foregroundColor(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
             }
             Spacer()
@@ -137,24 +165,28 @@ public struct LifecoreSectionHeader: View {
                 Button(action: { onTrailingTap?() }) {
                     Text(trailing)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(LifecoreTheme.electricTeal)
+                        .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
             }
         }
     }
 }
 
-// MARK: - Vitals Corridor Pill Component
+// MARK: - Vitals Corridor Row / Well Component (No Card-in-Card Border)
 
 public struct VitalsCorridorPill: View {
     public let metric: VitalsPillarMetric
+
+    public init(metric: VitalsPillarMetric) {
+        self.metric = metric
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(metric.name)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(LifecoreTheme.textMuted)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                     .lineLimit(1)
                 Spacer()
                 statusBadge
@@ -162,91 +194,74 @@ public struct VitalsCorridorPill: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(formatValue(metric.currentValue))
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                 Text(metric.unit)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(LifecoreTheme.textSubtle)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
                 Spacer()
                 Text(formatDelta(metric.delta))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(statusColor)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(statusColor)
             }
 
-            // Corridor Bar
+            // Corridor Track
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(LifecoreTheme.ruleHairline)
                         .frame(height: 4)
 
-                    // Target corridor highlight in middle
                     Capsule()
-                        .fill(LifecoreTheme.athleticEmerald.opacity(0.35))
+                        .fill(LifecoreTheme.statusOptimal.opacity(0.35))
                         .frame(width: geo.size.width * 0.5, height: 4)
                         .offset(x: geo.size.width * 0.25)
 
-                    // Current point dot
                     Circle()
                         .fill(statusColor)
                         .frame(width: 8, height: 8)
                         .offset(x: calculateDotOffset(width: geo.size.width))
-                        .shadow(color: statusColor.opacity(0.6), radius: 3)
                 }
             }
             .frame(height: 8)
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(LifecoreTheme.cardSurfaceSecondary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(statusColor.opacity(metric.status == .inside ? 0.15 : 0.40), lineWidth: 1.0)
-        )
+        .lifecoreWell(cornerRadius: 12, padding: 10)
     }
 
     private var statusColor: Color {
         switch metric.status {
-        case .inside: return LifecoreTheme.athleticEmerald
-        case .warning: return LifecoreTheme.amberWarning
-        case .outlier: return LifecoreTheme.coralDanger
+        case .inside: return LifecoreTheme.statusOptimal
+        case .warning: return LifecoreTheme.statusWarning
+        case .outlier: return LifecoreTheme.statusDanger
         }
     }
 
     private var statusBadge: some View {
         switch metric.status {
         case .inside:
-            return LifecoreGlowPill(text: "Норма", color: LifecoreTheme.athleticEmerald)
+            return LifecoreGlowPill(text: "Норма", color: LifecoreTheme.statusOptimal)
         case .warning:
-            return LifecoreGlowPill(text: "Увага", color: LifecoreTheme.amberWarning)
+            return LifecoreGlowPill(text: "Увага", color: LifecoreTheme.statusWarning)
         case .outlier:
-            return LifecoreGlowPill(text: "Відхилення", color: LifecoreTheme.coralDanger)
+            return LifecoreGlowPill(text: "Відхилення", color: LifecoreTheme.statusDanger)
         }
     }
 
     private func formatValue(_ val: Double) -> String {
-        if val >= 100 {
-            return String(format: "%.0f", val)
-        } else if val >= 10 {
-            return String(format: "%.1f", val)
-        } else {
-            return String(format: "%.2f", val)
-        }
+        if val >= 100 { return String(format: "%.0f", val) }
+        else if val >= 10 { return String(format: "%.1f", val) }
+        else { return String(format: "%.2f", val) }
     }
 
     private func formatDelta(_ d: Double) -> String {
         let sign = d >= 0 ? "+" : ""
-        if abs(d) >= 10 {
-            return "\(sign)\(String(format: "%.0f", d))"
-        } else {
-            return "\(sign)\(String(format: "%.1f", d))"
-        }
+        if abs(d) >= 10 { return "\(sign)\(String(format: "%.0f", d))" }
+        else { return "\(sign)\(String(format: "%.1f", d))" }
     }
 
     private func calculateDotOffset(width: CGFloat) -> CGFloat {
-        // Map baseline to center (0.5), delta to offset
         let ratio: CGFloat
         if metric.baselineValue > 0 {
             let rel = metric.delta / (metric.baselineValue * 0.15)
@@ -259,7 +274,7 @@ public struct VitalsCorridorPill: View {
     }
 }
 
-// MARK: - Phase 3.1 Adaptive Engine UI Components
+// MARK: - Phase 3.1 Adaptive Engine UI Components (Daylight Clean)
 
 public struct AdaptiveEngineBadgeBar: View {
     public let snapshot: AdaptivePhysiologySnapshot
@@ -270,32 +285,28 @@ public struct AdaptiveEngineBadgeBar: View {
 
     public var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(LifecoreTheme.electricTeal)
-            Text("Адаптивне ядро • \(snapshot.confidencePct)% точності")
+            Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(LifecoreTheme.accentTeal)
+            Text("Адаптивне ядро \(snapshot.confidencePct)%")
+                .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
             Spacer()
             Text("BMR \(Int(snapshot.dynamicTDEE.learnedBmrKcal)) ккал (\(String(format: "%+.0f", snapshot.dynamicTDEE.metabolicAdaptationKcal)))")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundColor(LifecoreTheme.textMuted)
-            Text("•")
-                .font(.system(size: 10))
-                .foregroundColor(LifecoreTheme.textSubtle)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkSecondary)
             Text("Na→H₂O +\(String(format: "%.2f", snapshot.sensitivities.sodiumWaterKgPerGram)) кг")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundColor(LifecoreTheme.athleticEmerald)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.statusOptimal)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
-            Capsule()
-                .fill(LifecoreTheme.cardSurfaceSecondary)
-        )
-        .overlay(
-            Capsule()
-                .stroke(LifecoreTheme.electricTeal.opacity(0.3), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(LifecoreTheme.paperWell)
         )
     }
 }
@@ -310,78 +321,47 @@ public struct RPEQuickCalibrationRow: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Як ти реально почуваєшся сьогодні?")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(LifecoreTheme.textMuted)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                 Spacer()
                 if isCalibratedToday {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 11))
-                        Text("Враховано у вагах ядра ✓")
+                        Text("Враховано у вагах ядра")
                             .font(.system(size: 11, weight: .semibold))
                     }
-                    .foregroundColor(LifecoreTheme.athleticEmerald)
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
                 }
             }
 
             if !isCalibratedToday {
                 HStack(spacing: 8) {
-                    Button(action: { onSelect(-1) }) {
-                        Text("Нижче прогнозу")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(LifecoreTheme.coralDanger)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                Capsule()
-                                    .fill(LifecoreTheme.coralDanger.opacity(0.12))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(LifecoreTheme.coralDanger.opacity(0.3), lineWidth: 0.8)
-                            )
-                    }
-
-                    Button(action: { onSelect(0) }) {
-                        Text("Точно")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(LifecoreTheme.athleticEmerald)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                Capsule()
-                                    .fill(LifecoreTheme.athleticEmerald.opacity(0.12))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(LifecoreTheme.athleticEmerald.opacity(0.3), lineWidth: 0.8)
-                            )
-                    }
-
-                    Button(action: { onSelect(1) }) {
-                        Text("Краще прогнозу")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(LifecoreTheme.electricTeal)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                Capsule()
-                                    .fill(LifecoreTheme.electricTeal.opacity(0.12))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(LifecoreTheme.electricTeal.opacity(0.3), lineWidth: 0.8)
-                            )
-                    }
+                    rpeButton(title: "Нижче прогнозу", delta: -1, color: LifecoreTheme.statusDanger)
+                    rpeButton(title: "Точно", delta: 0, color: LifecoreTheme.statusOptimal)
+                    rpeButton(title: "Краще прогнозу", delta: 1, color: LifecoreTheme.accentTeal)
                 }
             }
         }
+    }
+
+    private func rpeButton(title: String, delta: Int, color: Color) -> some View {
+        Button(action: { onSelect(delta) }) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(color)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(color.opacity(0.10))
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -394,99 +374,78 @@ public struct AdaptiveEngineStatusCard: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Image(systemName: "brain.head.profile")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(LifecoreTheme.electricTeal)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.accentTeal)
                         Text("Адаптивне самонавчання ядра")
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
                     }
                     Text(snapshot.statusTitleUk)
                         .font(.system(size: 12))
-                        .foregroundColor(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
                 Spacer()
                 LifecoreGlowPill(
                     text: "\(snapshot.confidencePct)% точності",
-                    systemIcon: "sparkles",
-                    color: snapshot.confidencePct >= 70 ? LifecoreTheme.athleticEmerald : LifecoreTheme.electricTeal
+                    systemIcon: "checkmark.seal.fill",
+                    color: snapshot.confidencePct >= 70 ? LifecoreTheme.statusOptimal : LifecoreTheme.accentTeal
                 )
             }
 
-            // Loop 1: Confidence progress bar
+            // Confidence progress bar
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Калібрування профілю (N = \(snapshot.sampleDaysCount) днів)")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
                     Text("\(snapshot.confidencePct)%")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.white.opacity(0.08))
+                            .fill(LifecoreTheme.paperWell)
                             .frame(height: 6)
                         Capsule()
-                            .fill(LinearGradient(
-                                colors: [LifecoreTheme.electricTeal, LifecoreTheme.athleticEmerald],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ))
+                            .fill(LifecoreTheme.accentPrimary)
                             .frame(width: max(8, geo.size.width * CGFloat(snapshot.confidencePct) / 100.0), height: 6)
                     }
                 }
                 .frame(height: 6)
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            LifecoreHairlineDivider()
 
-            // Loop 2: MacroFactor Dynamic TDEE
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Динамічний TDEE & BMR (MacroFactor Loop)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(LifecoreTheme.amberWarning)
+            // Dynamic TDEE & BMR
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Динамічний TDEE та BMR")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                 HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Реальний TDEE")
-                            .font(.system(size: 10))
-                            .foregroundColor(LifecoreTheme.textSubtle)
-                        Text("\(Int(snapshot.dynamicTDEE.learnedDailyTdeeKcal)) ккал")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Адаптивний BMR")
-                            .font(.system(size: 10))
-                            .foregroundColor(LifecoreTheme.textSubtle)
-                        Text("\(Int(snapshot.dynamicTDEE.learnedBmrKcal)) ккал")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Метаболічна дельта")
-                            .font(.system(size: 10))
-                            .foregroundColor(LifecoreTheme.textSubtle)
-                        Text(String(format: "%+.0f ккал", snapshot.dynamicTDEE.metabolicAdaptationKcal))
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(snapshot.dynamicTDEE.metabolicAdaptationKcal >= 0 ? LifecoreTheme.athleticEmerald : LifecoreTheme.coralDanger)
-                    }
+                    tdeeStat(title: "Реальний TDEE", value: "\(Int(snapshot.dynamicTDEE.learnedDailyTdeeKcal)) ккал", color: LifecoreTheme.inkPrimary)
+                    tdeeStat(title: "Адаптивний BMR", value: "\(Int(snapshot.dynamicTDEE.learnedBmrKcal)) ккал", color: LifecoreTheme.inkPrimary)
+                    tdeeStat(
+                        title: "Метаболічна дельта",
+                        value: String(format: "%+.0f ккал", snapshot.dynamicTDEE.metabolicAdaptationKcal),
+                        color: snapshot.dynamicTDEE.metabolicAdaptationKcal >= 0 ? LifecoreTheme.statusOptimal : LifecoreTheme.statusDanger
+                    )
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            LifecoreHairlineDivider()
 
-            // Loop 3: Sensitivities Grid
-            VStack(alignment: .leading, spacing: 6) {
+            // Sensitivities Grid (Tinted wells, no card-in-card borders)
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Індивідуальні β-чутливості (Ridge OLS)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(LifecoreTheme.electricTeal)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     sensitivityCell(
                         title: "Na→H₂O затримка",
@@ -511,39 +470,54 @@ public struct AdaptiveEngineStatusCard: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            LifecoreHairlineDivider()
 
-            // Loop 4: Readiness Weight Allocation
+            // Readiness Weight Allocation
             VStack(alignment: .leading, spacing: 4) {
                 let w = snapshot.readinessWeights
-                Text("Персональні ваги готовності (1-Tap RPE Feedback)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                Text("HRV \(Int(w.hrvWeight * 100))% • RHR \(Int(w.rhrWeight * 100))% • Сон \(Int((w.sleepDurationWeight + w.sleepArchitectureWeight) * 100))%")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundColor(LifecoreTheme.athleticEmerald)
+                Text("Персональні ваги готовності")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+                HStack(spacing: 12) {
+                    Text("HRV \(Int(w.hrvWeight * 100))%")
+                    Text("RHR \(Int(w.rhrWeight * 100))%")
+                    Text("Сон \(Int((w.sleepDurationWeight + w.sleepArchitectureWeight) * 100))%")
+                }
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.statusOptimal)
             }
         }
         .lifecoreGlassCard(cornerRadius: 20)
+    }
+
+    private func tdeeStat(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func sensitivityCell(title: String, value: String, desc: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(LifecoreTheme.textSubtle)
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text(value)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
             Text(desc)
-                .font(.system(size: 9))
-                .foregroundColor(LifecoreTheme.textMuted)
+                .font(.system(size: 10))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LifecoreTheme.cardSurfaceSecondary)
-        )
+        .lifecoreWell(cornerRadius: 10, padding: 10)
     }
 }

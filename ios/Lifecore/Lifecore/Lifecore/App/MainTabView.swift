@@ -48,11 +48,11 @@ public struct MainTabView: View {
                 .tag(AppTab.trends)
                 .accessibilityIdentifier("screen_trends")
         }
-        .tint(.cyan)
+        .tint(LifecoreTheme.accentPrimary)
     }
 }
 
 #Preview {
     MainTabView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

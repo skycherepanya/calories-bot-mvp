@@ -1,10 +1,19 @@
-# Lifecore 3.2: Native iOS-First, Deterministic Adaptive Training Prescription & Athletic Platform
+# Lifecore 3.4: Native iOS-First, Multilayer Health RAG & Conversational Analyst Platform
 
-**Lifecore** is a personal, native Quantified Self health and endurance platform. Built with **Swift 6, SwiftUI, HealthKit, and Supabase**, the system integrates high-frequency physiological telemetry from Apple Watch, camera-based nutrition tracking, on-device deterministic sports mathematics, a self-learning adaptive physiological engine, deterministic training prescription, and Gemini AI to deliver elite endurance coaching without vendor lock-in.
+**Lifecore** is a personal, native Quantified Self health and endurance platform. Built with **Swift 6, SwiftUI, HealthKit, SwiftData, and Supabase**, the system integrates high-frequency physiological telemetry from Apple Watch, camera-based nutrition tracking, on-device deterministic sports mathematics, a self-learning adaptive physiological engine, deterministic training prescription, a 3-tier on-device Health Context Graph (RAG), and a Bevel-style conversational athletic analyst powered by Gemini AI without vendor lock-in.
 
 ---
 
-## ⚡ Key Capabilities (Lifecore 3.1)
+## ⚡ Key Capabilities (Lifecore 3.4)
+
+### 💬 Multilayer Health RAG & Conversational Analyst Engine (Phase 3.4)
+* **3-Tier On-Device Health Context Graph (`LifecoreContextRAG`):**
+  - **L1 (Acute 48h):** 1km splits, cardiac drift %, sleep stages, 5-metric Overnight Vitals deviations, and meals eaten within the last 48 hours.
+  - **L2 (Contextual 30d):** EWMA ACWR strain envelope, dynamic TDEE slope, learned biological sensitivities ($\beta_{\text{Na}\to\text{H2O}}$, $\beta_{\text{LateMeal}\to\text{RHR}}$, etc.), and training prescription status.
+  - **L3 (Episodic Longitudinal Memory):** SwiftData `AthleteMemoryEntity` indexed and retrieved via hybrid BM25 lexical token matching + semantic tags + 21-day exponential recency decay.
+* **Effort-Normalized Benchmark Regimes (`WorkoutMathEngine`):** Classifies workout comparisons into 5 distinct regimes (`trueAerobicGain`, `higherIntensityEffort`, `easyRecoveryEffort`, `cardiacStrainDecoupling`, `steadyBaseline`), preventing effort-blind false praise.
+* **Bevel Intelligence Conversational Coach (`LifecoreIntelligenceChatView`):** Multi-turn conversational analyst sheet with real-time RAG context bar, memory drawer, cited metric pills, and structured takeaway responses.
+* **Hallmark Daylight Structured Cards (`CoachReportView`):** Completely replaces raw Markdown hashes (`###`) and repetitive templates with clean, strongly typed `StructuredWorkoutDebrief` cards, metric pills, follow-up chips, and non-blocking offline fallbacks.
 
 ### 🎯 Deterministic Adaptive Training Prescription Engine (Phase 3.2)
 * **Inverse EWMA ACWR Load Budgeting:** Formulates analytical daily load budgets $\text{TRIMP} \in [0, 160]$ targeting progressive overload ratio $R_{\text{target}} = 1.08$ with high-acute-spike safety ceiling ($\le 45$ TRIMP if prior ACWR $>1.25$).

@@ -105,9 +105,9 @@ public struct WorkoutChartsView: View {
         VStack(alignment: .leading, spacing: 14) {
             // Header & Segment Picker
             HStack {
-                Label("Telemetry Curves", systemImage: "chart.xyaxis.line")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                Label("Графіки телеметрії", systemImage: "chart.xyaxis.line")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
 
                 Spacer()
 
@@ -139,9 +139,7 @@ public struct WorkoutChartsView: View {
                 }
             }
         }
-        .padding(18)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard(cornerRadius: 20)
     }
 
     private var availableTabs: [TelemetryChartTab] {
@@ -168,7 +166,7 @@ public struct WorkoutChartsView: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.red.opacity(0.4), Color.orange.opacity(0.15), Color.clear],
+                        colors: [LifecoreTheme.statusDanger.opacity(0.25), LifecoreTheme.statusDanger.opacity(0.05), Color.clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -178,36 +176,65 @@ public struct WorkoutChartsView: View {
                     x: .value("Distance (km)", p.distanceKm),
                     y: .value("Heart Rate", p.heartRate!)
                 )
-                .foregroundStyle(Color.red)
+                .foregroundStyle(LifecoreTheme.statusDanger)
                 .lineStyle(StrokeStyle(lineWidth: 2.2))
             }
 
             if let avg = avgHeartRate {
                 RuleMark(y: .value("Avg HR", avg))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(LifecoreTheme.inkTertiary.opacity(0.5))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     .annotation(position: .top, alignment: .trailing) {
-                        Text("Avg: \(Int(avg)) bpm")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        Text("Сер: \(Int(avg)) bpm")
+                            .font(.system(size: 10))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
                     }
             }
 
             if let p = selectedPoint, let hr = p.heartRate {
                 RuleMark(x: .value("Selected Distance", p.distanceKm))
-                    .foregroundStyle(Color.cyan)
+                    .foregroundStyle(LifecoreTheme.accentTeal)
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                 PointMark(
                     x: .value("Selected Distance", p.distanceKm),
                     y: .value("Heart Rate", hr)
                 )
-                .foregroundStyle(Color.cyan)
+                .foregroundStyle(LifecoreTheme.accentTeal)
                 .symbolSize(45)
             }
         }
         .chartYScale(domain: minHr...maxHr)
         .chartXSelection(value: $selectedDistance)
+        .chartYAxis {
+            AxisMarks(position: .leading) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
+                AxisValueLabel {
+                    if let hr = value.as(Double.self) {
+                        Text("\(Int(hr))")
+                            .font(.system(size: 10))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
+                AxisValueLabel {
+                    if let d = value.as(Double.self) {
+                        Text(String(format: "%.1f", d))
+                            .font(.system(size: 10))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
+                    }
+                }
+            }
+        }
         .frame(height: 190)
     }
 
@@ -221,10 +248,10 @@ public struct WorkoutChartsView: View {
             VStack(spacing: 8) {
                 Image(systemName: "speedometer")
                     .font(.title2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
                 Text("Дані темпу недоступні для цього тренування.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 190)
@@ -235,31 +262,32 @@ public struct WorkoutChartsView: View {
                         x: .value("Distance (km)", p.distanceKm),
                         y: .value("Pace", p.paceMinKm!)
                     )
-                    .foregroundStyle(Color.cyan)
+                    .foregroundStyle(LifecoreTheme.accentTeal)
                     .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
                 }
 
                 if let avg = avgPaceMinKm {
                     RuleMark(y: .value("Avg Pace", avg))
-                        .foregroundStyle(Color.white.opacity(0.4))
+                        .foregroundStyle(LifecoreTheme.inkTertiary.opacity(0.5))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         .annotation(position: .top, alignment: .trailing) {
-                            Text("Avg: \(formatPace(avg))")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                            Text("Сер: \(formatPace(avg))")
+                                .font(.system(size: 10))
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.inkTertiary)
                         }
                 }
 
                 if let p = selectedPoint, let pace = p.paceMinKm {
                     RuleMark(x: .value("Selected Distance", p.distanceKm))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                     PointMark(
                         x: .value("Selected Distance", p.distanceKm),
                         y: .value("Pace", pace)
                     )
-                    .foregroundStyle(Color.green)
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
                     .symbolSize(45)
                 }
             }
@@ -269,25 +297,32 @@ public struct WorkoutChartsView: View {
             .chartYAxis {
                 AxisMarks(position: .leading) { value in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Color.white.opacity(0.08))
+                        .foregroundStyle(LifecoreTheme.ruleHairline)
                     AxisValueLabel {
                         if let pace = value.as(Double.self) {
                             let totalSec = max(0, Int(round(pace * 60.0)))
                             let m = totalSec / 60
                             let s = totalSec % 60
                             Text(String(format: "%d:%02d", m, s))
-                                .font(.caption2)
-                                .foregroundStyle(Color.secondary)
+                                .font(.system(size: 10))
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.inkTertiary)
                         }
                     }
                 }
             }
             .chartXAxis {
-                AxisMarks { _ in
+                AxisMarks { value in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
-                        .foregroundStyle(Color.white.opacity(0.08))
-                    AxisValueLabel()
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(LifecoreTheme.ruleHairline)
+                    AxisValueLabel {
+                        if let d = value.as(Double.self) {
+                            Text(String(format: "%.1f", d))
+                                .font(.system(size: 10))
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.inkTertiary)
+                        }
+                    }
                 }
             }
             .frame(height: 190)
@@ -310,7 +345,7 @@ public struct WorkoutChartsView: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.green.opacity(0.4), Color.teal.opacity(0.15), Color.clear],
+                        colors: [LifecoreTheme.statusOptimal.opacity(0.25), Color.clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -320,64 +355,101 @@ public struct WorkoutChartsView: View {
                     x: .value("Distance (km)", p.distanceKm),
                     y: .value("Altitude", p.altitudeM!)
                 )
-                .foregroundStyle(Color.teal)
+                .foregroundStyle(LifecoreTheme.statusOptimal)
                 .lineStyle(StrokeStyle(lineWidth: 2.0))
             }
 
             if let p = selectedPoint, let alt = p.altitudeM {
                 RuleMark(x: .value("Selected Distance", p.distanceKm))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
 
                 PointMark(
                     x: .value("Selected Distance", p.distanceKm),
                     y: .value("Altitude", alt)
                 )
-                .foregroundStyle(Color.white)
+                .foregroundStyle(LifecoreTheme.inkPrimary)
                 .symbolSize(45)
             }
         }
         .chartYScale(domain: minAlt...maxAlt)
         .chartXSelection(value: $selectedDistance)
+        .chartYAxis {
+            AxisMarks(position: .leading) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
+                AxisValueLabel {
+                    if let alt = value.as(Double.self) {
+                        Text("\(Int(alt)) м")
+                            .font(.system(size: 10))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                    .foregroundStyle(LifecoreTheme.ruleHairline)
+                AxisValueLabel {
+                    if let d = value.as(Double.self) {
+                        Text(String(format: "%.1f", d))
+                            .font(.system(size: 10))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
+                    }
+                }
+            }
+        }
         .frame(height: 190)
     }
 
     // MARK: - Tooltip & Empty States
 
     private func interactiveTooltip(for point: ChartDataPoint) -> some View {
-        HStack(spacing: 16) {
-            Text(String(format: "%.2f km", point.distanceKm))
-                .font(.footnote)
-                .fontWeight(.bold)
-                .foregroundStyle(.cyan)
+        HStack(spacing: 12) {
+            Text(String(format: "%.2f км", point.distanceKm))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.accentTeal)
 
             if let hr = point.heartRate {
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.red)
+                        .font(.system(size: 9))
+                        .foregroundStyle(LifecoreTheme.statusDanger)
                     Text("\(Int(hr)) bpm")
-                        .font(.footnote)
-                        .foregroundStyle(.white)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
             }
 
             if let pace = point.paceMinKm {
                 Text(formatPace(pace))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
             if let alt = point.altitudeM {
-                Text(String(format: "%.0f m", alt))
-                    .font(.footnote)
-                    .foregroundStyle(.teal)
+                Text(String(format: "%.0f м", alt))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color.black.opacity(0.6))
-        .clipShape(Capsule())
+        .background(
+            Capsule()
+                .fill(LifecoreTheme.paperWell)
+        )
+        .overlay(
+            Capsule()
+                .stroke(LifecoreTheme.ruleHairline, lineWidth: 1.0)
+        )
     }
 
     private func formatPace(_ pace: Double) -> String {
@@ -390,11 +462,11 @@ public struct WorkoutChartsView: View {
     private var emptyTelemetryCard: some View {
         VStack(spacing: 8) {
             Image(systemName: "waveform.path.ecg")
-                .font(.title)
-                .foregroundStyle(.secondary)
-            Text("Continuous series telemetry unavailable for this session.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.title2)
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+            Text("Телеметрія для цього тренування відсутня.")
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)

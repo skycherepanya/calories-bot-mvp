@@ -2,6 +2,103 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-10-28] - Release: Lifecore v3.4 Hierarchical Health RAG & Multi-Layered Conversational Analyst (`LifecoreIntelligenceEngine`)
+
+### 🧠 Hierarchical Health RAG & Bevel Intelligence Coach:
+- **Effort-Aware Benchmark Classification (`WorkoutMathEngine.swift`):**
+  - Implemented `BenchmarkRegime` (`.trueAerobicGain`, `.higherIntensityEffort`, `.easyRecoveryEffort`, `.cardiacStrainDecoupling`, `.steadyBaseline`).
+  - Solved effort-blind benchmark comparison where workouts at $+27\text{ bpm}$ higher HR were previously mischaracterized as "increased endurance". Now correctly classifies intensity-zone shifts (`higherIntensityEffort`) versus genuine aerobic pace progression (`trueAerobicGain`).
+- **3-Tier On-Device Health Context Graph & Hybrid RAG (`LifecoreContextRAG.swift`):**
+  - **Tier L1 (Acute 48h Slice):** Split-by-split workout telemetry, 48h logged nutrition (calories, carbs, protein, fat, sodium, late meal timing), overnight 5-metric Vitals (`ImmuneSystemState`), and Body Battery.
+  - **Tier L2 (Mesocycle 30d Dossier):** EWMA ACWR, $EF_{75}$, learned $\beta$-sensitivities ($\beta_{\text{Carbs}\to\text{Drift}}$, $\beta_{\text{LateMeal}\to\text{RHR}}$, $\beta_{\text{Na}\to\text{H2O}}$), and active tactical prescription queue.
+  - **Tier L3 (Episodic Memory RAG):** SwiftData `AthleteMemoryEntity` with hybrid BM25 + Tag Overlap + 21-day Recency Decay ranking for persistent athlete context.
+- **Structured Hallmark Daylight Debrief (`CoachReportView.swift` & `CoachPrompt.swift`):**
+  - Fully replaced legacy raw Markdown `###` and emoji strings with strictly typed JSON schema `StructuredWorkoutDebrief`.
+  - Native Daylight UI components with metric evidence pills (`.monospacedDigit()`), 3 distinct analysis sections (`Execution 70%`, `Benchmark Dynamics 15%`, `Root Cause & 24h Directive 15%`), quick suggestion question chips, and 1-tap conversational coach launcher.
+- **Multi-Layered Conversational Analyst (`LifecoreIntelligenceChatView.swift`):**
+  - Interactive Bevel-style multi-turn chat sheet accessible from both `WorkoutDetailView` and `TodayView`.
+  - Connects full 3-tier RAG dossier, cited metric pills, actionable takeaway boxes, and automatic extraction of athlete memory facts (`extractedMemoryFactUk`) into SwiftData `AthleteMemoryEntity`.
+- **Deterministic Math Verification Suite 13 (`MathEngineVerification.swift`):**
+  - Added Suite 13 (`verifyLifecoreIntelligenceAndRAG()`) testing effort regimes, RAG BM25/tag scoring, candidate memory extraction, and zero-markdown structured debrief generation. 13/13 suites pass (100%).
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/LifecoreContextRAG.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/MathEngineVerification.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/CoachReportView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailComponents.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/LifecoreIntelligenceChatView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `docs/superpowers/specs/2026-10-28-lifecore-v3-4-multilayer-rag-and-chat-analyst-design.md`
+- `docs/superpowers/plans/2026-10-28-phase-3-4-multilayer-rag-and-chat-analyst.md`
+
+
+## [2026-10-26] - Release: Lifecore v3.3 Hallmark v2.0.0 Bevel & Apple Health Daylight Redesign & Interactive Calendar Strip
+
+### ☀️ Visual System & Hallmark v2.0.0 Daylight Redesign:
+- **Hallmark v2.0.0 4-Rung Surface Ladder Architecture (`LifecoreDesignSystem.swift`):**
+  - **Rung 0 (`paperCanvas` `#F6F5F1`):** Warm Alabaster canvas replacing dark void `Color(red: 0.05...)` across the entire app.
+  - **Rung 1 (`paperCard` `#FFFFFF`):** Elevated pure white section cards with 20pt continuous corner radius and solid 1.0pt `ruleHairline` borders; completely eliminated simultaneous drop shadow and specular border gradients (Hallmark Gate F24).
+  - **Rung 2 (`paperWell` `#EFECE6`):** Recessed stone inner wells without borders or shadows, resolving card-in-card nesting (Hallmark Floor 11 / Gate 4) across `VitalsCorridorPill`, `AdaptiveEngineStatusCard`, `IllnessRadarBanner`, `insightRow`, and `ACWRWorkloadTrendCard`.
+  - **Rung 3 (`ruleHairline` `#E4E1DA`):** Crisp 1.0pt structural dividers (`LifecoreHairlineDivider`) separating sibling metrics and rows.
+- **Obsidian Ink & Numeric Discipline:**
+  - Standardized three-tier typography: `inkPrimary` (`#141518`), `inkSecondary` (`#585B63`), and `inkTertiary` (`#8B8E96`).
+  - Applied `.monospacedDigit()` (Hallmark Gate F6 tabular numerals) across all paces, heart rates, weights, calories, and time deltas.
+  - Purged all ALL-CAPS tracked eyebrows (Hallmark Floor 9) in favor of clean sentence case ("Сьогоднішня активність", "Завтра", "Через 2 дні").
+  - Purged all emoji prefixes from physiological status badges (Hallmark Floor 11 / Gate 30a), standardizing on crisp SF Symbols (`checkmark.circle.fill`, `exclamationmark.triangle.fill`, `drop.fill`).
+- **App Shell & Theme Configuration:**
+  - Configured `LifecoreApp.swift` and `MainTabView.swift` to `.preferredColorScheme(.light)` with Bevel Emerald tab tint (`accentPrimary` `#11995D`).
+
+### 📅 Interactive 7-Day Workout Calendar Strip (`RollingHorizonDeckView.swift`):
+- Upgraded the 7-day calendar strip into an interactive day inspector (`@State private var selectedDayOffset: Int = 0`).
+- Tapping any day in the `[-3...+3]` window dynamically displays:
+  - **Today (offset 0):** Tactical prescription card with zone segments, duration, distance, and 1-tap club/custom run recalculation button.
+  - **Past Days (offset < 0):** Archive summary of the completed workout session (or recovery day) with a quick "Повернутись до сьогодні" button.
+  - **Future Horizon (offset > 0):** Queued archetype preview with planned duration and load level.
+- Selected day highlighted with `paperWell` background, bold `inkPrimary` date, and active ring around the activity glyph; Today features a 4pt `accentPrimary` indicator dot.
+
+### 🧩 Module-by-Module Daylight Transformation:
+- **`TodayView`:** Bevel rings sit directly on `paperCard` with `LifecoreHairlineDivider()`, `OvernightVitalsCard` transformed into a clean Apple Vitals ledger, and `cloudSyncSection` restyled with `accentPrimary`.
+- **`WorkoutsView` & Detail Pages:** `WorkoutsView`, `WorkoutDetailView`, `WorkoutChartsView`, `WorkoutDetailComponents`, and `CoachReportView` fully migrated to daylight tokens and `ruleHairline` chart grids.
+- **`NutritionView` & Food Input:** Daylight date navigation buttons, `MacroSummaryCard` with tabular progress tracks, and daylight `FoodInputSheet` with `paperWell` text editor.
+- **`TrendsView`:** Daylight `categorySwitcher`, `TrendsRangePickerView`, `CorrelationInsightsCard`, and Swift Charts without emoji labels.
+
+### 🛡 Verification & Backward Compatibility:
+- 100% of Swift 6 deterministic math engines (`ReadinessCalculator`, `WorkoutMathEngine`, `VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `CorrelationEngine`, `AdaptivePhysiologyEngine`, `TrainingPrescriptionEngine`) preserved intact.
+- All 17 Maestro E2E `.accessibilityIdentifier(...)` hooks verified and present across `.maestro/01..05`.
+- Full project build verified via `xcodebuild`: `** BUILD SUCCEEDED **`.
+
+### Affected Files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/UI/LifecoreDesignSystem.swift`
+- `ios/Lifecore/Lifecore/Lifecore/App/LifecoreApp.swift`
+- `ios/Lifecore/Lifecore/Lifecore/App/MainTabView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TacticalPrescriptionCard.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/OvernightVitalsCard.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/AthleteProfileSheet.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/RollingHorizonDeckView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutsView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutChartsView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/WorkoutDetailComponents.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/CoachReportView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionComponents.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/FoodInputSheet.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Trends/TrendsComponents.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Trends/CorrelationInsightsCard.swift`
+- `docs/superpowers/specs/2026-10-26-lifecore-v3-3-hallmark-daylight-redesign-design.md`
+- `docs/superpowers/plans/2026-10-26-phase-3-3-hallmark-daylight-redesign.md`
+- `CHANGELOG.md`
+- `PROJECT_KNOWLEDGE.md`
+- `docs/ROADMAP.md`
+- `docs/ARCHITECTURE.md`
+
 ## [2026-10-24] - UI/UX Overhaul: Bevel-Inspired Native iOS Fitness Dashboard & Clutter-Free Cockpit
 
 ### 💎 Bevel-Style UX & Visual Language Transformation:

@@ -104,7 +104,7 @@ public struct WorkoutsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Тренування")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -112,10 +112,10 @@ public struct WorkoutsView: View {
                         Task { await loadWorkouts() }
                     }) {
                         if isLoading {
-                            ProgressView().tint(.cyan)
+                            ProgressView().tint(LifecoreTheme.accentPrimary)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .foregroundStyle(.cyan)
+                                .foregroundStyle(LifecoreTheme.accentPrimary)
                         }
                     }
                     .accessibilityIdentifier("btn_refresh_workouts")
@@ -136,24 +136,29 @@ public struct WorkoutsView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(WorkoutFilterCategory.allCases) { cat in
+                    let isSelected = selectedCategory == cat
                     Button(action: {
                         selectedCategory = cat
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: cat.icon)
-                                .font(.caption)
+                                .font(.system(size: 11, weight: .semibold))
                             Text(cat.titleUk)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
+                                .font(.system(size: 13, weight: isSelected ? .bold : .medium))
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(
-                            selectedCategory == cat ? Color.cyan : Color.white.opacity(0.08)
+                            Capsule()
+                                .fill(isSelected ? LifecoreTheme.inkPrimary : LifecoreTheme.paperCard)
                         )
-                        .foregroundStyle(selectedCategory == cat ? Color.black : Color.white)
-                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(isSelected ? Color.clear : LifecoreTheme.ruleHairline, lineWidth: 1.0)
+                        )
+                        .foregroundStyle(isSelected ? Color.white : LifecoreTheme.inkSecondary)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("filter_workout_\(cat.rawValue.lowercased())")
                 }
             }
@@ -165,17 +170,14 @@ public struct WorkoutsView: View {
         Toggle(isOn: $hideCasualWalks) {
             HStack(spacing: 6) {
                 Image(systemName: "figure.walk.motion")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
                 Text("Приховати побутові прогулянки")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
         }
-        .tint(.cyan)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .tint(LifecoreTheme.accentPrimary)
+        .lifecoreGlassCard(cornerRadius: 14, padding: 12)
     }
 
     // MARK: - Workout Card
@@ -200,12 +202,11 @@ public struct WorkoutsView: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: iconName(for: workout.workoutActivityType))
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(typeColor)
                     Text(title(for: workout.workoutActivityType))
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
 
                 Spacer()
@@ -219,28 +220,29 @@ public struct WorkoutsView: View {
                 LifecoreGlowPill(text: loadLabel, systemIcon: "flame.fill", color: typeColor)
 
                 Text(formattedDate(workout.startDate))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
 
                 Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
             }
 
-            Divider().background(Color.white.opacity(0.08))
+            LifecoreHairlineDivider()
 
-            // Metrics Grid
-            HStack(spacing: 16) {
+            // Metrics Grid (4-column layout)
+            HStack(spacing: 12) {
                 metricColumn(
                     title: "Час",
-                    value: String(format: "%.0f хв", durationMin)
+                    value: String(format: "%.0f хв", durationMin),
+                    color: LifecoreTheme.inkPrimary
                 )
 
                 if let dist = distanceKm, dist > 0.01 {
                     metricColumn(
                         title: "Дистанція",
                         value: String(format: "%.2f км", dist),
-                        color: .cyan
+                        color: LifecoreTheme.accentTeal
                     )
 
                     let pace = durationMin / dist
@@ -251,7 +253,7 @@ public struct WorkoutsView: View {
                         metricColumn(
                             title: "Темп",
                             value: String(format: "%d:%02d", mins, secs),
-                            color: .green
+                            color: LifecoreTheme.statusOptimal
                         )
                     }
                 }
@@ -260,7 +262,7 @@ public struct WorkoutsView: View {
                     metricColumn(
                         title: "Спалено",
                         value: "\(Int(kcal)) ккал",
-                        color: .orange
+                        color: LifecoreTheme.statusWarning
                     )
                 }
 
@@ -268,22 +270,22 @@ public struct WorkoutsView: View {
                     metricColumn(
                         title: "Сер. ЧСС",
                         value: "\(Int(hr)) bpm",
-                        color: .red
+                        color: LifecoreTheme.statusDanger
                     )
                 }
             }
         }
-        .lifecoreGlassCard(cornerRadius: 18, borderColor: typeColor.opacity(0.25))
+        .lifecoreGlassCard(cornerRadius: 18)
     }
 
-    private func metricColumn(title: String, value: String, color: Color = .white) -> some View {
+    private func metricColumn(title: String, value: String, color: Color = LifecoreTheme.inkPrimary) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.bold)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .monospacedDigit()
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -293,10 +295,10 @@ public struct WorkoutsView: View {
 
     private var loadingView: some View {
         VStack(spacing: 12) {
-            ProgressView().tint(.cyan)
+            ProgressView().tint(LifecoreTheme.accentPrimary)
             Text("Завантажую сесії з Apple Watch...")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -305,21 +307,19 @@ public struct WorkoutsView: View {
     private var emptyStateView: some View {
         VStack(spacing: 12) {
             Image(systemName: "figure.run.circle")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 44))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text("Тренувань не знайдено")
-                .font(.headline)
-                .foregroundStyle(.white)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(LifecoreTheme.inkPrimary)
             Text("У цій категорії за останні 30 днів немає записаних сесій в Apple Health.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 50)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .lifecoreGlassCard(cornerRadius: 18, padding: 32)
     }
 
     // MARK: - Helpers
@@ -365,13 +365,13 @@ public struct WorkoutsView: View {
 
     private func workoutColor(for type: HKWorkoutActivityType) -> Color {
         switch type {
-        case .running: return Color.green
-        case .cycling: return Color.cyan
-        case .walking: return Color.blue
-        case .traditionalStrengthTraining, .functionalStrengthTraining: return Color.purple
-        case .highIntensityIntervalTraining: return Color.orange
-        case .swimming: return Color.teal
-        default: return Color.secondary
+        case .running: return LifecoreTheme.statusOptimal
+        case .cycling: return LifecoreTheme.accentTeal
+        case .walking: return LifecoreTheme.accentIndigo
+        case .traditionalStrengthTraining, .functionalStrengthTraining: return LifecoreTheme.statusWarning
+        case .highIntensityIntervalTraining: return LifecoreTheme.statusDanger
+        case .swimming: return LifecoreTheme.accentTeal
+        default: return LifecoreTheme.inkSecondary
         }
     }
 
@@ -385,5 +385,5 @@ public struct WorkoutsView: View {
 
 #Preview {
     WorkoutsView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

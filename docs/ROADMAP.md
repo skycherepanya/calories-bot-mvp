@@ -1,6 +1,29 @@
-# Lifecore 3.2 Development Roadmap
+# Lifecore 3.4 Development Roadmap
 
-> **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1), and **Deterministic Adaptive Training Prescription Engine** (v3.2).
+> **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1), **Deterministic Adaptive Training Prescription Engine** (v3.2), **Hallmark v2.0.0 Bevel & Apple Health Daylight Redesign** (v3.3), and **Hierarchical Health RAG & Multi-Layered Conversational Analyst Engine** (v3.4).
+
+---
+
+## 🧠 Phase 3.4 — Hierarchical Health RAG & Multi-Layered Conversational Analyst (Completed)
+- [x] **Effort-Aware Benchmark Classification (`WorkoutMathEngine.swift`):** Added `BenchmarkRegime` (`trueAerobicGain`, `higherIntensityEffort`, `easyRecoveryEffort`, `cardiacStrainDecoupling`, `steadyBaseline`) solving effort-blind comparisons where runs at $+27\text{ bpm}$ higher HR were mischaracterized as improved fitness.
+- [x] **3-Tier On-Device Context Graph & Hybrid RAG (`LifecoreContextRAG.swift`):**
+  - **L1 Acute 48h Slice:** Kilometric splits, 48h nutrition (calories, carbs, protein, fat, sodium, late meal timing), overnight Vitals, and Body Battery.
+  - **L2 Mesocycle 30d Dossier:** EWMA ACWR, $EF_{75}$, learned $\beta$-sensitivities, and active tactical prescription queue.
+  - **L3 Episodic Memory RAG:** SwiftData `AthleteMemoryEntity` with hybrid BM25 + Tag Overlap + 21-day Recency Decay ranking.
+- [x] **Structured Hallmark Daylight Debrief (`CoachReportView.swift` & `CoachPrompt.swift`):** Replaced legacy Markdown `###` and emojis with typed JSON `StructuredWorkoutDebrief`, evidence metric pills (`.monospacedDigit()`), 3 distinct sections, and 1-tap follow-up question chips.
+- [x] **Multi-Layered Conversational Analyst (`LifecoreIntelligenceChatView.swift`):** Bevel-style conversational coach sheet connected to the full 3-tier RAG dossier with automatic memory fact extraction and memory drawer.
+- [x] **Verification Suite 13:** Added `verifyLifecoreIntelligenceAndRAG()` in `MathEngineVerification.swift` (13/13 suites passing).
+
+---
+
+## 🎨 Phase 3.3 — Hallmark v2.0.0 Bevel & Apple Health Daylight UI Redesign (Completed)
+- [x] **4-Rung Surface Ladder Architecture:** `paperCanvas` (`#F6F5F1`), `paperCard` (`#FFFFFF`), `paperWell` (`#EFECE6`), and `ruleHairline` (`#E4E1DA`) in `LifecoreDesignSystem.swift`.
+- [x] **Zero Card-in-Card Nesting:** Replaced inner card boxes with `.lifecoreWell()` and `LifecoreHairlineDivider()` across all 4 feature modules.
+- [x] **Obsidian Ink & Tabular Numerals:** Standardized typography with `.monospacedDigit()` for all numeric measurements, paces, and deltas.
+- [x] **Purged ALL-CAPS & Emoji Badges:** Switched eyebrows to sentence case and replaced emoji prefixes with native SF Symbols (`checkmark.circle.fill`, `exclamationmark.triangle.fill`, `drop.fill`).
+- [x] **Interactive 7-Day Workout Calendar Strip:** Tactile day inspector in `RollingHorizonDeckView.swift` allowing direct inspection of past workouts, today's tactical prescription, and queued future stimuli.
+- [x] **Daylight Mode Shell:** Configured `LifecoreApp.swift` and `MainTabView.swift` with `.preferredColorScheme(.light)` and Bevel Emerald accent tint (`#11995D`).
+- [x] **E2E & Verification:** 100% of Swift 6 deterministic math suites pass, all 17 Maestro E2E hooks preserved, and `xcodebuild` clean build succeeded.
 
 ---
 

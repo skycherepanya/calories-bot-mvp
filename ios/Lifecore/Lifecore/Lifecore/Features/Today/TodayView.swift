@@ -9,6 +9,7 @@ public struct TodayView: View {
     @State private var isSyncingWithCloud = false
     @State private var cloudSyncMessage: String?
     @State private var isShowingProfileSheet = false
+    @State private var isShowingIntelligenceChat = false
     @ObservedObject private var athleteStore = AthleteProfileStore.shared
     @ObservedObject private var planStore = TrainingPlanStore.shared
     @State private var prescriptionPlan: TrainingPrescriptionPlan?
@@ -26,6 +27,34 @@ public struct TodayView: View {
         let calendar = Calendar.current
         let shifted = calendar.date(byAdding: .hour, value: -4, to: Date()) ?? Date()
         return formatter.string(from: shifted)
+    }
+
+    private var assembledTodayDossier: AssembledHealthDossier {
+        let meals = MealStorageService.fetchTodayMeals()
+        let recovery = RecentRecoveryContext(
+            lastNightSleepHours: snapshot?.sleepLog.totalHours,
+            lastNightDeepHours: snapshot?.sleepLog.deepHours,
+            lastNightRemHours: snapshot?.sleepLog.remHours,
+            morningHrvMs: snapshot?.vitalsEvaluation?.hrvPillar.currentValue,
+            baselineHrvMs: snapshot?.vitalsEvaluation?.hrvPillar.baselineValue,
+            morningRhrBpm: snapshot?.vitalsEvaluation?.rhrPillar.currentValue,
+            baselineRhrBpm: snapshot?.vitalsEvaluation?.rhrPillar.baselineValue,
+            yesterdayActiveKcal: nil,
+            recoveryScore: snapshot?.recovery.score,
+            vitalsConfluenceState: snapshot?.vitalsEvaluation?.state.titleUk,
+            acwrRatio: snapshot?.acwr?.ratio,
+            acwrZoneTitleUk: snapshot?.acwr?.titleUk,
+            wristTempDeltaC: snapshot?.sleepLog.wristTempDeltaC,
+            topCorrelationInsightUk: nil
+        )
+
+        return LifecoreContextRAG.assembleDossier(
+            workoutAnalysis: nil,
+            recoveryContext: recovery,
+            meals: meals,
+            adaptiveSummaryUk: adaptiveSnapshot?.statusSummaryUk,
+            prescriptionSummaryUk: prescriptionPlan?.today.archetype.titleUk
+        )
     }
 
     public var body: some View {
@@ -62,32 +91,43 @@ public struct TodayView: View {
                 .padding(.vertical, 12)
             }
             .accessibilityIdentifier("today_scroll_view")
-            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Lifecore")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: { isShowingProfileSheet = true }) {
                         Image(systemName: "person.crop.circle")
-                            .foregroundStyle(LifecoreTheme.electricTeal)
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
                     }
                     .accessibilityIdentifier("btn_open_profile")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
-                        Task { await loadData(forceRefresh: true) }
-                    }) {
-                        if isLoading {
-                            ProgressView()
-                                .tint(LifecoreTheme.electricTeal)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundStyle(LifecoreTheme.electricTeal)
+                    HStack(spacing: 12) {
+                        Button(action: { isShowingIntelligenceChat = true }) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(LifecoreTheme.accentPrimary)
+                        }
+                        .accessibilityIdentifier("btn_open_intelligence")
+
+                        Button(action: {
+                            Task { await loadData(forceRefresh: true) }
+                        }) {
+                            if isLoading {
+                                ProgressView()
+                                    .tint(LifecoreTheme.accentPrimary)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundStyle(LifecoreTheme.accentPrimary)
+                            }
                         }
                     }
                 }
             }
             .sheet(isPresented: $isShowingProfileSheet) {
                 AthleteProfileSheet()
+            }
+            .sheet(isPresented: $isShowingIntelligenceChat) {
+                LifecoreIntelligenceChatView(dossier: assembledTodayDossier)
             }
             .onChange(of: planStore.queueState) { _ in
                 updatePrescriptionPlan()
@@ -109,8 +149,8 @@ public struct TodayView: View {
             HStack(spacing: 10) {
                 // Readiness Ring
                 let recoveryScore = snapshot?.recovery.score ?? 85
-                let recoveryColor: Color = recoveryScore >= 80 ? LifecoreTheme.athleticEmerald :
-                                           (recoveryScore >= 60 ? LifecoreTheme.amberWarning : LifecoreTheme.coralDanger)
+                let recoveryColor: Color = recoveryScore >= 80 ? LifecoreTheme.statusOptimal :
+                                           (recoveryScore >= 60 ? LifecoreTheme.statusWarning : LifecoreTheme.statusDanger)
                 let recoverySubtitle: String = {
                     switch snapshot?.recovery.state {
                     case .prime: return "Оптимально"
@@ -136,7 +176,7 @@ public struct TodayView: View {
                     value: String(format: "%.1f", strain21),
                     subtitle: "Шкала 0-21",
                     progress: strainPercent,
-                    ringColor: LifecoreTheme.electricTeal
+                    ringColor: LifecoreTheme.statusWarning
                 )
 
                 // Active Move Ring
@@ -148,38 +188,40 @@ public struct TodayView: View {
                     value: "\(Int(activeKcal))",
                     subtitle: "Ціль: \(Int(targetMoveKcal)) ккал",
                     progress: moveRatio,
-                    ringColor: LifecoreTheme.amberWarning
+                    ringColor: LifecoreTheme.accentTeal
                 )
             }
+
+            LifecoreHairlineDivider()
 
             // ACWR Status Pill
             if let acwr = snapshot?.acwr {
                 HStack(spacing: 6) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(acwrColor(acwr.zone))
+                        .foregroundStyle(acwrColor(acwr.zone))
                     Text("ACWR \(String(format: "%.2f", acwr.ratio)):")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                     Text(acwr.titleUk)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(acwrColor(acwr.zone))
+                        .foregroundStyle(acwrColor(acwr.zone))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .fill(acwrColor(acwr.zone).opacity(0.14))
+                        .fill(acwrColor(acwr.zone).opacity(0.12))
                 )
-                .overlay(
-                    Capsule()
-                        .stroke(acwrColor(acwr.zone).opacity(0.35), lineWidth: 0.8)
-                )
+
+                LifecoreHairlineDivider()
             }
 
             // Adaptive Engine Live Badge Bar
             if let adaptive = adaptiveSnapshot {
                 AdaptiveEngineBadgeBar(snapshot: adaptive)
+                LifecoreHairlineDivider()
             }
 
             // 1-Tap Subjective RPE Calibration
@@ -196,15 +238,15 @@ public struct TodayView: View {
                 }
             }
         }
-        .lifecoreGlassCard(cornerRadius: 24, borderColor: LifecoreTheme.recoveryGreen.opacity(0.25))
+        .lifecoreGlassCard(cornerRadius: 24)
     }
 
     private func acwrColor(_ zone: ACWRZone) -> Color {
         switch zone {
-        case .undertraining: return LifecoreTheme.electricTeal
-        case .sweetSpot: return LifecoreTheme.athleticEmerald
-        case .caution: return LifecoreTheme.amberWarning
-        case .dangerSpike: return LifecoreTheme.coralDanger
+        case .undertraining: return LifecoreTheme.accentTeal
+        case .sweetSpot: return LifecoreTheme.statusOptimal
+        case .caution: return LifecoreTheme.statusWarning
+        case .dangerSpike: return LifecoreTheme.statusDanger
         }
     }
 
@@ -222,12 +264,13 @@ public struct TodayView: View {
             HStack {
                 Label("Архітектура сну", systemImage: "moon.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(LifecoreTheme.recoveryPurple)
+                    .foregroundStyle(LifecoreTheme.accentIndigo)
                 Spacer()
                 let total = snapshot?.sleepLog.totalHours ?? 7.5
                 Text(String(format: "%.1f год", total))
                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
             }
 
             let deep = snapshot?.sleepLog.deepHours ?? 1.3
@@ -240,23 +283,44 @@ public struct TodayView: View {
                 sleepBar(label: "Глибокий", hours: deep, color: Color(red: 0.35, green: 0.35, blue: 0.95))
                 sleepBar(label: "REM", hours: rem, color: Color(red: 0.7, green: 0.35, blue: 0.95))
                 sleepBar(label: "Легкий", hours: core, color: Color(red: 0.3, green: 0.7, blue: 0.95))
-                sleepBar(label: "Не спав", hours: awake, color: Color.gray.opacity(0.6))
+                sleepBar(label: "Не спав", hours: awake, color: LifecoreTheme.inkTertiary.opacity(0.4))
             }
 
             HStack {
-                Text(deep >= 1.2 ? "✅ Оптимальний глибокий сон (клітинне відновлення)" : "⚠️ Дефіцит глибокого сну (<1.2 год)")
+                if deep >= 1.2 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Оптимальний глибокий сон (клітинне відновлення)")
+                    }
                     .font(.caption2)
-                    .foregroundStyle(deep >= 1.2 ? LifecoreTheme.athleticEmerald : LifecoreTheme.amberWarning)
-                Spacer()
-                if sleepDebt > 0.2 {
-                    Text("Борг сну: \(String(format: "%.1f", sleepDebt)) год")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(LifecoreTheme.coralDanger)
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
                 } else {
-                    Text("✅ Борг сну відсутній")
-                        .font(.caption2)
-                        .foregroundStyle(LifecoreTheme.athleticEmerald)
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text("Дефіцит глибокого сну (<1.2 год)")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.statusWarning)
+                }
+
+                Spacer()
+
+                if sleepDebt > 0.2 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text("Борг сну: \(String(format: "%.1f", sleepDebt)) год")
+                    }
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.statusDanger)
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Борг сну відсутній")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
                 }
             }
         }
@@ -268,12 +332,13 @@ public struct TodayView: View {
             HStack {
                 Label("Чистий NEAT та Адаптивний TDEE", systemImage: "flame.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(LifecoreTheme.amberWarning)
+                    .foregroundStyle(LifecoreTheme.statusWarning)
                 Spacer()
                 if let adapt = adaptiveSnapshot {
                     Text("BMR: \(Int(adapt.dynamicTDEE.learnedBmrKcal)) ккал")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundColor(LifecoreTheme.athleticEmerald)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                 }
             }
 
@@ -287,30 +352,32 @@ public struct TodayView: View {
                 metricCell(title: "Дистанція", value: String(format: "%.1f км", act?.distanceKm ?? 6.2))
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            LifecoreHairlineDivider()
 
             // NEAT Isolation & Dynamic TDEE Breakdown
             VStack(alignment: .leading, spacing: 7) {
                 HStack {
                     Text("Чистий NEAT (побутовий рух)")
                         .font(.caption)
-                        .foregroundStyle(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
                     Text("\(Int(neat)) ккал")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(LifecoreTheme.amberWarning)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.statusWarning)
                 }
 
                 HStack {
                     Text("Тренування (структуровані)")
                         .font(.caption)
-                        .foregroundStyle(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
                     Text("\(Int(workoutKcal)) ккал")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(LifecoreTheme.athleticEmerald)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                 }
 
                 let learnedBmr = adaptiveSnapshot?.dynamicTDEE.learnedBmrKcal ?? athleteStore.profile.bmrKcalPerDay
@@ -321,28 +388,30 @@ public struct TodayView: View {
                 HStack {
                     Text("Адаптивний BMR (на цей час)")
                         .font(.caption)
-                        .foregroundStyle(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
                     Text("\(Int(accruedBMR)) ккал")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(LifecoreTheme.electricTeal)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.accentTeal)
                 }
 
                 HStack {
                     Text("Реальний TDEE (активність + BMR)")
                         .font(.caption)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                     Spacer()
                     Text("\(Int(currentTDEE)) ккал")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(LifecoreTheme.athleticEmerald)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.statusOptimal)
                 }
 
                 Text("Apple Health активна енергія фіксує лише рух. Базальний метаболізм (BMR ~\(Int(learnedBmr)) ккал/добу) нараховується рівномірно протягом 24 годин.")
                     .font(.caption2)
-                    .foregroundStyle(LifecoreTheme.textSubtle)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
                     .padding(.top, 2)
             }
         }
@@ -355,14 +424,14 @@ public struct TodayView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Сьогоднішні сесії", systemImage: "figure.run")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(LifecoreTheme.athleticEmerald)
+                .foregroundStyle(LifecoreTheme.accentPrimary)
 
             let workouts = snapshot?.workouts ?? []
             if workouts.isEmpty {
                 HStack {
                     Text("Сьогодні ще немає зафіксованих тренувань.")
                         .font(.subheadline)
-                        .foregroundStyle(LifecoreTheme.textMuted)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
                 }
                 .padding(.vertical, 4)
@@ -373,17 +442,19 @@ public struct TodayView: View {
                             Text(w.type.capitalized)
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(LifecoreTheme.inkPrimary)
                             Text("\(Int(w.durationMin)) хв\(w.distanceKm != nil ? String(format: " • %.2f км", w.distanceKm!) : "")")
                                 .font(.caption)
-                                .foregroundStyle(LifecoreTheme.textMuted)
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
                         }
                         Spacer()
                         if let kcal = w.activeCalories {
                             Text("\(Int(kcal)) ккал")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(LifecoreTheme.athleticEmerald)
+                                .monospacedDigit()
+                                .foregroundStyle(LifecoreTheme.statusOptimal)
                         }
                     }
                     .padding(.vertical, 4)
@@ -403,7 +474,7 @@ public struct TodayView: View {
                 HStack(spacing: 8) {
                     if isSyncingWithCloud {
                         ProgressView()
-                            .tint(.black)
+                            .tint(.white)
                     } else {
                         Image(systemName: "arrow.triangle.2.circlepath")
                         Text("Синхронізувати з хмарою")
@@ -412,16 +483,19 @@ public struct TodayView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(LifecoreTheme.electricTeal)
-                .foregroundStyle(.black)
+                .background(LifecoreTheme.accentPrimary)
+                .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .disabled(isSyncingWithCloud)
 
             if let message = cloudSyncMessage {
-                Text(message)
-                    .font(.caption2)
-                    .foregroundStyle(LifecoreTheme.textMuted)
+                HStack(spacing: 4) {
+                    Image(systemName: message.contains("Помилка") ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    Text(message)
+                }
+                .font(.caption2)
+                .foregroundStyle(message.contains("Помилка") ? LifecoreTheme.statusDanger : LifecoreTheme.statusOptimal)
             }
         }
         .padding(.top, 4)
@@ -433,10 +507,11 @@ public struct TodayView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption2)
-                .foregroundStyle(LifecoreTheme.textSubtle)
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text(value)
                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -445,14 +520,15 @@ public struct TodayView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(LifecoreTheme.textSubtle)
+                .foregroundStyle(LifecoreTheme.inkTertiary)
             Text(String(format: "%.1fг", hours))
                 .font(.subheadline)
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(LifecoreTheme.paperWell)
                     .frame(height: 5)
                 Capsule()
                     .fill(color)
@@ -515,6 +591,8 @@ public struct TodayView: View {
         let chronic = snapshot?.acwr?.chronicLoad ?? 50.0
         let vitals = snapshot?.vitalsEvaluation?.state ?? .optimal
         let battery = snapshot?.energyBank?.wakeBattery ?? 85
+        let restHr = athleteStore.profile.restingHeartRateBaselineBpm > 0 ? athleteStore.profile.restingHeartRateBaselineBpm : 49.0
+        let maxHr = athleteStore.profile.maxHeartRateBpm > 0 ? athleteStore.profile.maxHeartRateBpm : 192.0
 
         self.prescriptionPlan = TrainingPrescriptionEngine.prescribeTodayAndHorizon(
             queueState: planStore.queueState,
@@ -523,8 +601,8 @@ public struct TodayView: View {
             previousChronicLoad: chronic,
             vitalsState: vitals,
             morningBodyBattery: battery,
-            restingHr: athleteStore.profile.restingHeartRateBaselineBpm,
-            maxHr: athleteStore.profile.maxHeartRateBpm
+            restingHr: restHr,
+            maxHr: maxHr
         )
     }
 
@@ -695,16 +773,16 @@ public struct TodayView: View {
                 pureNEATKcal: snap.pureNEATKcal
             )
             let result = await SupabaseSyncService.shared.syncAll()
-            cloudSyncMessage = "✅ Хмара оновлена (страв: \(result.mealsSynced), тренувань: \(result.analysesSynced))"
+            cloudSyncMessage = "Хмара оновлена (страв: \(result.mealsSynced), тренувань: \(result.analysesSynced))"
         } catch {
-            cloudSyncMessage = "⚠️ Помилка: \(error.localizedDescription)"
+            cloudSyncMessage = "Помилка: \(error.localizedDescription)"
         }
 
         isSyncingWithCloud = false
     }
 }
 
-// MARK: - Bevel Ring Component (Liquid Glass Bento styled)
+// MARK: - Bevel Ring Component (Daylight Surface)
 
 public struct BevelRingView: View {
     public let title: String
@@ -732,7 +810,7 @@ public struct BevelRingView: View {
             ZStack {
                 // Background Track
                 Circle()
-                    .stroke(ringColor.opacity(0.18), lineWidth: 7)
+                    .stroke(ringColor.opacity(0.14), lineWidth: 7)
 
                 // Animated Progress Ring
                 Circle()
@@ -752,27 +830,27 @@ public struct BevelRingView: View {
                 VStack(spacing: 1) {
                     Text(value)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                     Text(title)
                         .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(LifecoreTheme.textSubtle)
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
                 }
             }
             .frame(width: 80, height: 80)
 
             Text(subtitle)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(LifecoreTheme.textMuted)
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkSecondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
 #Preview {
     TodayView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

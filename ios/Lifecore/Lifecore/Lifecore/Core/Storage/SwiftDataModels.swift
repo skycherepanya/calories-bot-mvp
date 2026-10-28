@@ -223,7 +223,8 @@ public final class LifecoreDataStore {
         let schema = Schema([
             MealEntity.self,
             WorkoutAnalysisEntity.self,
-            AthleteTrainingPlanState.self
+            AthleteTrainingPlanState.self,
+            AthleteMemoryEntity.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -403,5 +404,111 @@ public enum WorkoutStorageService {
             existing.syncedToCloud = true
             try? context.save()
         }
+    }
+}
+
+// MARK: - AthleteMemoryEntity (Episodic & Semantic RAG Memory Node)
+
+@Model
+public final class AthleteMemoryEntity {
+    @Attribute(.unique) public var id: UUID
+    public var factTextUk: String
+    public var category: String         // "goal", "injury_note", "nutrition_habit", "workout_feel", "coach_insight"
+    public var tags: [String]
+    public var isPinnedGoal: Bool
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        factTextUk: String,
+        category: String,
+        tags: [String] = [],
+        isPinnedGoal: Bool = false,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.factTextUk = factTextUk
+        self.category = category
+        self.tags = tags
+        self.isPinnedGoal = isPinnedGoal
+        self.createdAt = createdAt
+    }
+}
+
+// MARK: - AthleteMemoryStorageService (SwiftData Access for Episodic Memory)
+
+@MainActor
+public enum AthleteMemoryStorageService {
+    public static func fetchAllFacts() -> [AthleteMemoryEntity] {
+        let context = LifecoreDataStore.shared.context
+        let descriptor = FetchDescriptor<AthleteMemoryEntity>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    @discardableResult
+    public static func saveFact(
+        factTextUk: String,
+        category: String,
+        tags: [String] = [],
+        isPinnedGoal: Bool = false
+    ) -> AthleteMemoryEntity {
+        let context = LifecoreDataStore.shared.context
+        let existing = fetchAllFacts()
+        // Deduplicate very similar facts
+        if let match = existing.first(where: { $0.factTextUk.lowercased() == factTextUk.lowercased() }) {
+            match.isPinnedGoal = isPinnedGoal || match.isPinnedGoal
+            try? context.save()
+            return match
+        }
+
+        let entity = AthleteMemoryEntity(
+            factTextUk: factTextUk,
+            category: category,
+            tags: tags,
+            isPinnedGoal: isPinnedGoal,
+            createdAt: Date()
+        )
+        context.insert(entity)
+        try? context.save()
+        return entity
+    }
+
+    public static func deleteFact(id: UUID) {
+        let context = LifecoreDataStore.shared.context
+        let descriptor = FetchDescriptor<AthleteMemoryEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let matches = try? context.fetch(descriptor) {
+            for item in matches {
+                context.delete(item)
+            }
+            try? context.save()
+        }
+    }
+
+    public static func seedDefaultMemoriesIfNeeded() {
+        let context = LifecoreDataStore.shared.context
+        let existing = fetchAllFacts()
+        guard existing.isEmpty else { return }
+
+        let defaults: [(text: String, cat: String, tags: [String], pinned: Bool)] = [
+            ("Ціль: підготовка до якісного забігу на 10 км із темпом швидше 5:00 хв/км", "goal", ["goal", "10k", "pace"], true),
+            ("Вуглеводи за 2-3 години до забігу стабілізують ЧСС та стримують кардіодрейф", "nutrition_habit", ["carbs", "hr_drift", "nutrition"], false),
+            ("Пізня вечеря після 21:30 підвищує нічний пульс спокою на +3-4 уд/хв", "coach_insight", ["late_meal", "rhr", "sleep"], false)
+        ]
+
+        for item in defaults {
+            let entity = AthleteMemoryEntity(
+                factTextUk: item.text,
+                category: item.cat,
+                tags: item.tags,
+                isPinnedGoal: item.pinned,
+                createdAt: Date()
+            )
+            context.insert(entity)
+        }
+        try? context.save()
     }
 }

@@ -48,10 +48,10 @@ public struct TrendsView: View {
                     if isLoading && weightPoints.isEmpty && adaptiveSnapshot == nil {
                         VStack(spacing: 12) {
                             ProgressView()
-                                .tint(LifecoreTheme.electricTeal)
+                                .tint(LifecoreTheme.accentPrimary)
                             Text("Завантаження фізіологічних трендів...")
                                 .font(.caption)
-                                .foregroundStyle(LifecoreTheme.textMuted)
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 60)
@@ -79,7 +79,7 @@ public struct TrendsView: View {
                     if let error = errorMessage {
                         Text(error)
                             .font(.caption)
-                            .foregroundStyle(LifecoreTheme.coralDanger)
+                            .foregroundStyle(LifecoreTheme.statusDanger)
                             .padding(.horizontal)
                     }
                 }
@@ -87,7 +87,7 @@ public struct TrendsView: View {
                 .padding(.vertical, 12)
             }
             .accessibilityIdentifier("trends_scroll_view")
-            .background(LifecoreTheme.deepVoidBackground.ignoresSafeArea())
+            .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Тренди та Аналітика")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -96,10 +96,10 @@ public struct TrendsView: View {
                     }) {
                         if isLoading {
                             ProgressView()
-                                .tint(LifecoreTheme.electricTeal)
+                                .tint(LifecoreTheme.accentPrimary)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .foregroundStyle(LifecoreTheme.electricTeal)
+                                .foregroundStyle(LifecoreTheme.accentPrimary)
                         }
                     }
                 }
@@ -132,15 +132,15 @@ public struct TrendsView: View {
                     .padding(.vertical, 8)
                     .padding(.horizontal, 4)
                     .frame(maxWidth: .infinity)
-                    .foregroundColor(selectedCategory == cat ? .white : LifecoreTheme.textMuted)
+                    .foregroundStyle(selectedCategory == cat ? LifecoreTheme.inkPrimary : LifecoreTheme.inkSecondary)
                     .background(
                         selectedCategory == cat ?
-                            LifecoreTheme.cardSurfaceSecondary : Color.clear
+                            LifecoreTheme.paperCard : Color.clear
                     )
                     .clipShape(Capsule())
                     .overlay(
                         Capsule()
-                            .stroke(selectedCategory == cat ? LifecoreTheme.electricTeal.opacity(0.4) : Color.clear, lineWidth: 0.8)
+                            .stroke(selectedCategory == cat ? LifecoreTheme.ruleHairline : Color.clear, lineWidth: 1.0)
                     )
                 }
                 .accessibilityIdentifier({
@@ -157,7 +157,7 @@ public struct TrendsView: View {
         .padding(4)
         .background(
             Capsule()
-                .fill(LifecoreTheme.cardSurface)
+                .fill(LifecoreTheme.paperWell)
         )
     }
 
@@ -299,5 +299,5 @@ public struct TrendsView: View {
 
 #Preview {
     TrendsView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

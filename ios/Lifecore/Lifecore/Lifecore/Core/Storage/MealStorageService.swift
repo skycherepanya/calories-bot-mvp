@@ -239,6 +239,10 @@ public final class MealStorageService: ObservableObject {
         allMeals
     }
 
+    public static func fetchTodayMeals() -> [MealRecord] {
+        MealStorageService.shared.allMeals
+    }
+
     public func insertHydratedMeal(_ record: MealRecord, syncedToCloud: Bool = true, remoteId: Int64? = nil) {
         objectWillChange.send()
         let entity = MealEntity(record: record, syncedToCloud: syncedToCloud, remoteId: remoteId)

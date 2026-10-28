@@ -38,7 +38,7 @@ public struct MacroSummaryCard: View {
             HStack {
                 Label("Енергетичний баланс та Макроси", systemImage: "flame.fill")
                     .font(.headline)
-                    .foregroundStyle(LifecoreTheme.strainOrange)
+                    .foregroundStyle(LifecoreTheme.statusWarning)
 
                 Spacer()
 
@@ -50,8 +50,8 @@ public struct MacroSummaryCard: View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(LifecoreTheme.strainOrange.opacity(0.18))
-                .foregroundStyle(LifecoreTheme.strainOrange)
+                .background(LifecoreTheme.statusWarning.opacity(0.14))
+                .foregroundStyle(LifecoreTheme.statusWarning)
                 .clipShape(Capsule())
             }
 
@@ -59,16 +59,19 @@ public struct MacroSummaryCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(Int(consumedKcal))")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                 Text("/ \(Int(targetKcal)) ккал")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
                 Spacer()
                 let remaining = max(0, Int(targetKcal - consumedKcal))
                 Text("Залишилось: \(remaining) ккал")
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(remaining > 0 ? .green : .red)
+                    .monospacedDigit()
+                    .foregroundStyle(remaining > 0 ? LifecoreTheme.statusOptimal : LifecoreTheme.statusDanger)
             }
 
             // Calorie Progress Bar
@@ -76,12 +79,12 @@ public struct MacroSummaryCard: View {
                 let ratio = min(1.0, consumedKcal / max(1.0, targetKcal))
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(LifecoreTheme.paperWell)
                         .frame(height: 8)
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [.orange, Color(red: 1.0, green: 0.35, blue: 0.0)],
+                                colors: [LifecoreTheme.statusWarning, Color(red: 0.95, green: 0.45, blue: 0.05)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -91,7 +94,7 @@ public struct MacroSummaryCard: View {
             }
             .frame(height: 8)
 
-            Divider().background(Color.white.opacity(0.08))
+            LifecoreHairlineDivider()
 
             // Three Macro Columns
             HStack(spacing: 14) {
@@ -99,7 +102,7 @@ public struct MacroSummaryCard: View {
                     title: "Білок",
                     current: proteinG,
                     target: targetProteinG,
-                    color: Color(red: 0.2, green: 0.8, blue: 0.95),
+                    color: LifecoreTheme.accentTeal,
                     unit: "г"
                 )
 
@@ -107,7 +110,7 @@ public struct MacroSummaryCard: View {
                     title: "Жири",
                     current: fatG,
                     target: targetFatG,
-                    color: Color(red: 1.0, green: 0.8, blue: 0.2),
+                    color: LifecoreTheme.statusWarning,
                     unit: "г"
                 )
 
@@ -115,12 +118,12 @@ public struct MacroSummaryCard: View {
                     title: "Вуглеводи",
                     current: carbsG,
                     target: targetCarbsG,
-                    color: Color(red: 0.4, green: 0.9, blue: 0.4),
+                    color: LifecoreTheme.statusOptimal,
                     unit: "г"
                 )
             }
         }
-        .lifecoreGlassCard(cornerRadius: 20, borderColor: LifecoreTheme.strainOrange.opacity(0.25))
+        .lifecoreGlassCard(cornerRadius: 20, borderColor: LifecoreTheme.statusWarning.opacity(0.25))
     }
 
     private func macroItem(title: String, current: Double, target: Double, color: Color, unit: String) -> some View {
@@ -128,22 +131,24 @@ public struct MacroSummaryCard: View {
         return VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text("\(Int(current))")
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
                 Text("/\(Int(target))\(unit)")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
             // Small Macro Bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08)).frame(height: 4)
+                    Capsule().fill(LifecoreTheme.paperWell).frame(height: 4)
                     Capsule().fill(color).frame(width: geo.size.width * ratio, height: 4)
                 }
             }
@@ -184,12 +189,13 @@ public struct DietaryQualityCard: View {
             HStack {
                 Label("Якість харчування та біомаркери", systemImage: "sparkles")
                     .font(.headline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
                 Spacer()
                 Text("\(Int(qualityScore))% Цільна їжа")
                     .font(.caption2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.green)
+                    .monospacedDigit()
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
             }
 
             // Whole food vs ultra processed visual bar
@@ -198,16 +204,16 @@ public struct DietaryQualityCard: View {
                 let wholeRatio = Double(wholeFoodCount) / Double(total)
                 HStack(spacing: 2) {
                     Rectangle()
-                        .fill(Color.green)
+                        .fill(LifecoreTheme.statusOptimal)
                         .frame(width: geo.size.width * wholeRatio)
                     Rectangle()
-                        .fill(ultraProcessedCount > 0 ? Color.red : Color.white.opacity(0.1))
+                        .fill(ultraProcessedCount > 0 ? LifecoreTheme.statusDanger : LifecoreTheme.paperWell)
                 }
                 .clipShape(Capsule())
             }
             .frame(height: 6)
 
-            Divider().background(Color.white.opacity(0.08))
+            LifecoreHairlineDivider()
 
             // Sodium & Leucine Indicators
             HStack(spacing: 16) {
@@ -215,25 +221,27 @@ public struct DietaryQualityCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "drop.triangle.fill")
-                            .foregroundStyle(totalSodiumMg > 2300 ? .orange : .secondary)
+                            .foregroundStyle(totalSodiumMg > 2300 ? LifecoreTheme.statusWarning : LifecoreTheme.inkSecondary)
                         Text("Натрій")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                     Text("\(Int(totalSodiumMg)) мг")
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(totalSodiumMg > 2300 ? .orange : .white)
+                        .monospacedDigit()
+                        .foregroundStyle(totalSodiumMg > 2300 ? LifecoreTheme.statusWarning : LifecoreTheme.inkPrimary)
 
                     if totalSodiumMg > 2300 {
                         let waterRetentionKg = max(0.0, (totalSodiumMg - 2000.0) / 1000.0 * 0.32)
                         Text("Прогноз затримки води на завтра: +\(String(format: "%.2f", waterRetentionKg)) кг")
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.orange)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.statusWarning)
                     } else {
                         Text("Норма (<2300 мг)")
                             .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -242,19 +250,20 @@ public struct DietaryQualityCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "bolt.heart.fill")
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(LifecoreTheme.accentTeal)
                         Text("Лейцин (MPS)")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                     Text(String(format: "%.1f г", totalLeucineG))
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(.cyan)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.accentTeal)
 
                     Text(totalLeucineG >= 3.0 ? "Поріг MPS досягнуто" : "Ціль ≥ 3.0г для синтезу")
                         .font(.system(size: 9))
-                        .foregroundStyle(totalLeucineG >= 3.0 ? .green : .secondary)
+                        .foregroundStyle(totalLeucineG >= 3.0 ? LifecoreTheme.statusOptimal : LifecoreTheme.inkSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -394,11 +403,11 @@ public struct MealItemCard: View {
                     Text(meal.name)
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
 
                     Text(formattedTime(meal.createdAt))
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
 
                 Spacer()
@@ -407,30 +416,32 @@ public struct MealItemCard: View {
                     Text("\(Int(meal.kcal)) ккал")
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundStyle(.orange)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.statusWarning)
 
                     if let w = meal.weightG {
                         Text("\(Int(w)) г")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                 }
             }
 
             // Macros & Action Row
             HStack(spacing: 16) {
-                macroLabel(title: "Б", value: "\(Int(meal.proteinG))г", color: .cyan)
-                macroLabel(title: "Ж", value: "\(Int(meal.fatG))г", color: .yellow)
-                macroLabel(title: "В", value: "\(Int(meal.carbsG))г", color: .green)
+                macroLabel(title: "Б", value: "\(Int(meal.proteinG))г", color: LifecoreTheme.accentTeal)
+                macroLabel(title: "Ж", value: "\(Int(meal.fatG))г", color: LifecoreTheme.statusWarning)
+                macroLabel(title: "В", value: "\(Int(meal.carbsG))г", color: LifecoreTheme.statusOptimal)
 
                 Spacer()
 
                 Button(action: { showingDetails = true }) {
                     Image(systemName: "info.circle")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                         .padding(8)
-                        .background(Color.white.opacity(0.06))
+                        .background(LifecoreTheme.paperWell)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -465,7 +476,8 @@ public struct MealItemCard: View {
                 .foregroundStyle(color)
             Text(value)
                 .font(.caption)
-                .foregroundStyle(.primary)
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
         }
     }
 
@@ -482,14 +494,14 @@ public struct MealItemCard: View {
 
     private func tagDisplayInfo(_ tag: String) -> (String, Color) {
         switch tag {
-        case "whole_food": return ("Цільна їжа", .green)
-        case "ultra_processed": return ("Ультраперероблена", .red)
-        case "solid": return ("Тверда", .blue)
-        case "liquid": return ("Рідка", .purple)
-        case "fast_absorbing": return ("Швидка", .yellow)
-        case "slow_absorbing": return ("Повільна", .teal)
-        case "high_sodium": return ("Солона", .orange)
-        default: return (tag, .secondary)
+        case "whole_food": return ("Цільна їжа", LifecoreTheme.statusOptimal)
+        case "ultra_processed": return ("Ультраперероблена", LifecoreTheme.statusDanger)
+        case "solid": return ("Тверда", LifecoreTheme.accentIndigo)
+        case "liquid": return ("Рідка", Color.purple)
+        case "fast_absorbing": return ("Швидка", LifecoreTheme.statusWarning)
+        case "slow_absorbing": return ("Повільна", LifecoreTheme.accentTeal)
+        case "high_sodium": return ("Солона", LifecoreTheme.statusWarning)
+        default: return (tag, LifecoreTheme.inkSecondary)
         }
     }
 
@@ -518,11 +530,11 @@ public struct OptimisticAnalyzingCard: View {
             HStack {
                 HStack(spacing: 8) {
                     ProgressView()
-                        .tint(.cyan)
+                        .tint(LifecoreTheme.accentTeal)
                     Text(pendingName)
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
 
                 Spacer()
@@ -531,7 +543,7 @@ public struct OptimisticAnalyzingCard: View {
                     Button(action: onCancel) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                 } else {
                     Text("Аналізую...")
@@ -539,8 +551,8 @@ public struct OptimisticAnalyzingCard: View {
                         .fontWeight(.semibold)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.cyan.opacity(0.18))
-                        .foregroundStyle(.cyan)
+                        .background(LifecoreTheme.accentTeal.opacity(0.14))
+                        .foregroundStyle(LifecoreTheme.accentTeal)
                         .clipShape(Capsule())
                 }
             }
@@ -548,11 +560,11 @@ public struct OptimisticAnalyzingCard: View {
             // Shimmer Bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(LifecoreTheme.paperWell)
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [.clear, .cyan.opacity(0.4), .clear],
+                                colors: [.clear, LifecoreTheme.accentTeal.opacity(0.4), .clear],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -565,15 +577,9 @@ public struct OptimisticAnalyzingCard: View {
 
             Text("Розпізнаю макроси з +12.5% дефіцитним буфером через Gemini Vision...")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
         }
-        .padding(14)
-        .background(Color(red: 0.1, green: 0.11, blue: 0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
-        )
+        .lifecoreGlassCard(cornerRadius: 14, padding: 14, borderColor: LifecoreTheme.accentTeal.opacity(0.3))
         .onAppear {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 isPulsing = true
@@ -600,30 +606,113 @@ public struct MealDetailSheet: View {
         NavigationStack {
             List {
                 Section("Основні макроси") {
-                    HStack { Text("Калорії (з +12.5% буфером)"); Spacer(); Text("\(Int(meal.kcal)) ккал").bold() }
-                    HStack { Text("Білки"); Spacer(); Text(String(format: "%.1f г", meal.proteinG)).bold().foregroundStyle(.cyan) }
-                    HStack { Text("Жири"); Spacer(); Text(String(format: "%.1f г", meal.fatG)).bold().foregroundStyle(.yellow) }
-                    HStack { Text("Вуглеводи"); Spacer(); Text(String(format: "%.1f г", meal.carbsG)).bold().foregroundStyle(.green) }
+                    HStack {
+                        Text("Калорії (з +12.5% буфером)")
+                        Spacer()
+                        Text("\(Int(meal.kcal)) ккал")
+                            .bold()
+                            .monospacedDigit()
+                    }
+                    HStack {
+                        Text("Білки")
+                        Spacer()
+                        Text(String(format: "%.1f г", meal.proteinG))
+                            .bold()
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.accentTeal)
+                    }
+                    HStack {
+                        Text("Жири")
+                        Spacer()
+                        Text(String(format: "%.1f г", meal.fatG))
+                            .bold()
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.statusWarning)
+                    }
+                    HStack {
+                        Text("Вуглеводи")
+                        Spacer()
+                        Text(String(format: "%.1f г", meal.carbsG))
+                            .bold()
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.statusOptimal)
+                    }
                     if let w = meal.weightG {
-                        HStack { Text("Оцінена вага (готова страва)"); Spacer(); Text("\(Int(w)) г") }
+                        HStack {
+                            Text("Оцінена вага (готова страва)")
+                            Spacer()
+                            Text("\(Int(w)) г")
+                                .monospacedDigit()
+                        }
                     }
                 }
 
                 if let micro = meal.micronutrients {
                     Section("Мікронутрієнти") {
-                        if let f = micro.fiberG { HStack { Text("Клітковина"); Spacer(); Text(String(format: "%.1f г", f)) } }
-                        if let s = micro.sodiumMg { HStack { Text("Натрій"); Spacer(); Text("\(Int(s)) мг") } }
-                        if let p = micro.potassiumMg { HStack { Text("Калій"); Spacer(); Text("\(Int(p)) мг") } }
-                        if let c = micro.vitaminCMg { HStack { Text("Вітамін C"); Spacer(); Text("\(Int(c)) мг") } }
-                        if let fe = micro.ironMg { HStack { Text("Залізо"); Spacer(); Text(String(format: "%.1f мг", fe)) } }
-                        if let ca = micro.calciumMg { HStack { Text("Кальцій"); Spacer(); Text("\(Int(ca)) мг") } }
+                        if let f = micro.fiberG {
+                            HStack {
+                                Text("Клітковина")
+                                Spacer()
+                                Text(String(format: "%.1f г", f)).monospacedDigit()
+                            }
+                        }
+                        if let s = micro.sodiumMg {
+                            HStack {
+                                Text("Натрій")
+                                Spacer()
+                                Text("\(Int(s)) мг").monospacedDigit()
+                            }
+                        }
+                        if let p = micro.potassiumMg {
+                            HStack {
+                                Text("Калій")
+                                Spacer()
+                                Text("\(Int(p)) мг").monospacedDigit()
+                            }
+                        }
+                        if let c = micro.vitaminCMg {
+                            HStack {
+                                Text("Вітамін C")
+                                Spacer()
+                                Text("\(Int(c)) мг").monospacedDigit()
+                            }
+                        }
+                        if let fe = micro.ironMg {
+                            HStack {
+                                Text("Залізо")
+                                Spacer()
+                                Text(String(format: "%.1f мг", fe)).monospacedDigit()
+                            }
+                        }
+                        if let ca = micro.calciumMg {
+                            HStack {
+                                Text("Кальцій")
+                                Spacer()
+                                Text("\(Int(ca)) мг").monospacedDigit()
+                            }
+                        }
                     }
                 }
 
                 if let amino = meal.aminoAcids {
                     Section("Амінокислотний профіль") {
-                        if let bcaa = amino.bcaaG { HStack { Text("BCAA"); Spacer(); Text(String(format: "%.1f г", bcaa)).bold() } }
-                        if let leu = amino.leucineG { HStack { Text("Лейцин (тригер MPS)"); Spacer(); Text(String(format: "%.1f г", leu)).bold().foregroundStyle(.cyan) } }
+                        if let bcaa = amino.bcaaG {
+                            HStack {
+                                Text("BCAA")
+                                Spacer()
+                                Text(String(format: "%.1f г", bcaa)).bold().monospacedDigit()
+                            }
+                        }
+                        if let leu = amino.leucineG {
+                            HStack {
+                                Text("Лейцин (тригер MPS)")
+                                Spacer()
+                                Text(String(format: "%.1f г", leu))
+                                    .bold()
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.accentTeal)
+                            }
+                        }
                     }
                 }
 
@@ -639,7 +728,7 @@ public struct MealDetailSheet: View {
                                     .fontWeight(.semibold)
                                 Spacer()
                             }
-                            .foregroundStyle(.red)
+                            .foregroundStyle(LifecoreTheme.statusDanger)
                         }
                     }
                 }

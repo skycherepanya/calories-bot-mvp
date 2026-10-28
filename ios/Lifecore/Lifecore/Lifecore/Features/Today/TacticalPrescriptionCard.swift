@@ -28,11 +28,11 @@ public struct TacticalPrescriptionCard: View {
     private var reasonColor: Color {
         switch prescription.adaptationReason {
         case .blockedByIllnessProdrome:
-            return LifecoreTheme.coralDanger
+            return LifecoreTheme.statusDanger
         case .downgradedByVitalsOrBattery, .modulatedByHRV, .cappedByCaloricDeficit, .downgradedByAcuteLoadSpike, .heldByCardiacDrift:
-            return LifecoreTheme.amberWarning
+            return LifecoreTheme.statusWarning
         case .efficiencyUnlocked, .optimalProgression, .externalClubRunAdapted:
-            return LifecoreTheme.athleticEmerald
+            return LifecoreTheme.statusOptimal
         }
     }
 
@@ -40,81 +40,73 @@ public struct TacticalPrescriptionCard: View {
         Button(action: {
             onNavigateToWorkouts?()
         }) {
-            VStack(alignment: .leading, spacing: 10) {
-                // Top Row: Section Label + Status Glow Pill (full width, zero crowding!)
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center) {
                     HStack(spacing: 6) {
                         Image(systemName: "figure.run")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(LifecoreTheme.electricTeal)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
 
-                        Text("СЬОГОДНІШНЯ АКТИВНІСТЬ")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(LifecoreTheme.electricTeal)
+                        Text("Сьогоднішня активність")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
 
                     Spacer()
 
                     LifecoreGlowPill(
                         text: prescription.adaptationReason.titleUk,
-                        systemIcon: "sparkles",
+                        systemIcon: "checkmark.circle.fill",
                         color: reasonColor
                     )
                     .accessibilityIdentifier("pill_prescription_reason")
                 }
 
-                // Main Row: Circular Glyph + Full Title & Clear Metrics + Chevron
                 HStack(spacing: 12) {
-                    // Circular Activity Glyph (Bevel-style dashed/glow ring)
                     ZStack {
                         Circle()
-                            .strokeBorder(LifecoreTheme.electricTeal.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [3]))
-                            .frame(width: 44, height: 44)
-                        Circle()
-                            .fill(LifecoreTheme.electricTeal.opacity(0.12))
+                            .fill(LifecoreTheme.accentPrimary.opacity(0.12))
                             .frame(width: 44, height: 44)
                         Image(systemName: prescription.archetype.iconName)
-                            .font(.system(size: 20))
-                            .foregroundStyle(LifecoreTheme.electricTeal)
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
                     }
 
-                    // Title & Metrics Details (Ample space - no truncations!)
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(prescription.cleanTitleUk)
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                             .accessibilityIdentifier("txt_prescription_archetype")
 
                         if prescription.totalDurationMin > 0 {
-                            HStack(spacing: 6) {
-                                Text("\(Int(round(prescription.totalDurationMin))) хв")
-                                Text("•")
-                                Text("~\(String(format: "%.1f", prescription.estimatedDistanceKm)) км")
-                                Text("•")
+                            HStack(spacing: 10) {
+                                Label("\(Int(round(prescription.totalDurationMin))) хв", systemImage: "clock")
+                                Label("~\(String(format: "%.1f", prescription.estimatedDistanceKm)) км", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                                 Text(prescription.maxAllowedZone.shortBadgeUk)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(LifecoreTheme.accentTeal)
                             }
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(LifecoreTheme.athleticEmerald)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.85)
                         } else {
                             Text("День відпочинку та відновлення сил")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 12))
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
                         }
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
                 }
             }
-            .padding(14)
-            .lifecoreGlassCard(cornerRadius: 18, borderColor: LifecoreTheme.electricTeal.opacity(0.25))
+            .lifecoreGlassCard(cornerRadius: 20)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .contain)

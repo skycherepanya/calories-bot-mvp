@@ -47,6 +47,9 @@ public enum MathEngineVerification {
         // Test 12: Adaptive Training Prescription Engine (Phase 3.2)
         results.append(verifyTrainingPrescriptionEngine())
 
+        // Test 13: Hierarchical Health RAG & Conversational Analyst (Phase 3.4)
+        results.append(verifyLifecoreIntelligenceAndRAG())
+
         return results
     }
 
@@ -541,6 +544,104 @@ public enum MathEngineVerification {
             testName: "Adaptive Training Prescription Engine (Suite 12)",
             passed: passed,
             details: "12.1(IllnessRest)=\(case12_1), 12.2(ACWRQueueSwap)=\(case12_2), 12.3(EF_SpeedGain:\(z2Low.formattedPaceMinKm)->\(z2High.formattedPaceMinKm)@\(z2High.targetHeartRateBpm)bpm)=\(case12_3)"
+        )
+    }
+
+    private static func verifyLifecoreIntelligenceAndRAG() -> VerificationResult {
+        // Test Case 13.1: Effort-Normalized Benchmark Regimes
+        let regimeHighIntensity = WorkoutMathEngine.classifyBenchmarkRegime(paceDeltaSecPerKm: -89.7, hrDeltaBpm: 27.0, efDelta: 0.044)
+        let regimeAerobicGain = WorkoutMathEngine.classifyBenchmarkRegime(paceDeltaSecPerKm: -12.0, hrDeltaBpm: -1.5, efDelta: 0.035)
+        let regimeRecovery = WorkoutMathEngine.classifyBenchmarkRegime(paceDeltaSecPerKm: 18.0, hrDeltaBpm: -15.0, efDelta: -0.005)
+        let regimeDecoupling = WorkoutMathEngine.classifyBenchmarkRegime(paceDeltaSecPerKm: 10.0, hrDeltaBpm: 8.0, efDelta: -0.030)
+
+        let case13_1 = (regimeHighIntensity == .higherIntensityEffort) &&
+                       (regimeAerobicGain == .trueAerobicGain) &&
+                       (regimeRecovery == .easyRecoveryEffort) &&
+                       (regimeDecoupling == .cardiacStrainDecoupling)
+
+        // Test Case 13.2: Hybrid RAG Scoring & Tokenizer
+        let tokens = LifecoreContextRAG.tokenize("Кардіодрейф та вуглеводи для забігу")
+        let hasStem = tokens.contains("кардіодрейф") || tokens.contains("вуглевод")
+
+        let carbScore = LifecoreContextRAG.scoreMemoryNode(
+            factText: "Вуглеводи за 2 години до забігу стабілізують ЧСС",
+            category: "nutrition_habit",
+            tags: ["carbs", "hr_drift"],
+            isPinnedGoal: false,
+            ageDays: 2,
+            queryTokens: tokens,
+            contextTags: ["carbs", "hr_drift"]
+        )
+
+        let shoeScore = LifecoreContextRAG.scoreMemoryNode(
+            factText: "Нові кросівки для трейлу",
+            category: "gear",
+            tags: ["shoes"],
+            isPinnedGoal: false,
+            ageDays: 10,
+            queryTokens: tokens,
+            contextTags: ["carbs", "hr_drift"]
+        )
+
+        let candidateFact = LifecoreContextRAG.extractCandidateMemoryFact(fromUserMessage: "Після вчорашнього бігу сильно болить права литка")
+        let extractedInjury = candidateFact?.category == "injury_note"
+
+        let case13_2 = hasStem && (carbScore > shoeScore) && extractedInjury
+
+        // Test Case 13.3: Structured Debrief Offline Fallback
+        let dummyAnalysis = WorkoutAnalysisResult(
+            workoutUUID: UUID(),
+            workoutType: "running",
+            distanceKm: 4.12,
+            durationMin: 23.5,
+            avgPaceMinKm: 5.70,
+            avgHeartRate: 153.0,
+            maxHeartRate: 168.0,
+            elevationGainMeters: 24.0,
+            efficiencyFactor: 1.182,
+            aerobicDecouplingPct: 3.2,
+            isIndoorTreadmill: false,
+            splits: [
+                SplitMetric(km: 1, durationSeconds: 360, paceMinPerKm: 6.0, avgHeartRate: 142.0, maxHeartRate: 148.0, elevationDiffMeters: 5.0, avgCadence: 168.0),
+                SplitMetric(km: 2, durationSeconds: 340, paceMinPerKm: 5.66, avgHeartRate: 150.0, maxHeartRate: 155.0, elevationDiffMeters: 8.0, avgCadence: 170.0),
+                SplitMetric(km: 3, durationSeconds: 330, paceMinPerKm: 5.50, avgHeartRate: 156.0, maxHeartRate: 162.0, elevationDiffMeters: 6.0, avgCadence: 172.0),
+                SplitMetric(km: 4, durationSeconds: 320, paceMinPerKm: 5.33, avgHeartRate: 162.0, maxHeartRate: 168.0, elevationDiffMeters: 5.0, avgCadence: 174.0)
+            ],
+            laps: [],
+            benchmarkDelta: BenchmarkDelta(
+                comparedWorkoutsCount: 1,
+                paceDeltaSecPerKm: -89.7,
+                hrDeltaBpm: 27.0,
+                efDelta: 0.044,
+                narrativeSummary: "Порівняно з минулим 1 схожим забігом: темп був на 90 с/км швидше за рахунок переходу у вищу пульсову зону (із пульсом вище на 27 уд/хв), зі збереженням високої економічності рухів.",
+                regime: .higherIntensityEffort
+            )
+        )
+
+        let dossier = AssembledHealthDossier(
+            workoutAnalysis: dummyAnalysis,
+            recoveryContext: RecentRecoveryContext(morningHrvMs: 95.0, baselineHrvMs: 98.0, morningRhrBpm: 48.0, baselineRhrBpm: 49.0),
+            acuteNutrition: AcuteNutritionSlice(last24hKcal: 2100, last24hCarbsG: 220, last24hProteinG: 150, last24hFatG: 65, last24hSodiumMg: 2100),
+            adaptiveSensitivitiesSummaryUk: "Стабільна адаптація TDEE",
+            next24hPrescriptionSummaryUk: "Зона 2 (Аеробна база) 45 хв до 135 bpm",
+            retrievedMemories: []
+        )
+
+        let debrief = GeminiService.shared.generateStructuredWorkoutDebriefOffline(dossier: dossier)
+        let zeroMarkdownHeaders = !debrief.executionAnalysisUk.contains("###") && !debrief.headlineUk.contains("###")
+        let hasPills = !debrief.evidencePills.isEmpty
+        let hasFollowUps = debrief.followUpQuestionsUk.count == 3
+        let matchedRegimeBadge = debrief.regimeBadgeUk == BenchmarkRegime.higherIntensityEffort.badgeTitleUk
+
+        let case13_3 = zeroMarkdownHeaders && hasPills && hasFollowUps && matchedRegimeBadge
+
+        let passed = case13_1 && case13_2 && case13_3
+        let isHighEffort = regimeHighIntensity == .higherIntensityEffort
+        let isAerobic = regimeAerobicGain == .trueAerobicGain
+        return VerificationResult(
+            testName: "Hierarchical Health RAG & Conversational Analyst (Suite 13)",
+            passed: passed,
+            details: "13.1(Regimes:HighEffort=\(isHighEffort),Aerobic=\(isAerobic))=\(case13_1), 13.2(RAG_Scoring:Carbs=\(carbScore)>Shoe=\(shoeScore),InjuryExtract=\(extractedInjury))=\(case13_2), 13.3(StructuredZeroMarkdown=\(zeroMarkdownHeaders),PillsCount=\(debrief.evidencePills.count),Badge=\(debrief.regimeBadgeUk))=\(case13_3)"
         )
     }
 }
