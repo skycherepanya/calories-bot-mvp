@@ -15,13 +15,16 @@ All changes to the code, data structure, AI prompts, and documentation must be r
   - Enforced strict nutrition integrity in `structuredDebriefSystemPrompt` and `analystChatSystemPrompt`: when 0 meals are logged, AI strictly avoids hallucinating carbohydrate numbers, glycogen depletion, or diet claims.
   - Fixed offline meal and conversational analyst responses in `GeminiService.swift` to truthfully handle empty meal logs.
 
-### ⌨️ Universal Keyboard Dismissal:
-- **Global Toolbar Accessory (`LifecoreDesignSystem.swift`):**
-  - Added `View.lifecoreKeyboardDismissToolbar()` which attaches an accessible capsule button `[ ⌨️˅ Сховати клавіатуру ]` to the software keyboard accessory bar across both standard text and numeric keypads.
-- **Dedicated In-View Dismiss Buttons & Focus State:**
-  - Added dedicated keyboard hide button directly inside the chat input bar in `LifecoreIntelligenceChatView.swift` and in the text description header in `FoodInputSheet.swift`.
-  - Added `.focused($isInputFocused)` and `.focused($isTextFocused)` with smooth animated transitions.
-  - Enabled interactive scroll dismissal (`.scrollDismissesKeyboard(.interactively)`) and background tap-to-dismiss across `LifecoreIntelligenceChatView`, `FoodInputSheet`, and `AthleteProfileSheet`.
+### ⌨️ Universal Keyboard Dismissal & Chat Layout Polish:
+- **Clean Keyboard Accessory Toolbar (`LifecoreDesignSystem.swift`):**
+  - Refactored `View.lifecoreKeyboardDismissToolbar()` to render a clean, native borderless `[ ⌨️˅ Готово ]` item directly on the keyboard toolbar for numeric forms (`AthleteProfileSheet`), removing redundant bulky pill styling.
+  - Removed `ToolbarItemGroup(placement: .keyboard)` from `LifecoreIntelligenceChatView` to completely eliminate overlapping floating capsules above the chat input bar.
+- **Harmonious Chat Input & Keyboard Control (`LifecoreIntelligenceChatView.swift`):**
+  - Eliminated left-side jumping button: `TextField` maintains a stable layout width.
+  - When input is focused and empty, the trailing button dynamically displays a circular `keyboard.chevron.compact.down` dismiss button; typing text smoothly transitions it into the green `arrow.up.circle.fill` send action.
+  - Added navigation bar trailing transition: switches from `xmark.circle.fill` to `[ ⌨️˅ Сховати ]` while the keyboard is focused, preventing accidental sheet dismissal.
+  - Submitting a query (via button or keyboard return) automatically hides the keyboard.
+  - Added `.scrollBounceBehavior(.always)` and `.contentShape(Rectangle())` so tapping anywhere on the chat or swiping down smoothly dismisses the keyboard even with few messages.
 
 ### Affected Files:
 - `ios/Lifecore/Lifecore/Lifecore/Core/UI/LifecoreDesignSystem.swift`

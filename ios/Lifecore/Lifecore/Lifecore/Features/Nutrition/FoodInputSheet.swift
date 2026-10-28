@@ -174,15 +174,10 @@ public struct FoodInputSheet: View {
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "keyboard.chevron.compact.down")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("Сховати клавіатуру")
-                                .font(.system(size: 11, weight: .semibold))
+                            Text("Сховати")
                         }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(LifecoreTheme.paperWell)
-                        .foregroundStyle(LifecoreTheme.inkPrimary)
-                        .clipShape(Capsule())
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.accentPrimary)
                     }
                     .accessibilityIdentifier("btn_hide_food_keyboard")
                     .transition(.opacity)

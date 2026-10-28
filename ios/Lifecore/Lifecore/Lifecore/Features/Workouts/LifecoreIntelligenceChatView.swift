@@ -51,6 +51,8 @@ public struct LifecoreIntelligenceChatView: View {
                         .padding(.vertical, 14)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    .scrollBounceBehavior(.always)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         if isInputFocused {
                             isInputFocused = false
@@ -97,14 +99,31 @@ public struct LifecoreIntelligenceChatView: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Готово") {
-                        dismiss()
+                    if isInputFocused {
+                        Button {
+                            isInputFocused = false
+                            hideKeyboard()
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "keyboard.chevron.compact.down")
+                                Text("Сховати")
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
+                        }
+                        .accessibilityIdentifier("btn_hide_keyboard_chat_nav")
+                    } else {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundStyle(LifecoreTheme.inkTertiary)
+                        }
+                        .accessibilityIdentifier("btn_close_chat")
                     }
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
             }
-            .lifecoreKeyboardDismissToolbar()
             .task {
                 refreshMemoryBank()
                 if messages.isEmpty {
@@ -363,6 +382,8 @@ public struct LifecoreIntelligenceChatView: View {
             HStack(spacing: 8) {
                 ForEach(suggestions, id: \.self) { question in
                     Button(action: {
+                        isInputFocused = false
+                        hideKeyboard()
                         Task { await sendMessage(question) }
                     }) {
                         HStack(spacing: 4) {
@@ -387,53 +408,60 @@ public struct LifecoreIntelligenceChatView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            if isInputFocused {
+        HStack(spacing: 10) {
+            TextField("Запитай про пульс, спліти чи їжу...", text: $inputText)
+                .focused($isInputFocused)
+                .font(.system(size: 14))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(LifecoreTheme.paperWell)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .submitLabel(.send)
+                .onSubmit {
+                    handleSubmitCurrentInput()
+                }
+
+            if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(action: {
+                    handleSubmitCurrentInput()
+                }) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(LifecoreTheme.accentPrimary)
+                }
+                .disabled(isLoading)
+                .accessibilityIdentifier("btn_send_chat_message")
+            } else if isInputFocused {
                 Button(action: {
                     isInputFocused = false
                     hideKeyboard()
                 }) {
                     Image(systemName: "keyboard.chevron.compact.down")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(LifecoreTheme.inkSecondary)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 32, height: 32)
                         .background(LifecoreTheme.paperWell)
                         .clipShape(Circle())
                 }
                 .accessibilityIdentifier("btn_hide_chat_keyboard")
-                .transition(.scale.combined(with: .opacity))
-            }
-
-            TextField("Запитай про пульс, спліти чи їжу...", text: $inputText)
-                .focused($isInputFocused)
-                .font(.system(size: 14))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(LifecoreTheme.paperWell)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .submitLabel(.send)
-                .onSubmit {
-                    guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    let query = inputText
-                    inputText = ""
-                    Task { await sendMessage(query) }
-                }
-
-            Button(action: {
-                let query = inputText
-                inputText = ""
-                Task { await sendMessage(query) }
-            }) {
+            } else {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? LifecoreTheme.inkTertiary : LifecoreTheme.accentPrimary)
+                    .font(.system(size: 32))
+                    .foregroundStyle(LifecoreTheme.inkTertiary.opacity(0.35))
             }
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(LifecoreTheme.paperCard)
-        .animation(.easeInOut(duration: 0.2), value: isInputFocused)
+    }
+
+    private func handleSubmitCurrentInput() {
+        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        inputText = ""
+        isInputFocused = false
+        hideKeyboard()
+        Task { await sendMessage(trimmed) }
     }
 
     // MARK: - Actions

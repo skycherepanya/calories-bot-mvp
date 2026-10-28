@@ -530,8 +530,8 @@ public extension View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    /// Standard Lifecore keyboard dismissal toolbar accessory.
-    /// Attaches an accessible "Сховати клавіатуру" button directly to the keyboard accessory bar.
+    /// Standard Lifecore keyboard dismissal toolbar accessory for numeric forms.
+    /// Attaches a clean, native "Готово" button directly to the keyboard accessory bar.
     func lifecoreKeyboardDismissToolbar() -> some View {
         self.toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -539,17 +539,12 @@ public extension View {
                 Button {
                     hideKeyboard()
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 4) {
                         Image(systemName: "keyboard.chevron.compact.down")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Сховати клавіатуру")
-                            .font(.system(size: 13, weight: .semibold))
+                        Text("Готово")
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(LifecoreTheme.paperWell)
-                    .foregroundStyle(LifecoreTheme.inkPrimary)
-                    .clipShape(Capsule())
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
                 .accessibilityIdentifier("btn_hide_keyboard_toolbar")
             }
