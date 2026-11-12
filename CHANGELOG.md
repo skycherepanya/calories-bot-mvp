@@ -2,6 +2,12 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-12] - Lifecore icon concept exploration
+
+- Added three original raster icon concepts (Core, Rhythm, Step) and reproducible generation prompts for the calm native design direction.
+- Visually inspected the concepts and verified PNG integrity/dimensions. These are selection candidates, not production AppIcon exports; application code and asset catalog are unchanged.
+- Affected files: `docs/branding/2026-11-12-icon-concepts/README.md`, `lifecore-core.png`, `lifecore-rhythm.png`, `lifecore-step.png` in that directory, and `CHANGELOG.md`.
+
 ## [2026-11-12] - Task R1: Enforced isolated native verification
 
 - Added application-hosted unit test target `LifecoreTests` to `ios/Lifecore/Lifecore/Lifecore.xcodeproj` and created shared scheme `Lifecore.xcscheme` with active `TestAction`.
