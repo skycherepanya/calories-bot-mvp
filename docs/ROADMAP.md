@@ -1,4 +1,21 @@
-# Lifecore 3.4 Development Roadmap
+# Lifecore roadmap
+
+## Active work — 2026-11-12
+
+- [x] Architecture/product audit with 28 findings and explicit verification limits.
+- [x] Calm native iOS design specification and dependency-ordered subagent execution plan.
+- [x] Documentation reconciled with current platform, test and persistence limitations.
+- [ ] R1–R2: enforced isolated tests and observation/calendar contracts.
+- [ ] R3a–R4: correct ingestion/math/history and one shared prescription.
+- [ ] R5a–R9: validated AI/evidence, durable storage/sync, account configuration and truthful Intents.
+- [ ] U1–U6: native shell, Today, Workouts, Nutrition, Trends and Coach redesign.
+- [ ] D1: outcome-based E2E, migration/authentication checks, visual/accessibility/device evidence and release review.
+
+Start at the [master execution plan](superpowers/plans/2026-11-12-native-redesign.md). The plan owns detailed task status and dependencies. [Audit findings](audits/2026-11-12-architecture-and-product-audit.md) remain open; no app fixes or database migrations were performed in this documentation change.
+
+## Historical delivery record (through October 2026)
+
+The entries below preserve previously reported milestones, not current correctness certification. Claims of passing suites, complete bidirectional sync, guaranteed buffer, clinical validity or measured latency are superseded by the November audit where contradictory. Current baseline: iOS 27.0 / Swift 5.0 language mode; simulator build passes with warnings; test action is absent. Upcoming ideas in the historical section follow the active reliability/redesign work above.
 
 > **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1), **Deterministic Adaptive Training Prescription Engine** (v3.2), **Hallmark v2.0.0 Bevel & Apple Health Daylight Redesign** (v3.3), and **Hierarchical Health RAG & Multi-Layered Conversational Analyst Engine** (v3.4).
 

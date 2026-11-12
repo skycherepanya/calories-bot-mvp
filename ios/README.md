@@ -1,48 +1,30 @@
-# Lifecore Native iOS Client (`ios/Lifecore/`)
+# Lifecore native iOS client
 
-> **Platform:** iOS 17.0+ (Optimized for iOS 18+ & watchOS)  
-> **Toolchain:** Swift 6, SwiftUI, Swift Charts, HealthKit, SwiftData, AppIntents
+## Verified configuration — 2026-11-12
 
----
+- Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`; application source: `ios/Lifecore/Lifecore/Lifecore/`.
+- Deployment target:iOS 27.0. Language mode:Swift 5.0. Audited toolchain:Xcode 27.1 (27A9275). Swift 6 mode is a planned migration gate, not current configuration.
+- Frameworks:SwiftUI, Swift Charts, HealthKit, SwiftData, AppIntents. No separate XCTest target exists at baseline.
+- UI:four tabs, current forced-light Daylight theme. Calm native redesign is proposed in the [master plan](../docs/superpowers/plans/2026-11-12-native-redesign.md).
 
-## 1. Overview & Capabilities
+## Setup
 
-The `ios/Lifecore/` directory houses the primary client and physiological engine of the Lifecore platform. It operates local-first, querying continuous biometrics from Apple Watch via Apple HealthKit in under 5ms, computing deterministic sports and recovery math on-device, and rendering a Liquid Glass Bento Cockpit UI.
+1. Open the project in Xcode with an SDK supporting iOS 27.0; Xcode 27.1 is the verified toolchain.
+2. For physical-device runs, select the developer team and signing identity, preserve the configured bundle ID, and enable the HealthKit capabilities required by the checked-in entitlements.
+3. Use a compatible physical iPhone/Watch for actual nocturnal measurements; availability varies by device, data source and granted access. Simulator builds do not verify real HealthKit ingestion.
+4. Inspect account/provider configuration before invoking live sync/AI. Current bundled credential/shared-identity limitations are documented in the audit; do not publish their values.
 
-### Key Architecture Modules:
-- **`App/`**: `LifecoreApp.swift` (lifecycle, SwiftData container initialization) and `MainTabView.swift` (4 primary tabs: `Сьогодні`, `Тренування`, `Харчування`, `Тренди`).
-- **`Core/HealthKit/`**:
-  - `HealthKitManager.swift`: Async queries for sleep stages, beat-to-beat `HKHeartbeatSeriesSample` (RMSSD), nocturnal RHR, wrist temperature ($\Delta T^\circ\text{C}$), $\text{SpO}_2\%$, respiratory rate, and bidirectional dietary write-back/deletion sync with `LifecoreMealID` metadata.
-  - `WorkoutTelemetryExtractor.swift`: Continuous series sample extraction (heart rate, GPS distance, altitude, cadence).
-- **`Core/MathEngine/`**:
-  - `AdaptivePhysiologyEngine.swift` (v3.1): 4 self-learning loops (Bayesian shrinkage $w_N$, MacroFactor-style dynamic TDEE & adaptive BMR, online Ridge OLS $\beta$-sensitivities, 60d EWMA corridors & 1-tap RPE calibration).
-  - `VitalsAndIllnessEngine.swift`: 5-metric nocturnal corridor analysis & Stanford NightSignal + Apple Vitals illness prodrome state machine.
-  - `TrainingLoadAndBatteryEngine.swift`: Banister TRIMP, 7d/28d EWMA ACWR, and continuous 24h Body Battery (0–100%).
-  - `CorrelationEngine.swift`: Point-biserial ($r_{pb}$) and Pearson ($r$) multi-day time-lagged correlations ($T+0, T+1, T+2$) with high-TRIMP confounder filtering.
-  - `WorkoutMathEngine.swift`: 1km auto-splits, structured interval laps, Efficiency Factor ($EF$), and Cardiac Drift %.
-  - `ReadinessCalculator.swift`: Recovery score (0–100%), cardiovascular strain score, and 7d/14d rolling weight averages.
-  - `MathEngineVerification.swift`: 11 automated verification test suites for all mathematical engines.
-- **`Core/UI/`**: `LifecoreDesignSystem.swift` (Liquid Glass Bento Cockpit, specular top-edge highlights, semantic status glow pills, `.lifecoreGlassCard()`).
-- **`Core/Storage/`**:
-  - `SwiftDataModels.swift`: `@Model` entities (`MealEntity`, `WorkoutAnalysisEntity`).
-  - `AthleteProfileStore.swift`: User-editable physiological baselines, active move targets, and macro distribution.
-  - `MealStorageService.swift`: SwiftData meal repository, optimistic UI state management, 5-second undo toast, and automatic HealthKit sync trigger.
-  - `SupabaseSyncService.swift`: Direct native iOS REST client for bidirectional synchronization with Supabase PostgreSQL (meals, workout analyses, daily metrics, sleep logs).
-- **`Core/AI/`**: `GeminiService.swift`, `FoodPrompt.swift`, `CoachPrompt.swift` (multi-model cascade for vision food parsing and 70/15/15 AI athletic performance analyst).
-- **`Features/`**:
-  - `Today/`: Hero Cockpit, `AdaptiveEngineBadgeBar`, `RPEQuickCalibrationRow`, Readiness/Strain/Active Move rings, `OvernightVitalsCard`, and `EnergyBankCard`.
-  - `Workouts/`: Filterable workout lists with live TRIMP badges, granular split details, and synchronized charts.
-  - `Nutrition/`: Unified «Записати їжу» entry point, two-tier zero-lag modal (`FoodInputSheet`), and in-place gesture swipe-to-delete (`SwipeableMealCardContainer`).
-  - `Trends/`: Segmented Glass Switcher (`Адаптація`, `Навантаження`, `Тіло & Вага`, `Кардіо & ВНС`), Adaptive Engine status card, longitudinal rolling weight trends, autonomic envelopes, and Correlation Hub.
-- **`Intents/`**: `LogMealIntent.swift` (hands-free Siri / Action button logger) and `LifecoreSyncIntent.swift` (system-wide background and manual HealthKit synchronization).
+From repository root:
 
----
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project ios/Lifecore/Lifecore/Lifecore.xcodeproj -scheme Lifecore -destination 'generic/platform=iOS Simulator' -configuration Debug build CODE_SIGNING_ALLOWED=NO
+```
 
-## 2. Xcode Setup & Build Configuration
+The command-local environment override avoids changing global `xcode-select`. Build passed with warnings during the audit. `xcodebuild test` returned66: scheme not configured for the test action. Debug startup calls13 verification groups but only prints failures. R1 adds an actual test target and isolated fixtures; D1 adds outcome assertions and device evidence.
 
-1. Open `ios/Lifecore/Lifecore/Lifecore.xcodeproj` in **Xcode 16+**.
-2. **Capabilities Required:**
-   - **HealthKit:** Enable background delivery and clinical health records if needed.
-   - **AppIntents:** Enabled by default in iOS 17+.
-3. **Target Signing:** Ensure development team is selected and bundle identifier (`com.skycherepanya.Lifecore`) is configured.
-4. **Execution:** Build and run on a physical iPhone paired with an Apple Watch Ultra/Series 8+ for real nocturnal wrist temperature and heartbeat series samples.
+## Modules
+
+`Core/HealthKit` reads telemetry; `Core/MathEngine` computes metrics; `Core/Storage` persists meals/workout analyses/training queue/memory; `Core/AI` handles prompts/provider/RAG; `Core/UI` defines current styling. `Features` currently also orchestrate queries/history joins, a boundary addressed by the redesign. `Intents` exposes food and sync operations.
+
+Read the [audit](../docs/audits/2026-11-12-architecture-and-product-audit.md) before relying on displayed readiness, load, trends, fallback AI output or restore. Source review is not clinical validation. Prior <5ms query and <5s capture claims lack measured evidence in this audit.

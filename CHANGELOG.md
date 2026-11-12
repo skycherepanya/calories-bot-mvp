@@ -2,6 +2,23 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-12] - Architecture audit and calm native redesign plan
+
+- Recorded 28 evidence-linked findings across UI/state, HealthKit/math, AI, persistence, sync and verification. Distinguished source-confirmed/reproduced defects from unverified device/backend behavior.
+- Specified the user's calm native iOS direction; created 20 dependency-ordered implementation tasks with exclusive ownership, regression fixtures, review/release gates and an economical execution mode.
+- Reconciled current architecture, toolchain (iOS 27.0 / Swift 5.0 / verified Xcode 27.1), SQL contracts, incomplete cloud hydration and absent test action. Preserved historical roadmap entries as historical claims.
+- Verification during audit: simulator Debug build passed with warnings; test action failed with exit 66 because no test action exists; shell syntax passed; isolated Swift probes reproduced selected defects. Final documentation checks cover local links, task/ownership/dependency coverage and whitespace. No application code, configuration, credentials or schema changed; no migration applied.
+
+Affected files:
+- `README.md`, `ios/README.md`, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`
+- `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/ROADMAP.md`
+- `docs/audits/2026-11-12-architecture-and-product-audit.md`
+- `docs/superpowers/specs/2026-11-12-native-redesign-design.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign/01-reliability.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign/02-interface.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign/03-delivery.md`
+
 ## [2026-10-28] - Fix: Carbohydrate Grounding & Universal In-App Keyboard Dismissal
 
 ### 🥗 Elimination of Carbohydrate Hallucinations:
