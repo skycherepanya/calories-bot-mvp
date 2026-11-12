@@ -1,12 +1,12 @@
 # Lifecore icon concepts
 
-Date: 2026-11-12. Status: concepts for selection, not installed app icons.
+Date: 2026-11-12. Status: Selected and installed.
 
-Three standalone raster concepts generated with the built-in image generation tool. Direction: calm native iOS, clear silhouette, restrained green/ivory palette. These files are original generated PNGs; no resizing, vector tracing or asset-catalog integration was performed. Final selection, exact AppIcon export sizes, small-size/device inspection and brand clearance remain separate steps.
+The **Core** icon concept was selected for production integration. It was deterministically resized to 1024×1024 (`AppIcon-1024.png`), added to `ios/Lifecore/Lifecore/Lifecore/Assets.xcassets/AppIcon.appiconset/Contents.json`, built for iOS Simulator (iPhone 17 / iOS 27.0), and visually verified on the simulator Home Screen (`verification/home-screen-icon.png`).
 
-- [Core](lifecore-core.png): open protective loop and seed; recommended starting direction.
-- [Rhythm](lifecore-rhythm.png): flowing organic ribbon; softer expression, not a literal monogram.
-- [Step](lifecore-step.png): ascending compact forms; more athletic expression.
+- [Core](lifecore-core.png): **Selected and installed**. Open protective loop and seed; calm native iOS identity.
+- [Rhythm](lifecore-rhythm.png): flowing organic ribbon; alternative exploration.
+- [Step](lifecore-step.png): ascending compact forms; alternative exploration.
 
 ## Generation prompts
 

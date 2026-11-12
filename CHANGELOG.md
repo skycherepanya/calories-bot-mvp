@@ -2,6 +2,19 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-12] - Task A: Install selected Core app icon
+
+- Resized `docs/branding/2026-11-12-icon-concepts/lifecore-core.png` to 1024×1024 (`AppIcon-1024.png`) retaining full square composition and sharp edges.
+- Integrated into `ios/Lifecore/Lifecore/Lifecore/Assets.xcassets/AppIcon.appiconset/Contents.json` as the universal iOS icon.
+- Built app target and installed onto iPhone 17 (iOS 27.0) simulator; visually verified Home Screen rendering (`docs/branding/2026-11-12-icon-concepts/verification/home-screen-icon.png`).
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`
+- `ios/Lifecore/Lifecore/Lifecore/Assets.xcassets/AppIcon.appiconset/Contents.json`
+- `docs/branding/2026-11-12-icon-concepts/README.md`
+- `docs/branding/2026-11-12-icon-concepts/verification/home-screen-icon.png`
+- `CHANGELOG.md`
+
 ## [2026-11-12] - Task R2: Truthful observation and dietary-day contracts
 
 - Established foundational domain contracts `Observation<Value>`, `ObservationSource`, `DataQuality`, `DietaryDay`, and `ScreenState<Value>`.
