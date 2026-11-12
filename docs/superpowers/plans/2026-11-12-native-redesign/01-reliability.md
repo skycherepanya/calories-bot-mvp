@@ -75,10 +75,10 @@ public enum ScreenState<Value> {
 
 `containing` above is the implementation signature, not a complete method body. Implement boundaries using calendar start-of-day + local04:00; if before boundary choose previous local day. Construct end from the following local day at04:00; format `key` with fixed Gregorian yyyy-MM-dd and the same timezone. Do not subtract fixed seconds across DST.
 
-- [ ] Write tests for Budapest dates:2026-11-12 03:59→key2026-11-11;04:00→2026-11-12. Across2026-03-29 and2026-10-25 verify adjacent boundaries remain04:00 and intervals may be23/25h.
-- [ ] Test `Observation(value:nil,... quality:.unavailable)` stays missing through reducers; a user-confirmed0 remains a distinct measured observation.
-- [ ] Implement helpers; persist dietary key/timezone at meal creation so travel does not rewrite historical identity. Define half-open membership `start <= timestamp && timestamp < end` for all interval aggregation.
-- [ ] Document which records use dietary day vs sleep episode; test no overlap/gap at boundaries. Run `DietaryDayTests` and `ObservationTests`; commit `feat: define truthful observation and day contracts`.
+- [x] Write tests for Budapest dates:2026-11-12 03:59→key2026-11-11;04:00→2026-11-12. Across2026-03-29 and2026-10-25 verify adjacent boundaries remain04:00 and intervals may be23/25h.
+- [x] Test `Observation(value:nil,... quality:.unavailable)` stays missing through reducers; a user-confirmed0 remains a distinct measured observation.
+- [x] Implement helpers; persist dietary key/timezone at meal creation so travel does not rewrite historical identity. Define half-open membership `start <= timestamp && timestamp < end` for all interval aggregation.
+- [x] Document which records use dietary day vs sleep episode; test no overlap/gap at boundaries. Run `DietaryDayTests` and `ObservationTests`; commit `feat: define truthful observation and day contracts`. (commit `18bc227`)
 
 ## R3a — Real HealthKit observations and sleep episodes
 

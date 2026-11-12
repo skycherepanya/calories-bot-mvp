@@ -47,7 +47,7 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 ## Execution checklist
 
 - [x] R1 — Enforced tests, isolated fixtures, honest toolchain, explicit Swift 6 gate. (commit `9bf75de`)
-- [ ] R2 — Observation, dietary-day, interval and screen-state contracts.
+- [x] R2 — Observation, dietary-day, interval and screen-state contracts. (commit `18bc227`)
 - [ ] R3a — Real HealthKit histories, episode normalization and missingness.
 - [ ] R3b — Workout timing and metadata correctness.
 - [ ] R3c — Longitudinal load, timed battery and HRV-method consistency.

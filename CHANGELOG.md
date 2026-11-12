@@ -2,6 +2,23 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-12] - Task R2: Truthful observation and dietary-day contracts
+
+- Established foundational domain contracts `Observation<Value>`, `ObservationSource`, `DataQuality`, `DietaryDay`, and `ScreenState<Value>`.
+- Enforced strict truth-in-data: missing health observations are explicitly `nil` with `.unavailable` quality rather than manufactured zeroes or synthetic baselines; user-confirmed 0 remains a distinct measured value.
+- Implemented `DietaryDay.containing(_:calendar:)` with half-open intervals `[start, end)` anchored at 04:00 AM local time, handling daylight saving transitions (23h spring-forward, 25h fall-back in Europe/Budapest) with zero boundary gap/overlap and Gregorian `yyyy-MM-dd` identity.
+- Added comprehensive unit test coverage (`DietaryDayTests.swift`, `ObservationTests.swift`) with 15 passing tests.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/Domain/Observation.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Domain/DietaryDay.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Domain/ScreenState.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/ObservationTests.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/DietaryDayTests.swift`
+- `docs/superpowers/plans/2026-11-12-native-redesign.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign/01-reliability.md`
+- `CHANGELOG.md`
+
 ## [2026-11-12] - Lifecore icon concept exploration
 
 - Added three original raster icon concepts (Core, Rhythm, Step) and reproducible generation prompts for the calm native design direction.
