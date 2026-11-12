@@ -15,7 +15,7 @@ Inherit every constraint from the [master plan](../2026-11-12-native-redesign.md
 
 Dependencies: none. Findings:F20. Own `ios/Lifecore/Lifecore/Lifecore.xcodeproj/project.pbxproj`, shared scheme, `TEST/LegacyVerificationTests.swift`, `TEST/TestFixtures.swift`, `APP/App/AppEnvironment.swift`, `APP/App/LifecoreApp.swift`, `.github/workflows/e2e.yml`, `scripts/run_e2e.sh`.
 
-- [ ] Add application-hosted `LifecoreTests` target and shared scheme test action; migrate the startup verification loop into assertions. Preserve existing functions until their coverage is replaced.
+- [x] Add application-hosted `LifecoreTests` target and shared scheme test action; migrate the startup verification loop into assertions. Preserve existing functions until their coverage is replaced.
 
 ```swift
 import XCTest
@@ -29,11 +29,11 @@ final class LegacyVerificationTests: XCTestCase {
 }
 ```
 
-- [ ] Verify an intentionally failing temporary assertion makes `xcodebuild test` exit nonzero; remove it and run the real harness. Investigate any existing failures rather than weakening expected behavior.
-- [ ] Introduce `AppEnvironment.live` and `.fixture`; choose fixture mode only through explicit DEBUG test launch arguments. The test host must select fixture composition before startup verification or any singleton initialization. A fixture environment uses a separate temporary SwiftData container, fixed clock, fake AI, no-op external exporters and deterministic health data. Assert no `.shared` live dependency is constructed in fixture mode. Add `EnvironmentIsolationTests` counting external calls (expected0).
-- [ ] Fix actor-isolation warnings at their owning boundaries, then test a Swift 6 language-mode build. Only change `SWIFT_VERSION` to6 after compilation/tests pass; otherwise record a separate unresolved migration gate and retain truthful Swift 5 docs. Do not add blanket `@unchecked Sendable` to silence errors.
-- [ ] Update CI to assert an installed SDK supports the actual iOS 27 floor; fail when Maestro/Java/test target is missing. Runner must use its explicit fixture simulator, not an arbitrary booted user's simulator. Keep launch/build logs and artifacts.
-- [ ] Run unit tests, Debug build and `bash -n scripts/run_e2e.sh`. Update README/ios README toolchain and test commands; commit `test: enforce isolated native verification`.
+- [x] Verify an intentionally failing temporary assertion makes `xcodebuild test` exit nonzero; remove it and run the real harness. Investigate any existing failures rather than weakening expected behavior.
+- [x] Introduce `AppEnvironment.live` and `.fixture`; choose fixture mode only through explicit DEBUG test launch arguments. The test host must select fixture composition before startup verification or any singleton initialization. A fixture environment uses a separate temporary SwiftData container, fixed clock, fake AI, no-op external exporters and deterministic health data. Assert no `.shared` live dependency is constructed in fixture mode. Add `EnvironmentIsolationTests` counting external calls (expected0).
+- [x] Fix actor-isolation warnings at their owning boundaries, then test a Swift 6 language-mode build. Only change `SWIFT_VERSION` to6 after compilation/tests pass; otherwise record a separate unresolved migration gate and retain truthful Swift 5 docs. Do not add blanket `@unchecked Sendable` to silence errors.
+- [x] Update CI to assert an installed SDK supports the actual iOS 27 floor; fail when Maestro/Java/test target is missing. Runner must use its explicit fixture simulator, not an arbitrary booted user's simulator. Keep launch/build logs and artifacts.
+- [x] Run unit tests, Debug build and `bash -n scripts/run_e2e.sh`. Update README/ios README toolchain and test commands; commit `test: enforce isolated native verification`. (commit `9bf75de`)
 
 ## R2 — Observation and dietary-day contracts
 

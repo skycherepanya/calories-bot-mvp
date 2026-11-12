@@ -2,6 +2,30 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-12] - Task R1: Enforced isolated native verification
+
+- Added application-hosted unit test target `LifecoreTests` to `ios/Lifecore/Lifecore/Lifecore.xcodeproj` and created shared scheme `Lifecore.xcscheme` with active `TestAction`.
+- Migrated legacy startup verification loop (`MathEngineVerification.runAllVerifications()`) from `LifecoreApp.init()` into `LegacyVerificationTests.swift`.
+- Implemented `AppEnvironment` supporting `.live` and `.fixture` modes, providing isolated SwiftData `ModelContainer` storage and mock health/AI/sync providers with zero network and HealthKit writes. Verified via `EnvironmentIsolationTests.swift`.
+- Hardened `scripts/run_e2e.sh` and `.github/workflows/e2e.yml` to fail closed if Maestro or iOS 27.0 SDK are missing, and run unit tests prior to E2E.
+- Analyzed Swift 6 migration gate and retained truthful `SWIFT_VERSION = 5.0` with approachable concurrency pending unowned engine refactoring.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore.xcodeproj/project.pbxproj`
+- `ios/Lifecore/Lifecore/Lifecore.xcodeproj/xcshareddata/xcschemes/Lifecore.xcscheme`
+- `ios/Lifecore/Lifecore/LifecoreTests/LegacyVerificationTests.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/EnvironmentIsolationTests.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/TestFixtures.swift`
+- `ios/Lifecore/Lifecore/Lifecore/App/AppEnvironment.swift`
+- `ios/Lifecore/Lifecore/Lifecore/App/LifecoreApp.swift`
+- `.github/workflows/e2e.yml`
+- `scripts/run_e2e.sh`
+- `README.md`
+- `ios/Lifecore/README.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign/01-reliability.md`
+- `CHANGELOG.md`
+
 ## [2026-11-12] - Architecture audit and calm native redesign plan
 
 - Recorded 28 evidence-linked findings across UI/state, HealthKit/math, AI, persistence, sync and verification. Distinguished source-confirmed/reproduced defects from unverified device/backend behavior.
