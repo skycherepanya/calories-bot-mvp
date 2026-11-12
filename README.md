@@ -47,9 +47,15 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 xcodebuild -project ios/Lifecore/Lifecore/Lifecore.xcodeproj -scheme Lifecore -destination 'generic/platform=iOS Simulator' -configuration Debug build CODE_SIGNING_ALLOWED=NO
 ```
 
-Baseline result: build passes with warnings. `xcodebuild test` currently fails because the scheme has no test action/target. Thirteen verification groups print results on Debug app startup; they do not enforce build failure. Existing Maestro flows mostly check navigation/control visibility. They are not proof of physiology, persistence, undo or cloud correctness. R1/D1 in the plan introduce enforced isolated tests.
+Baseline result: application builds cleanly with Xcode 27.1. Task R1 established an application-hosted `LifecoreTests` target and shared scheme `Lifecore.xcscheme`. The 13 legacy `MathEngineVerification` groups now execute within `LegacyVerificationTests.swift`. `AppEnvironment` provides `.live` and `.fixture` isolation with in-memory SwiftData containers and deterministic mock providers, verified by `EnvironmentIsolationTests.swift`.
 
-The current `./scripts/run_e2e.sh` mutates simulator profile/meal state and can use live service dependencies. It was syntax-checked but not executed during the audit. Do not present its missing-Maestro exit0 as a test pass.
+Run the test suite:
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project ios/Lifecore/Lifecore/Lifecore.xcodeproj -scheme Lifecore -destination 'platform=iOS Simulator,name=iPhone 17,OS=27.0' test CODE_SIGNING_ALLOWED=NO
+```
+
+`./scripts/run_e2e.sh` is hardened to fail closed with a nonzero exit code if Maestro CLI or required dependencies are missing. CI workflow `.github/workflows/e2e.yml` asserts SDK compatibility for the iOS 27.0 floor and runs `LifecoreTests` prior to E2E execution.
 
 ## Data and configuration
 

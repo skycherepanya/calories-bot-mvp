@@ -3,20 +3,18 @@ import SwiftData
 
 @main
 struct LifecoreApp: App {
+    private let environment: AppEnvironment
+
     init() {
-        #if DEBUG
-        let results = MathEngineVerification.runAllVerifications()
-        for r in results {
-            print("[VERIFICATION] \(r.testName): \(r.passed ? "PASS" : "FAIL") - \(r.details)")
-        }
-        #endif
+        self.environment = AppEnvironment.current
     }
 
     var body: some Scene {
         WindowGroup {
             MainTabView()
                 .preferredColorScheme(.light)
+                .environment(\.appEnvironment, environment)
         }
-        .modelContainer(LifecoreDataStore.shared.container)
+        .modelContainer(environment.modelContainer)
     }
 }

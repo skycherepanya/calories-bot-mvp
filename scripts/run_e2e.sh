@@ -112,15 +112,14 @@ elif [[ -x "$HOME/.maestro/bin/maestro" ]]; then
 fi
 
 if [[ -z "$MAESTRO_BIN" ]]; then
-    echo -e "${YELLOW}=====================================================${NC}"
-    echo -e "${YELLOW}[!] Maestro CLI is not installed on this system.${NC}"
+    echo -e "${RED}=====================================================${NC}"
+    echo -e "${RED}[ERROR] Maestro CLI is required but not installed.${NC}"
     echo -e "${YELLOW}To install Maestro, run the following command in terminal:${NC}"
     echo -e "${CYAN}  curl -fsSL \"https://get.maestro.mobile.dev\" | bash${NC}"
     echo -e "${YELLOW}Then add it to your PATH:${NC}"
     echo -e "${CYAN}  export PATH=\"\$PATH:\$HOME/.maestro/bin\"${NC}"
-    echo -e "${YELLOW}=====================================================${NC}"
-    echo -e "${GREEN}[✓] Lifecore is built & installed on the simulator and ready for Maestro!${NC}"
-    exit 0
+    echo -e "${RED}=====================================================${NC}"
+    exit 1
 fi
 
 # 6. Execute Maestro Flows
