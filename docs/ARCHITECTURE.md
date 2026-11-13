@@ -1,6 +1,6 @@
 # Lifecore architecture
 
-Updated: 2026-11-13 (Waves 1-6: R1-R9 + U1-U6). Target architecture specification: [redesign specification](superpowers/specs/2026-11-12-native-redesign-design.md).
+Updated: 2026-11-13 (Waves 1-6 + D1 Simulator Acceptance: R1-R9, U1-U6, D1). Target architecture specification: [redesign specification](superpowers/specs/2026-11-12-native-redesign-design.md).
 
 ## Product and platform
 
@@ -35,7 +35,7 @@ R4 establishes `DailySnapshotCoordinator` and `TrainingPrescriptionService` as t
 
 - **Ingestion & deterministic math (R2-R4):** `DietaryDay`, `MetricSample`, `PhysiologyHistoryBuilder`, `VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `TrainingPrescriptionService`, and `DailySnapshotCoordinator` compute from observed HealthKit/SwiftData inputs without synthetic defaults or fake priors.
 - **Storage, credentials & sync convergence (R6-R8):** `SyncOutbox` tracks durable `.meal`, `.workout`, and `.healthkitMeal` mutations with monotonic local revisions; `SyncCoordinator` performs serialized FIFO uploads, expected-revision CAS (`409` conflict retention), idempotent initial-`POST` retry recovery, paginated pulls, authenticated bearer tokens, and `AccountSessionManager` cross-account outbox purge. Migrations `20261113120000_r7_sync_convergence.sql` and `20261113140000_r8_rls_and_ownership.sql` define sync convergence and owner-only RLS; live `supabase db push`, contract SQL execution, and legacy backfill verification remain pending remote DB deployment (D1).
-- **AI, presentation & Intents (R5, R9, U1-U6):** Meal buffer arithmetic stays deterministic in Swift (`1.125` once); `NutritionViewModel` enforces review-before-confirm; `TrendsViewModel` enforces monotonic `requestGeneration` and dynamic `ChartDomain`; `CoachViewModel` enforces single-flight submission and explicit candidate memory review; `D1` live Maestro E2E validation remains pending.
+- **AI, presentation & Intents (R5, R9, U1-U6, D1):** Meal buffer arithmetic stays deterministic in Swift (`1.125` once); `NutritionViewModel` enforces review-before-confirm; `TrendsViewModel` enforces monotonic `requestGeneration` and dynamic `ChartDomain`; `CoachViewModel` enforces single-flight submission and explicit candidate memory review; all 5 outcome-based Maestro E2E flows (`01`–`05`) pass on `iPhone 17` (`iOS 27.0`) via `./scripts/run_e2e.sh .maestro/suite.yaml` with `SettingsToolbarButton` in `.topBarTrailing` and inline `undoBanner`. See [2026-11-12-redesign-acceptance.md](verification/2026-11-12-redesign-acceptance.md).
 
 Deterministic Swift arithmetic precedes AI explanation. Ukrainian end-user copy; English prompts/code/docs. Native calorie buffer is exactly12.5% once, macros unchanged. Dietary attribution uses04:00; sleep has a separate bounded episode. Missing is not zero/normal. Preserve project multi-metric confluence rather than alarm on one ordinary RHR variation. Data must retain source/time/coverage and cannot silently become measured from a fixture or prior.
 

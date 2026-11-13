@@ -8,6 +8,7 @@ public struct NutritionView: View {
 
     @State private var showingInputSheet = false
     @State private var showingQualityDetails = false
+    @State private var selectedMealForDetails: MealRecord? = nil
 
     public init(viewModel: NutritionViewModel? = nil) {
         if let vm = viewModel {
@@ -50,17 +51,13 @@ public struct NutritionView: View {
                         mealsListSection
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.top, 12)
+                    .padding(.bottom, 88)
                 }
 
                 // Error Banner Toast if mutation failed
                 if let err = viewModel.errorMessage, viewModel.captureState == .idle {
                     errorToast(err)
-                }
-
-                // Undo Toast Floating Banner
-                if let deleted = viewModel.recentlyDeletedMeal {
-                    undoBanner(deleted)
                 }
             }
             .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
@@ -74,6 +71,10 @@ public struct NutritionView: View {
                             .foregroundStyle(LifecoreTheme.statusWarning)
                     }
                     .accessibilityIdentifier("btn_add_meal")
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    SettingsToolbarButton()
                 }
             }
             .sheet(isPresented: $showingInputSheet) {
@@ -94,6 +95,12 @@ public struct NutritionView: View {
                 set: { if !$0 { viewModel.cancelCapture() } }
             )) {
                 MealReviewSheet(viewModel: viewModel)
+            }
+            .sheet(item: $selectedMealForDetails) { meal in
+                MealDetailSheet(meal: meal, onDelete: {
+                    viewModel.deleteMealSafely(meal)
+                })
+                .presentationDetents([.medium, .large])
             }
         }
     }
@@ -238,6 +245,10 @@ public struct NutritionView: View {
                     .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
+            if let deleted = viewModel.recentlyDeletedMeal {
+                undoBanner(deleted)
+            }
+
             if viewModel.isDayEmpty {
                 emptyDayView
                     .transition(.opacity)
@@ -247,9 +258,15 @@ public struct NutritionView: View {
                         SwipeableMealCardContainer(onDelete: {
                             viewModel.deleteMealSafely(meal)
                         }) {
-                            MealItemCard(meal: meal, onDelete: {
-                                viewModel.deleteMealSafely(meal)
-                            })
+                            MealItemCard(
+                                meal: meal,
+                                onDelete: {
+                                    viewModel.deleteMealSafely(meal)
+                                },
+                                onShowDetails: {
+                                    selectedMealForDetails = meal
+                                }
+                            )
                         }
                     }
                 }
@@ -294,15 +311,16 @@ public struct NutritionView: View {
                     viewModel.undoDeleteSafely()
                 }
             }
+            .buttonStyle(.plain)
             .font(.subheadline)
             .fontWeight(.bold)
             .foregroundStyle(LifecoreTheme.statusWarning)
+            .frame(minHeight: 32)
+            .contentShape(Rectangle())
             .accessibilityIdentifier("meal_undo")
         }
         .lifecoreGlassCard(cornerRadius: 14, padding: 12)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.opacity)
     }
 
     private func errorToast(_ message: String) -> some View {

@@ -3,6 +3,9 @@ appId: com.skycherepanya.Lifecore
 # Flow 05: Deterministic Adaptive Training Prescription & Rolling Queue E2E
 - launchApp:
     clearState: false
+    arguments:
+      LifecoreFixtureMode: "true"
+      LifecoreFixtureScenario: "seeded"
 
 # 1. Verify Tactical Prescription Card on Today Tab
 - tapOn:

@@ -174,7 +174,51 @@ public struct FixtureDailySnapshotDataSource: DailySnapshotDataSource {
     public init() {}
 
     public func fetchSnapshotInputs(for day: DietaryDay) async throws -> DailySnapshotRawInputs {
-        DailySnapshotRawInputs(day: day, hasAnyObservation: false)
+        let isUnitTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let scenario = UserDefaults.standard.string(forKey: "LifecoreFixtureScenario")
+        if isUnitTest || scenario == "empty" {
+            return DailySnapshotRawInputs(day: day, hasAnyObservation: false)
+        }
+
+        // Seeded deterministic E2E scenario computed via real Swift Math Engine primitives.
+        let calendar = Calendar.current
+        let dailyLoads: [(date: Date, trimp: Double)] = (0..<28).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: day.interval.start) else { return nil }
+            let trimp = (offset % 3 == 0) ? 72.0 : 48.0
+            return (date: date, trimp: trimp)
+        }
+        let workload = TrainingLoadAndBatteryEngine.computeEWMAWorkload(dailyLoads: dailyLoads, calendar: calendar)
+        let vitals = OvernightVitalsEvaluation(
+            state: .optimal,
+            hrvPillar: VitalsPillarMetric(name: "HRV (RMSSD)", currentValue: 64.0, baselineValue: 60.0, delta: 4.0, unit: "ms", status: .inside, zScore: 0.4),
+            rhrPillar: VitalsPillarMetric(name: "Спокійний пульс", currentValue: 52.0, baselineValue: 53.0, delta: -1.0, unit: "bpm", status: .inside, zScore: -0.3),
+            tempPillar: VitalsPillarMetric(name: "Температура зап'ястя", currentValue: 0.05, baselineValue: 0.0, delta: 0.05, unit: "°C", status: .inside),
+            respPillar: VitalsPillarMetric(name: "Частота дихання", currentValue: 14.2, baselineValue: 14.4, delta: -0.2, unit: "rpm", status: .inside),
+            spo2Pillar: VitalsPillarMetric(name: "SpO₂", currentValue: 98.0, baselineValue: 98.0, delta: 0.0, unit: "%", status: .inside),
+            outliersCount: 0,
+            warningsCount: 0,
+            headline: "Нічні вітальні у коридорі норми",
+            actionDirective: "Оптимальне відновлення для планової роботи."
+        )
+
+        let (queueState, goalConfig) = await MainActor.run {
+            (TrainingPlanStore.shared.queueState, TrainingPlanStore.shared.goalConfig)
+        }
+
+        return DailySnapshotRawInputs(
+            day: day,
+            queueState: queueState,
+            goalConfig: goalConfig,
+            vitalsEvaluation: vitals,
+            readinessScore: 84,
+            morningBodyBattery: 82,
+            currentBodyBattery: 74,
+            workloadEvaluation: workload,
+            efSamples: [1.52, 1.54, 1.55],
+            restingHr: 52.0,
+            maxHr: 190.0,
+            hasAnyObservation: true
+        )
     }
 }
 

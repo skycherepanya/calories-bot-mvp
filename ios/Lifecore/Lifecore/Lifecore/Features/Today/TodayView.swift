@@ -59,6 +59,10 @@ public struct TodayView: View {
                     }
                     .accessibilityLabel("Оновити дані")
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    SettingsToolbarButton()
+                }
             }
             .sheet(isPresented: $viewModel.isShowingProfile) {
                 AthleteProfileSheet(coordinator: viewModel.coordinator)

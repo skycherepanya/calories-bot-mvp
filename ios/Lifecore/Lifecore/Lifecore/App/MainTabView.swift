@@ -8,6 +8,35 @@ public enum AppTab: Hashable, Sendable {
     case trends
 }
 
+private struct OpenLifecoreSettingsKey: EnvironmentKey {
+    static let defaultValue: @MainActor @Sendable () -> Void = {}
+}
+
+public extension EnvironmentValues {
+    var openLifecoreSettings: @MainActor @Sendable () -> Void {
+        get { self[OpenLifecoreSettingsKey.self] }
+        set { self[OpenLifecoreSettingsKey.self] = newValue }
+    }
+}
+
+public struct SettingsToolbarButton: View {
+    @Environment(\.openLifecoreSettings) private var openSettings
+
+    public init() {}
+
+    public var body: some View {
+        Button {
+            openSettings()
+        } label: {
+            Image(systemName: "gearshape")
+                .foregroundStyle(LifecoreTheme.accentPrimary)
+        }
+        .accessibilityLabel("Налаштування")
+        .accessibilityHint("Відкриває профіль, дозволи Apple Health, ШІ та синхронізацію")
+        .accessibilityIdentifier("btn_open_settings")
+    }
+}
+
 @MainActor
 public final class MainTabNavigationState: ObservableObject {
     @Published public var selectedTab: AppTab
@@ -58,11 +87,9 @@ private struct MainTabShellView: View {
 
     var body: some View {
         TabView(selection: $navState.selectedTab) {
-            tabWithSettingsTrigger(
-                TodayView(onNavigateToWorkouts: {
-                    navState.selectTab(.workouts)
-                })
-            )
+            TodayView(onNavigateToWorkouts: {
+                navState.selectTab(.workouts)
+            })
             .tabItem {
                 Label("Сьогодні", systemImage: "bolt.heart.fill")
                     .accessibilityIdentifier("tab_today")
@@ -70,7 +97,7 @@ private struct MainTabShellView: View {
             .tag(AppTab.today)
             .accessibilityIdentifier("screen_today")
 
-            tabWithSettingsTrigger(WorkoutsView())
+            WorkoutsView()
                 .tabItem {
                     Label("Тренування", systemImage: "figure.run")
                         .accessibilityIdentifier("tab_workouts")
@@ -78,7 +105,7 @@ private struct MainTabShellView: View {
                 .tag(AppTab.workouts)
                 .accessibilityIdentifier("screen_workouts")
 
-            tabWithSettingsTrigger(NutritionView())
+            NutritionView()
                 .tabItem {
                     Label("Харчування", systemImage: "fork.knife")
                         .accessibilityIdentifier("tab_nutrition")
@@ -86,7 +113,7 @@ private struct MainTabShellView: View {
                 .tag(AppTab.nutrition)
                 .accessibilityIdentifier("screen_nutrition")
 
-            tabWithSettingsTrigger(TrendsView())
+            TrendsView()
                 .tabItem {
                     Label("Тренди", systemImage: "chart.line.uptrend.xyaxis")
                         .accessibilityIdentifier("tab_trends")
@@ -95,6 +122,9 @@ private struct MainTabShellView: View {
                 .accessibilityIdentifier("screen_trends")
         }
         .tint(LifecoreTheme.accentPrimary)
+        .environment(\.openLifecoreSettings, { @MainActor in
+            navState.openSettings()
+        })
         .sheet(isPresented: $navState.isShowingSettings, onDismiss: {
             navState.activeSettingsRoute = nil
         }) {
@@ -103,39 +133,6 @@ private struct MainTabShellView: View {
                 initialRoute: navState.activeSettingsRoute
             )
         }
-    }
-
-    /// Attaches a non-intrusive tab-level Settings trigger without nesting a second NavigationStack.
-    private func tabWithSettingsTrigger<Content: View>(_ content: Content) -> some View {
-        content
-            .overlay(alignment: .bottomTrailing) {
-                Button {
-                    navState.openSettings()
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(LifecoreTheme.accentPrimary)
-                        .frame(
-                            width: LifecoreLayout.minTouchTarget,
-                            height: LifecoreLayout.minTouchTarget
-                        )
-                        .background(
-                            Circle()
-                                .fill(LifecoreTheme.semanticCard)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(LifecoreTheme.semanticSeparator.opacity(0.4), lineWidth: 1)
-                        )
-                        .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, LifecoreLayout.pageInset)
-                .padding(.bottom, 76)
-                .accessibilityLabel("Налаштування")
-                .accessibilityHint("Відкриває профіль, дозволи Apple Health, ШІ та синхронізацію")
-                .accessibilityIdentifier("btn_open_settings")
-            }
     }
 }
 

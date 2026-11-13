@@ -11,9 +11,10 @@
 - [x] R8–R9: account/credential configuration (`CredentialStore`, `AppConfiguration`, `AccountSessionManager`), RLS migration `20261113140000_r8_rls_and_ownership.sql` (live `supabase db push` & legacy backfill pending remote DB check), and truthful AppIntents (`LogMealIntentHandler`, `LifecoreSyncIntentHandler`).
 - [x] U1: semantic design system primitives, native shell, and Settings routes.
 - [x] U2–U6: Today, Workouts, Nutrition, Trends, and Coach/Evidence/Memory vertical slices (verified via `LifecoreTests`, 140/140 passing).
-- [ ] D1: outcome-based E2E (`maestro`), remote migration/authentication replay (`supabase db push` / `psql`), visual/accessibility/device evidence and release review.
+- [x] D1 (Simulator & Acceptance Evidence): `140/140` `LifecoreTests`, Release simulator build, `5/5` Maestro E2E flows (`./scripts/run_e2e.sh .maestro/suite.yaml`), toolbar Settings & inline Undo overlap fixes, and [acceptance report](verification/2026-11-12-redesign-acceptance.md) complete.
+- [ ] D1 External Release Gates: remote `supabase db push` + `rls_ownership_contract.sql` / legacy backfill (`psql`/`docker` absent; role login `544` timeout), physical iPhone/Apple Watch HealthKit & VoiceOver hardware checks, and owner-side API key rotation.
 
-Start at the [master execution plan](superpowers/plans/2026-11-12-native-redesign.md). The plan owns detailed task status and dependencies. [Audit findings](audits/2026-11-12-architecture-and-product-audit.md) remain open; no app fixes or database migrations were performed in this documentation change.
+Start at the [master execution plan](superpowers/plans/2026-11-12-native-redesign.md) and [acceptance report](verification/2026-11-12-redesign-acceptance.md).
 
 ## Historical delivery record (through October 2026)
 

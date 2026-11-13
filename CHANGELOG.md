@@ -2,6 +2,19 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Task D1: Simulator E2E Hardening, Visual Overlap Fixes & Redesign Acceptance Report
+- **Fixture & Coordinator E2E Support:**
+  - Updated `AppEnvironment.swift` (`UserDefaults.standard` `LifecoreFixtureMode` flag recognition and isolated persistent `LifecoreFixtureE2E.store` SQLite store outside `XCTestConfigurationFilePath`) so Maestro app relaunches preserve logged/restored meals while keeping unit tests in-memory.
+  - Updated `FixtureDailySnapshotDataSource.fetchSnapshotInputs(for:)` in `DailySnapshotCoordinator.swift` to serve realistic deterministic telemetry in E2E `"seeded"` mode (`readinessScore: 84`, `morningBodyBattery: 82`, `currentBodyBattery: 74`, real `TrainingLoadAndBatteryEngine` & `OvernightVitalsEvaluation`) while keeping empty observations in unit tests and `"empty"` scenarios.
+- **Toolbar Settings & Inline Undo Fixes (Visual Overlap Resolution):**
+  - Replaced the floating `.bottomTrailing` `btn_open_settings` overlay in `MainTabView.swift` (which overlapped `MealItemCard` weight/details buttons) with `OpenLifecoreSettingsKey` + `SettingsToolbarButton` in `.topBarTrailing` across `TodayView.swift`, `WorkoutsView.swift`, `NutritionView.swift`, and `TrendsView.swift`.
+  - Resolved duplicate `"screen_trends"` / `"trends_scroll_view"` accessibility identifiers in `TrendsView.swift`.
+  - Updated `NutritionComponents.swift`, `NutritionView.swift`, and `NutritionViewModel.swift` (`btn_meal_details` action + synchronous delete before `dismiss()`, inline `undoBanner` inside `mealsListSection` with `.padding(.bottom, 88)` clear of iOS 27's floating Tab Bar, `30s` `scheduleUndoDismiss` window).
+- **E2E Suite & Acceptance Evidence:**
+  - Hardened `scripts/run_e2e.sh` (clean `LifecoreFixtureE2E.store` & UserDefaults reset, enforced `LifecoreFixtureMode=true` + `LifecoreFixtureScenario=seeded`, `--debug-output /tmp/lifecore-e2e-artifacts`, `EXIT` failure-screenshot trap) and updated `.maestro/01`–`05` flows.
+  - Published [2026-11-12-redesign-acceptance.md](docs/verification/2026-11-12-redesign-acceptance.md) recording passing simulator/E2E gates (`140/140` `LifecoreTests`, Release simulator build, `5/5` Maestro E2E flows), visual/accessibility observations (`today_light_medium.png`, `today_dark_ax_xl.png`, light-scheme lock), and open external gates (remote `supabase db push` / RLS contract blocked by local `psql`/`docker` absence + role status 544 timeout; physical HealthKit/VoiceOver hardware checks; owner-side API key rotation).
+- **Affected Files:** `AppEnvironment.swift`, `MainTabView.swift`, `DailySnapshotCoordinator.swift`, `TodayView.swift`, `WorkoutsView.swift`, `TrendsView.swift`, `NutritionView.swift`, `NutritionViewModel.swift`, `NutritionComponents.swift`, `scripts/run_e2e.sh`, `.maestro/01`–`05*.yaml`, `docs/verification/2026-11-12-redesign-acceptance.md`, `docs/superpowers/plans/2026-11-12-native-redesign.md`, `docs/superpowers/plans/2026-11-12-native-redesign/03-delivery.md`, `PROJECT_KNOWLEDGE.md`, `docs/ROADMAP.md`, `docs/ARCHITECTURE.md`, `README.md`.
+
 ## [2026-11-13] - Tasks R8, R9, and U2–U6: Security/Credential Isolation, Truthful AppIntents, and Feature Vertical Slices
 - **Account & Credential Configuration (R8):**
   - Added `Core/Configuration/` (`CredentialStore.swift` with `KeychainCredentialStore` and thread-safe `InMemoryCredentialStore`; `AppConfiguration.swift` with public Supabase URL/anon constants and transparent one-time UserDefaults-to-Keychain Gemini key migration; `AccountSession.swift` with `@MainActor AccountSessionManager`, token expiration checks, nonisolated thread-safe token lookup, and `signOut`/`switchAccount` outbox purging via `purgePendingOutbox`).

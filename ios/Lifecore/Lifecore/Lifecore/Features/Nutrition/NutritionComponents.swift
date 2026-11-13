@@ -406,12 +406,18 @@ public struct SwipeableMealCardContainer<Content: View>: View {
 public struct MealItemCard: View {
     public let meal: MealRecord
     public let onDelete: () -> Void
+    public let onShowDetails: (() -> Void)?
 
     @State private var showingDetails = false
 
-    public init(meal: MealRecord, onDelete: @escaping () -> Void = {}) {
+    public init(
+        meal: MealRecord,
+        onDelete: @escaping () -> Void = {},
+        onShowDetails: (() -> Void)? = nil
+    ) {
         self.meal = meal
         self.onDelete = onDelete
+        self.onShowDetails = onShowDetails
     }
 
     public var body: some View {
@@ -455,7 +461,13 @@ public struct MealItemCard: View {
 
                 Spacer()
 
-                Button(action: { showingDetails = true }) {
+                Button(action: {
+                    if let onShowDetails {
+                        onShowDetails()
+                    } else {
+                        showingDetails = true
+                    }
+                }) {
                     Image(systemName: "info.circle")
                         .font(.caption)
                         .foregroundStyle(LifecoreTheme.inkSecondary)
@@ -464,6 +476,7 @@ public struct MealItemCard: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("btn_meal_details")
             }
 
             // Tags Chips
@@ -769,10 +782,8 @@ public struct MealDetailSheet: View {
                 Button("Видалити \"\(meal.name)\"", role: .destructive) {
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.success)
+                    onDelete?()
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        onDelete?()
-                    }
                 }
                 Button("Скасувати", role: .cancel) {}
             } message: {

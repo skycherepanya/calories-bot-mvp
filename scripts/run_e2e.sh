@@ -98,10 +98,21 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
 fi
 echo -e "${GREEN}[✓] Build succeeded:${NC} $APP_BUNDLE"
 
-# 4. Install App onto Simulator
+# 4. Install App onto Simulator & Enforce Isolated Fixture Mode
 echo -e "${YELLOW}[*] Installing Lifecore.app onto simulator...${NC}"
 xcrun simctl install "$DEVICE_ID" "$APP_BUNDLE"
 echo -e "${GREEN}[✓] Installed com.skycherepanya.Lifecore${NC}"
+
+# Reset previous E2E fixture database for a deterministic suite run while keeping UserDefaults flags
+E2E_CONTAINER_DATA=$(xcrun simctl get_app_container "$DEVICE_ID" com.skycherepanya.Lifecore data 2>/dev/null || true)
+if [[ -n "$E2E_CONTAINER_DATA" ]]; then
+    rm -f "$E2E_CONTAINER_DATA/Library/Application Support/LifecoreFixtureE2E.store"* || true
+fi
+
+xcrun simctl spawn "$DEVICE_ID" defaults delete com.skycherepanya.Lifecore >/dev/null 2>&1 || true
+xcrun simctl spawn "$DEVICE_ID" defaults write com.skycherepanya.Lifecore LifecoreFixtureMode -bool true
+xcrun simctl spawn "$DEVICE_ID" defaults write com.skycherepanya.Lifecore LifecoreFixtureScenario -string "${LIFECORE_FIXTURE_SCENARIO:-seeded}"
+echo -e "${GREEN}[✓] Enforced isolated fixture mode (LifecoreFixtureMode=true, scenario=${LIFECORE_FIXTURE_SCENARIO:-seeded})${NC}"
 
 # 5. Resolve Maestro CLI
 MAESTRO_BIN=""
@@ -122,16 +133,28 @@ if [[ -z "$MAESTRO_BIN" ]]; then
     exit 1
 fi
 
-# 6. Execute Maestro Flows
+# 6. Execute Maestro Flows with Failure Artifact Preservation
 TEST_TARGET="${1:-.maestro/suite.yaml}"
 if [[ ! -f "$TEST_TARGET" && -f ".maestro/$TEST_TARGET" ]]; then
     TEST_TARGET=".maestro/$TEST_TARGET"
 fi
 
-echo -e "${CYAN}[*] Running Maestro test: $TEST_TARGET${NC}"
+E2E_ARTIFACTS_DIR="${E2E_ARTIFACTS_DIR:-/tmp/lifecore-e2e-artifacts}"
+mkdir -p "$E2E_ARTIFACTS_DIR"
+
+on_e2e_failure() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo -e "${RED}[!] E2E failed (exit $exit_code). Capturing failure screenshot to $E2E_ARTIFACTS_DIR/failure_screen.png...${NC}"
+        xcrun simctl io "$DEVICE_ID" screenshot "$E2E_ARTIFACTS_DIR/failure_screen.png" 2>/dev/null || true
+    fi
+}
+trap on_e2e_failure EXIT
+
+echo -e "${CYAN}[*] Running Maestro test: $TEST_TARGET (artifacts: $E2E_ARTIFACTS_DIR)${NC}"
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
-"$MAESTRO_BIN" test "$TEST_TARGET"
+"$MAESTRO_BIN" test --debug-output "$E2E_ARTIFACTS_DIR" "$TEST_TARGET"
 
 echo -e "${GREEN}=====================================================${NC}"
 echo -e "${GREEN}         All Maestro E2E Tests Succeeded!            ${NC}"

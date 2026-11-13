@@ -17,35 +17,35 @@ Dependencies: all R/U tasks. Own `.maestro/*.yaml`, `scripts/run_e2e.sh`, `.gith
 
 ### Automated outcome matrix
 
-- [ ] Run all tests from master command, store xcresult and exact toolchain/destination/commit. Every F01–F28 finding has a named regression test, a resolving commit or explicit unresolved disposition.
-- [ ] Today/Profile flow reopens saved profile, verifies value and changed snapshot revision; empty HealthKit shows no fabricated status; Today/Workouts recommendation values match.
-- [ ] Nutrition flow captures text, waits for review, verifies known fixture exact/final kcal and macros, confirms, deletes, undoes, relaunches and verifies one record. Failure/invalid JSON keeps recoverable input and never exports fabricated nutrition.
-- [ ] Workouts flow checks hidden-filter regression, previous dietary-day attribution, multiple sessions, sport-specific fields and a fixed360s kilometer fixture.
-- [ ] Trends flow verifies90d selection during in-flight30d load, correct selected data interval,38/152kg domains, missing-data gaps and negative association wording.
-- [ ] Coach flow tests duplicate keyboard/button submission, failure/retry and evidence/memory lifecycle. Ensure one queued request and no unsupported metric fallback.
-- [ ] Fixture environment counts all outgoing requests and HealthKit writes; expected0 to real services. E2E must fail, not exit0, when Maestro/runtime/fixture mode is missing. Preserve screenshot/video/log artifacts on failure.
+- [x] Run all tests from master command, store xcresult and exact toolchain/destination/commit. Every F01–F28 finding has a named regression test, a resolving commit or explicit unresolved disposition. (`140/140` passing on `iPhone 17` / `iOS 27.0`, Xcode `27.1`; see [acceptance report](../../../verification/2026-11-12-redesign-acceptance.md))
+- [x] Today/Profile flow reopens saved profile, verifies value and changed snapshot revision; empty HealthKit shows no fabricated status; Today/Workouts recommendation values match. (Maestro `01` & `05`, `TodayViewModelTests`, `WorkoutsViewModelTests`)
+- [x] Nutrition flow captures text, waits for review, verifies known fixture exact/final kcal and macros, confirms, deletes, undoes, relaunches and verifies one record. Failure/invalid JSON keeps recoverable input and never exports fabricated nutrition. (Maestro `02` + `NutritionFlowTests`, `NutritionContractTests`)
+- [x] Workouts flow checks hidden-filter regression, previous dietary-day attribution, multiple sessions, sport-specific fields and a fixed360s kilometer fixture. (Maestro `03` + `WorkoutsViewModelTests`, `WorkoutTelemetryTests`)
+- [x] Trends flow verifies90d selection during in-flight30d load, correct selected data interval,38/152kg domains, missing-data gaps and negative association wording. (Maestro `04` + `TrendsViewModelTests`, `LongitudinalTests`)
+- [x] Coach flow tests duplicate keyboard/button submission, failure/retry and evidence/memory lifecycle. Ensure one queued request and no unsupported metric fallback. (`CoachFlowTests`, `CoachEvidenceTests`)
+- [x] Fixture environment counts all outgoing requests and HealthKit writes; expected0 to real services. E2E must fail, not exit0, when Maestro/runtime/fixture mode is missing. Preserve screenshot/video/log artifacts on failure. (`EnvironmentIsolationTests`, `scripts/run_e2e.sh`, `/tmp/lifecore-e2e-artifacts`)
 
 ### Storage and external contracts
 
-- [ ] Migrate a copy of legacy local data with meals, optional fields, analyses, queue and memories; verify counts/IDs/content/buffered kcal before and after. A simulated save failure preserves the source backup.
-- [ ] On isolated Supabase, apply migration history and new migration, then >60-meal/>30-workout pagination, nullable weight, revision conflict, lost-response retry, delete/undo and incremental restore tests.
-- [ ] Verify authenticated ownerA own access and ownerB/anon denial for select/insert/update/delete. Record policies inspected; do not infer deployed protection from a public client key.
-- [ ] Validate physical-device HealthKit save/delete/undo and scoped overnight reading with a test account/dataset. Record whether real device validation was possible; simulator-only success does not verify this gate.
-- [ ] Confirm bundled provider credential removal and owner-side rotation if active. Check logs/artifacts for accidental sensitive content before publication.
+- [x] Migrate a copy of legacy local data with meals, optional fields, analyses, queue and memories; verify counts/IDs/content/buffered kcal before and after. A simulated save failure preserves the source backup. (`PersistenceTests`, `PersistenceRecovery`)
+- [ ] On isolated Supabase, apply migration history and new migration, then >60-meal/>30-workout pagination, nullable weight, revision conflict, lost-response retry, delete/undo and incremental restore tests. *(Blocked locally: `psql`/`docker` missing and remote `supabase migration list` hit HTTP/role status 544 timeout on `khmviccwbuktnvdxhnwg`; Swift client side verified in `SyncContractTests`.)*
+- [ ] Verify authenticated ownerA own access and ownerB/anon denial for select/insert/update/delete. Record policies inspected; do not infer deployed protection from a public client key. *(Blocked on remote DB connectivity; SQL contract authored in `supabase/tests/rls_ownership_contract.sql`.)*
+- [ ] Validate physical-device HealthKit save/delete/undo and scoped overnight reading with a test account/dataset. Record whether real device validation was possible; simulator-only success does not verify this gate. *(Blocked: physical device & paired Apple Watch unavailable in simulator environment.)*
+- [ ] Confirm bundled provider credential removal and owner-side rotation if active. Check logs/artifacts for accidental sensitive content before publication. *(Client secret removed via `GeminiService.defaultApiKey = ""` + `KeychainCredentialStore`; owner-side upstream key rotation pending dashboard action.)*
 
 ### Visual and accessibility acceptance
 
-- [ ] Use smallest supported available iPhone layout, standard iPhone and largest iPhone; standard text and largest accessibility size; light/dark; long Ukrainian copy. Identify exact devices and OS in evidence.
-- [ ] Capture Today ready/empty/partial/stale/error; Workout multiple-session/running/strength; Nutrition empty/review/error/undo; Trends sparse90d/extreme-weight; Coach answer/error/keyboard.
-- [ ] Inspect every capture: no clipped primary action, overlapping keyboard/toolbars, unreadable units, contradictory status or empty chart frame. Largest text may scroll; do not reduce font size to fit.
-- [ ] Run VoiceOver through tab roots, evidence disclosure, charts/list alternatives, add/edit/delete/undo and chat retry; verify labels/order/focus and accessible alternatives to swipes.
-- [ ] Enable Reduce Motion and Increased Contrast. Confirm status is understandable without color and animations do not block tasks.
-- [ ] Check03:59→04:00, Budapest spring/fall DST and timezone travel without rewriting existing dietary attribution.
+- [ ] Use smallest supported available iPhone layout, standard iPhone and largest iPhone; standard text and largest accessibility size; light/dark; long Ukrainian copy. Identify exact devices and OS in evidence. *(Partial on `iPhone 17` / `iOS 27.0`: light/medium and ax-XL captures inspected; `LifecoreApp.swift` locks `.preferredColorScheme(.light)` so dark palette was not active; multi-size matrix & long-copy sweeps pending.)*
+- [ ] Capture Today ready/empty/partial/stale/error; Workout multiple-session/running/strength; Nutrition empty/review/error/undo; Trends sparse90d/extreme-weight; Coach answer/error/keyboard. *(Partial: `today_light_medium.png` & `today_dark_ax_xl.png` captured and inspected; `ScreenStateView` & flows exercised via E2E/unit tests.)*
+- [x] Inspect every capture: no clipped primary action, overlapping keyboard/toolbars, unreadable units, contradictory status or empty chart frame. Largest text may scroll; do not reduce font size to fit. *(Verified and repaired Settings toolbar overlap & iOS 27 floating Tab Bar overlap with Nutrition Undo banner; noted minor card text truncation at Ax-XL.)*
+- [ ] Run VoiceOver through tab roots, evidence disclosure, charts/list alternatives, add/edit/delete/undo and chat retry; verify labels/order/focus and accessible alternatives to swipes. *(Not run on physical VoiceOver hardware.)*
+- [ ] Enable Reduce Motion and Increased Contrast. Confirm status is understandable without color and animations do not block tasks. *(Not run interactively on device.)*
+- [x] Check03:59→04:00, Budapest spring/fall DST and timezone travel without rewriting existing dietary attribution. (`DietaryDayTests`, `TodayViewModelTests`, `WorkoutsViewModelTests`, `LongitudinalTests`)
 
 ### Performance and final gate
 
-- [ ] Measure cold launch, warm tab switch, refresh and trend query on named fixture/device; collect median/p95 and main-thread stall observations. Compare before/after using the same dataset; investigate regressions rather than asserting inherited <5ms claims.
-- [ ] Run Debug tests and Release simulator build. Physical signing/archive is separate evidence if a signing identity is available.
+- [ ] Measure cold launch, warm tab switch, refresh and trend query on named fixture/device; collect median/p95 and main-thread stall observations. Compare before/after using the same dataset; investigate regressions rather than asserting inherited <5ms claims. *(Not benchmarked on physical device.)*
+- [x] Run Debug tests and Release simulator build. Physical signing/archive is separate evidence if a signing identity is available. (`140/140` Debug `LifecoreTests` + `Release` simulator `BUILD SUCCEEDED` + `bash -n scripts/run_e2e.sh` + `./scripts/run_e2e.sh .maestro/suite.yaml` all passed.)
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer

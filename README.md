@@ -4,7 +4,7 @@ Native iOS athletic-performance application combining Apple Health telemetry, de
 
 ## Current status — 2026-11-13
 
-The application builds and passes its `LifecoreTests` suite (**140 tests**, 0 failures on iPhone 17 / **iOS 27.0**, Xcode 27.1, language mode **Swift 5.0**). Reliability/data tasks **R1–R9** and calm native UI tasks **U1–U6** are implemented and verified by unit/contract/flow tests (`EnvironmentIsolationTests`, `DailySnapshotTests`, `SyncContractTests`, `ConfigurationTests`, `IntentOutcomeTests`, `NavigationTests`, `TodayViewModelTests`, `WorkoutsViewModelTests`, `NutritionFlowTests`, `TrendsViewModelTests`, `CoachFlowTests`, `PhysiologyTests`, `WorkoutTelemetryTests`). Upcoming release gate **D1** covers live Maestro E2E runs (`./scripts/run_e2e.sh`) and remote `supabase db push` / RLS contract execution.
+The application builds (Debug and Release) and passes its `LifecoreTests` suite (**140 tests**, 0 failures on `iPhone 17` / **iOS 27.0**, Xcode `27.1`, language mode **Swift 5.0**) alongside all **5/5** isolated Maestro E2E flows (`./scripts/run_e2e.sh .maestro/suite.yaml`). Reliability/data tasks **R1–R9**, calm native UI tasks **U1–U6**, and simulator/E2E verification **D1** are documented in [2026-11-12-redesign-acceptance.md](docs/verification/2026-11-12-redesign-acceptance.md); remote `supabase db push` / RLS contract replay, physical-device HealthKit/VoiceOver validation, and owner-side API key rotation remain open external gates before production rollout.
 
 - [Design specification](docs/superpowers/specs/2026-11-12-native-redesign-design.md).
 - [Master execution plan and copyable subagent launch prompt](docs/superpowers/plans/2026-11-12-native-redesign.md).

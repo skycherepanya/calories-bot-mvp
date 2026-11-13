@@ -51,7 +51,6 @@ public struct TrendsView: View {
                 .padding(.vertical, 12)
             }
             .accessibilityIdentifier("trends_scroll_view")
-            .accessibilityIdentifier("screen_trends")
             .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Тренди та Аналітика")
             .toolbar {
@@ -68,6 +67,10 @@ public struct TrendsView: View {
                         }
                     }
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    SettingsToolbarButton()
+                }
             }
             .refreshable {
                 await viewModel.load(rangeDays: selectedRange.rawValue)
@@ -76,6 +79,7 @@ public struct TrendsView: View {
                 await viewModel.load(rangeDays: selectedRange.rawValue)
             }
         }
+        .accessibilityIdentifier("screen_trends")
     }
 
     // MARK: - Category Switcher

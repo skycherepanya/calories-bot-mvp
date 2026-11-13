@@ -3,6 +3,9 @@ appId: com.skycherepanya.Lifecore
 # Flow 01: Athlete Profile Calibration & Nocturnal Vitals Display
 - launchApp:
     clearState: false
+    arguments:
+      LifecoreFixtureMode: "true"
+      LifecoreFixtureScenario: "seeded"
 
 # 1. Assert Today View & Core Physiological Cards
 - assertVisible:
@@ -30,10 +33,11 @@ appId: com.skycherepanya.Lifecore
 # 3. Modify Weight Anthropometry
 - tapOn:
     id: "input_athlete_weight"
+    point: "99%,50%"
 
-- eraseText: 5
+- eraseText: 10
 
-- inputText: "79.5"
+- inputText: "82"
 
 # 4. Save and Assert State Persistence
 - tapOn:
@@ -44,3 +48,31 @@ appId: com.skycherepanya.Lifecore
 
 - assertVisible:
     id: "card_overnight_vitals"
+
+# 5. Reopen Profile to Confirm Persisted Anthropometry
+- tapOn:
+    id: "btn_open_profile"
+
+- assertVisible:
+    id: "sheet_athlete_profile"
+
+- assertVisible: "82.*"
+
+- tapOn:
+    id: "btn_close_profile"
+
+- assertNotVisible:
+    id: "sheet_athlete_profile"
+
+# 6. Verify Settings Screen Opens and Closes
+- tapOn:
+    id: "btn_open_settings"
+
+- assertVisible:
+    id: "screen_settings"
+
+- tapOn:
+    id: "btn_close_settings"
+
+- assertNotVisible:
+    id: "screen_settings"

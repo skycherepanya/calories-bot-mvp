@@ -3,13 +3,21 @@ appId: com.skycherepanya.Lifecore
 # Flow 04: Trends Analytics & Multi-Horizon Physiology Calculations
 - launchApp:
     clearState: false
+    arguments:
+      LifecoreFixtureMode: "true"
+      LifecoreFixtureScenario: "seeded"
 
-# 1. Switch to Trends Tab
+# 1. Switch to Trends Tab & Verify Range Switching (90d)
 - tapOn:
     id: "tab_trends"
 
 - assertVisible:
     id: "trends_scroll_view"
+
+- assertVisible:
+    id: "picker_trends_range"
+
+- tapOn: "90 днів"
 
 # 2. Cycle Analytical Categories
 - assertVisible:

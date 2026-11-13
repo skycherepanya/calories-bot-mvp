@@ -234,14 +234,29 @@ public struct AppEnvironment: Sendable {
         )
     }
 
-    public static func makeIsolatedModelContainer() -> ModelContainer {
+    public static func makeIsolatedModelContainer(persistentURL: URL? = nil) -> ModelContainer {
         let schema = LifecoreDataStore.sharedSchema
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let config: ModelConfiguration
+        if let persistentURL {
+            config = ModelConfiguration(schema: schema, url: persistentURL)
+        } else {
+            config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        }
         do {
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
-            fatalError("Failed to initialize isolated in-memory ModelContainer: \(error)")
+            fatalError("Failed to initialize isolated ModelContainer: \(error)")
         }
+    }
+
+    public static func makePersistentE2EFixtureContainer() -> ModelContainer {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let appSupport {
+            try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            let storeURL = appSupport.appendingPathComponent("LifecoreFixtureE2E.store")
+            return makeIsolatedModelContainer(persistentURL: storeURL)
+        }
+        return makeIsolatedModelContainer()
     }
 
     // MARK: - Global Resolver
@@ -260,6 +275,12 @@ public struct AppEnvironment: Sendable {
             return true
         }
         if env["XCTestConfigurationFilePath"] != nil {
+            return true
+        }
+        if UserDefaults.standard.bool(forKey: "LifecoreFixtureMode") {
+            return true
+        }
+        if UserDefaults.standard.string(forKey: "LifecoreFixtureMode")?.lowercased() == "true" {
             return true
         }
         return false
@@ -309,7 +330,16 @@ private final class EnvironmentStorage: Sendable {
         if let existing = state.withLock({ $0 }) {
             return existing
         }
-        let created = AppEnvironment.isFixtureLaunchRequested ? AppEnvironment.fixture() : AppEnvironment.live()
+        let created: AppEnvironment
+        if AppEnvironment.isFixtureLaunchRequested {
+            let isUnitTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            let container = isUnitTest
+                ? AppEnvironment.makeIsolatedModelContainer()
+                : AppEnvironment.makePersistentE2EFixtureContainer()
+            created = AppEnvironment.fixture(container: container)
+        } else {
+            created = AppEnvironment.live()
+        }
         return state.withLock { current in
             if let current = current {
                 return current

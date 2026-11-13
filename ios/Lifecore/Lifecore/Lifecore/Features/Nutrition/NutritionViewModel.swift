@@ -434,7 +434,7 @@ public final class NutritionViewModel: ObservableObject {
     private func scheduleUndoDismiss(for mealId: UUID) {
         undoDismissTask?.cancel()
         undoDismissTask = Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
             if self.recentlyDeletedMeal?.id == mealId {
                 withAnimation {
                     self.recentlyDeletedMeal = nil

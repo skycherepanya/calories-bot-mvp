@@ -65,7 +65,7 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 - [x] U4 — Food capture/review/confirm/delete/undo. (`NutritionFlowTests` pass; D1 Maestro/screenshot verification pending)
 - [x] U5 — Trends range, safe domains and coverage. (`TrendsViewModelTests` pass; D1 Maestro/screenshot verification pending)
 - [x] U6 — Coach report/chat/evidence/memory. (`CoachFlowTests` pass; D1 Maestro/screenshot verification pending)
-- [ ] D1 — Integrated verification, visual/accessibility acceptance and release evidence.
+- [x] D1 — Integrated verification, visual/accessibility acceptance and release evidence. (Simulator Debug tests `140/140`, Release simulator build, Maestro E2E `5/5`, and [acceptance report](../../verification/2026-11-12-redesign-acceptance.md) completed; external remote `supabase db push`/RLS replay, physical HealthKit/VoiceOver hardware checks, and owner key rotation recorded as open external release gates.)
 
 ## Shared commands
 

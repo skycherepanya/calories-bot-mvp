@@ -34,7 +34,7 @@ xcodebuild -project ios/Lifecore/Lifecore/Lifecore.xcodeproj \
 
 `AppEnvironment` manages runtime dependencies and storage isolation:
 - `AppEnvironment.live`: Live HealthKit, Gemini AI, and Supabase sync providers using `LifecoreDataStore.shared.container`.
-- `AppEnvironment.fixture`: Deterministic mock providers (`MockHealthDataProvider`, `MockAIProvider`, `MockSyncProvider`) and an isolated, in-memory `ModelContainer`.
+- `AppEnvironment.fixture`: Deterministic mock providers (`MockHealthDataProvider`, `MockAIProvider`, `MockSyncProvider`) and an isolated `ModelContainer` (in-memory during `XCTestConfigurationFilePath` execution, or an isolated Application Support `LifecoreFixtureE2E.store` SQLite store when launched in E2E simulator mode so app relaunches preserve fixture state across Maestro steps).
   - Zero network calls to Supabase or Gemini.
   - Zero queries or writes to Apple HealthKit.
-  - Automatically activated during unit test execution or via `--fixture` / `-LifecoreFixtureMode 1` / `LIFECORE_FIXTURE_MODE=1`.
+  - Automatically activated during unit test execution or via `--fixture` / `-LifecoreFixtureMode 1` / `UserDefaults` `LifecoreFixtureMode=true` / `LIFECORE_FIXTURE_MODE=1`.

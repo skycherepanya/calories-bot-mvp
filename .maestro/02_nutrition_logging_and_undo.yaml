@@ -3,6 +3,9 @@ appId: com.skycherepanya.Lifecore
 # Flow 02: Nutrition Optimistic Logging & Macro Tracking Loop
 - launchApp:
     clearState: false
+    arguments:
+      LifecoreFixtureMode: "true"
+      LifecoreFixtureScenario: "seeded"
 
 # 1. Switch to Nutrition Tab
 - tapOn:
@@ -46,3 +49,38 @@ appId: com.skycherepanya.Lifecore
 
 - assertVisible:
     id: "card_nutrition_summary"
+
+- assertVisible: "Вівсянка з ягодами"
+
+- assertVisible: "320 ккал"
+
+# 5. Delete and Undo Meal
+- tapOn:
+    id: "btn_meal_details"
+
+- tapOn:
+    id: "meal_delete"
+
+- tapOn: "Видалити \"Вівсянка з ягодами\""
+
+- assertVisible:
+    id: "meal_undo"
+
+- tapOn:
+    id: "meal_undo"
+
+- assertVisible: "Вівсянка з ягодами"
+
+# 6. Relaunch and Assert Persistence
+- launchApp:
+    clearState: false
+    arguments:
+      LifecoreFixtureMode: "true"
+      LifecoreFixtureScenario: "seeded"
+
+- tapOn:
+    id: "tab_nutrition"
+
+- assertVisible: "Вівсянка з ягодами"
+
+- assertVisible: "320 ккал"

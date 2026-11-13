@@ -48,6 +48,10 @@ public struct WorkoutsView: View {
                     }
                     .accessibilityIdentifier("btn_refresh_workouts")
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    SettingsToolbarButton()
+                }
             }
             .refreshable {
                 await viewModel.refresh()
