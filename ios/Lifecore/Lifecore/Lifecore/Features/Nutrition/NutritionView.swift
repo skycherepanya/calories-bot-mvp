@@ -3,25 +3,18 @@ import HealthKit
 
 public struct NutritionView: View {
     @Environment(\.appEnvironment) private var env
-    @StateObject private var storage = MealStorageService.shared
+    @StateObject private var viewModel: NutritionViewModel
     @ObservedObject private var athleteStore = AthleteProfileStore.shared
 
-    @State private var selectedDietaryDate: String
     @State private var showingInputSheet = false
-    @State private var isYesterdayFastMode = false
-    @State private var statusToast: String?
-    @State private var recentlyDeletedMeal: MealRecord?
+    @State private var showingQualityDetails = false
 
-    public init() {
-        _selectedDietaryDate = State(initialValue: FoodPrompt.dietaryDate(for: Date(), offsetDays: 0))
-    }
-
-    private var currentMeals: [MealRecord] {
-        storage.meals(for: selectedDietaryDate)
-    }
-
-    private var dailyTotals: (kcal: Double, protein: Double, fat: Double, carbs: Double, sodiumMg: Double, leucineG: Double, wholeFoodCount: Int, ultraProcessedCount: Int) {
-        storage.dailyTotals(for: selectedDietaryDate)
+    public init(viewModel: NutritionViewModel? = nil) {
+        if let vm = viewModel {
+            _viewModel = StateObject(wrappedValue: vm)
+        } else {
+            _viewModel = StateObject(wrappedValue: NutritionViewModel())
+        }
     }
 
     public var body: some View {
@@ -29,14 +22,14 @@ public struct NutritionView: View {
             ZStack(alignment: .bottom) {
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Date Navigation & Fast Yesterday Toggle
+                        // Date Navigation Header (DietaryDay 04:00 AM shift)
                         dateNavigationHeader
 
                         // Fast Action Bar
                         fastActionBar
 
                         // Daily Macro Summary Card
-                        let totals = dailyTotals
+                        let totals = viewModel.dailyTotals
                         MacroSummaryCard(
                             consumedKcal: totals.kcal,
                             targetKcal: athleteStore.profile.targetCaloriesKcal,
@@ -45,17 +38,13 @@ public struct NutritionView: View {
                             fatG: totals.fat,
                             targetFatG: athleteStore.profile.targetFatG,
                             carbsG: totals.carbs,
-                            targetCarbsG: athleteStore.profile.targetCarbsG
+                            targetCarbsG: athleteStore.profile.targetCarbsG,
+                            mealCount: viewModel.confirmedMeals.count
                         )
                         .accessibilityIdentifier("card_nutrition_summary")
 
-                        // Dietary Quality & Micronutrients Card
-                        DietaryQualityCard(
-                            wholeFoodCount: totals.wholeFoodCount,
-                            ultraProcessedCount: totals.ultraProcessedCount,
-                            totalSodiumMg: totals.sodiumMg,
-                            totalLeucineG: totals.leucineG
-                        )
+                        // Quality & Micronutrients in a clean DisclosureGroup
+                        qualityDisclosureGroup(totals: totals)
 
                         // Meals Log List
                         mealsListSection
@@ -64,13 +53,19 @@ public struct NutritionView: View {
                     .padding(.vertical, 12)
                 }
 
+                // Error Banner Toast if mutation failed
+                if let err = viewModel.errorMessage, viewModel.captureState == .idle {
+                    errorToast(err)
+                }
+
                 // Undo Toast Floating Banner
-                if let deleted = recentlyDeletedMeal {
+                if let deleted = viewModel.recentlyDeletedMeal {
                     undoBanner(deleted)
                 }
             }
             .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Харчування")
+            .accessibilityIdentifier("screen_nutrition")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingInputSheet = true }) {
@@ -83,17 +78,31 @@ public struct NutritionView: View {
             }
             .sheet(isPresented: $showingInputSheet) {
                 FoodInputSheet { imageJpegData, textDescription in
-                    processFoodLog(imageJpegData: imageJpegData, textDescription: textDescription)
+                    showingInputSheet = false
+                    Task {
+                        // Brief pause to allow sheet transition before presenting review
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        await viewModel.analyze(
+                            text: textDescription ?? "",
+                            imageData: imageJpegData
+                        )
+                    }
                 }
+            }
+            .sheet(isPresented: Binding(
+                get: { viewModel.captureState != .idle },
+                set: { if !$0 { viewModel.cancelCapture() } }
+            )) {
+                MealReviewSheet(viewModel: viewModel)
             }
         }
     }
 
-    // MARK: - Date Navigation
+    // MARK: - Date Navigation Header
 
     private var dateNavigationHeader: some View {
         HStack {
-            Button(action: previousDay) {
+            Button(action: { viewModel.previousDay() }) {
                 Image(systemName: "chevron.left")
                     .font(.subheadline.weight(.semibold))
                     .frame(width: 32, height: 32)
@@ -108,19 +117,19 @@ public struct NutritionView: View {
             Spacer()
 
             VStack(spacing: 2) {
-                Text(FoodPrompt.formattedDietaryDateHeader(dietaryDate: selectedDietaryDate))
+                Text(FoodPrompt.formattedDietaryDateHeader(dietaryDate: viewModel.selectedDietaryDate))
                     .font(.headline)
                     .fontWeight(.bold)
                     .foregroundStyle(LifecoreTheme.inkPrimary)
 
-                Text("Зміна доби о 04:00")
+                Text("Зміна доби о 04:00 (інтервал 04:00 – 04:00)")
                     .font(.system(size: 10))
                     .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
             Spacer()
 
-            Button(action: nextDay) {
+            Button(action: { viewModel.nextDay() }) {
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
                     .frame(width: 32, height: 32)
@@ -129,34 +138,11 @@ public struct NutritionView: View {
                     .overlay(
                         Circle().stroke(LifecoreTheme.ruleHairline, lineWidth: 1)
                     )
-                    .foregroundStyle(canGoNext ? LifecoreTheme.inkPrimary : LifecoreTheme.inkTertiary.opacity(0.4))
+                    .foregroundStyle(viewModel.canGoNext ? LifecoreTheme.inkPrimary : LifecoreTheme.inkTertiary.opacity(0.4))
             }
-            .disabled(!canGoNext)
+            .disabled(!viewModel.canGoNext)
         }
         .padding(.horizontal, 4)
-    }
-
-    private var canGoNext: Bool {
-        let today = FoodPrompt.dietaryDate(for: Date(), offsetDays: 0)
-        return selectedDietaryDate < today
-    }
-
-    private func previousDay() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        if let d = formatter.date(from: selectedDietaryDate),
-           let prev = Calendar.current.date(byAdding: .day, value: -1, to: d) {
-            selectedDietaryDate = formatter.string(from: prev)
-        }
-    }
-
-    private func nextDay() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        if let d = formatter.date(from: selectedDietaryDate),
-           let next = Calendar.current.date(byAdding: .day, value: 1, to: d) {
-            selectedDietaryDate = formatter.string(from: next)
-        }
     }
 
     // MARK: - Fast Action Bar
@@ -178,7 +164,7 @@ public struct NutritionView: View {
             }
             .accessibilityIdentifier("btn_add_meal")
 
-            Button(action: toggleYesterdayFastLog) {
+            Button(action: { viewModel.toggleYesterdayFastLog() }) {
                 HStack(spacing: 6) {
                     Image(systemName: "clock.arrow.circlepath")
                     Text("За вчора")
@@ -187,33 +173,58 @@ public struct NutritionView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(isYesterdaySelected ? LifecoreTheme.statusWarning : LifecoreTheme.paperCard)
-                .foregroundStyle(isYesterdaySelected ? Color.white : LifecoreTheme.inkPrimary)
+                .background(viewModel.isYesterdaySelected ? LifecoreTheme.statusWarning : LifecoreTheme.paperCard)
+                .foregroundStyle(viewModel.isYesterdaySelected ? Color.white : LifecoreTheme.inkPrimary)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(isYesterdaySelected ? LifecoreTheme.statusWarning : LifecoreTheme.ruleHairline, lineWidth: 1)
+                        .stroke(viewModel.isYesterdaySelected ? LifecoreTheme.statusWarning : LifecoreTheme.ruleHairline, lineWidth: 1)
                 )
             }
         }
     }
 
-    private var isYesterdaySelected: Bool {
-        let yesterday = FoodPrompt.dietaryDate(for: Date(), offsetDays: -1)
-        return selectedDietaryDate == yesterday
+    // MARK: - Quality & Micronutrients Disclosure Group
+
+    private func qualityDisclosureGroup(totals: (kcal: Double, protein: Double, fat: Double, carbs: Double, sodiumMg: Double, leucineG: Double, wholeFoodCount: Int, ultraProcessedCount: Int)) -> some View {
+        DisclosureGroup(
+            isExpanded: $showingQualityDetails,
+            content: {
+                DietaryQualityCard(
+                    wholeFoodCount: totals.wholeFoodCount,
+                    ultraProcessedCount: totals.ultraProcessedCount,
+                    totalSodiumMg: totals.sodiumMg,
+                    totalLeucineG: totals.leucineG
+                )
+                .padding(.top, 8)
+            },
+            label: {
+                HStack {
+                    Label("Якість та мікронутрієнти", systemImage: "sparkles")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
+                    Spacer()
+                    let totalItems = totals.wholeFoodCount + totals.ultraProcessedCount
+                    if totalItems > 0 {
+                        let score = Int((Double(totals.wholeFoodCount) / Double(totalItems)) * 100)
+                        Text("\(score)% Цільна їжа")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.statusOptimal)
+                    } else {
+                        Text("Деталі")
+                            .font(.caption2)
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
+                    }
+                }
+            }
+        )
+        .lifecoreGlassCard(cornerRadius: 16, padding: 14)
     }
 
-    private func toggleYesterdayFastLog() {
-        let today = FoodPrompt.dietaryDate(for: Date(), offsetDays: 0)
-        let yesterday = FoodPrompt.dietaryDate(for: Date(), offsetDays: -1)
-        if selectedDietaryDate == yesterday {
-            selectedDietaryDate = today
-        } else {
-            selectedDietaryDate = yesterday
-        }
-    }
-
-    // MARK: - Meals List
+    // MARK: - Meals List Section
 
     private var mealsListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -222,29 +233,23 @@ public struct NutritionView: View {
                     .font(.headline)
                     .foregroundStyle(LifecoreTheme.inkPrimary)
                 Spacer()
-                Text("\(currentMeals.count) записів")
+                Text("\(viewModel.confirmedMeals.count) записів")
                     .font(.caption2)
                     .foregroundStyle(LifecoreTheme.inkSecondary)
             }
 
-            if currentMeals.isEmpty {
+            if viewModel.isDayEmpty {
                 emptyDayView
                     .transition(.opacity)
             } else {
                 LazyVStack(spacing: 10) {
-                    ForEach(currentMeals) { meal in
-                        if meal.isOptimisticPending {
-                            OptimisticAnalyzingCard(pendingName: meal.name) {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    try? storage.deleteMeal(id: meal.id)
-                                }
-                            }
-                        } else {
-                            SwipeableMealCardContainer(onDelete: {
-                                deleteMealConfirmed(meal)
-                            }) {
-                                MealItemCard(meal: meal)
-                            }
+                    ForEach(viewModel.confirmedMeals) { meal in
+                        SwipeableMealCardContainer(onDelete: {
+                            viewModel.deleteMealSafely(meal)
+                        }) {
+                            MealItemCard(meal: meal, onDelete: {
+                                viewModel.deleteMealSafely(meal)
+                            })
                         }
                     }
                 }
@@ -258,10 +263,10 @@ public struct NutritionView: View {
             Image(systemName: "fork.knife.circle")
                 .font(.system(size: 40))
                 .foregroundStyle(LifecoreTheme.inkTertiary)
-            Text("Немає записів за цей день")
+            Text("Ще немає підтверджених страв")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(LifecoreTheme.inkPrimary)
-            Text("Натисніть «Записати їжу» або «+» для швидкого розпізнавання калорій.")
+            Text("Натисніть «Записати їжу» для розпізнавання порції з детермінованим +12.5% буфером.")
                 .font(.caption)
                 .foregroundStyle(LifecoreTheme.inkSecondary)
                 .multilineTextAlignment(.center)
@@ -271,28 +276,7 @@ public struct NutritionView: View {
         .lifecoreGlassCard(cornerRadius: 16)
     }
 
-    // MARK: - Deletion & Undo Helpers
-
-    private func deleteMealConfirmed(_ meal: MealRecord) {
-        do {
-            try storage.deleteMeal(id: meal.id)
-            let impact = UINotificationFeedbackGenerator()
-            impact.prepare()
-            impact.notificationOccurred(.success)
-            recentlyDeletedMeal = meal
-
-            Task {
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
-                if recentlyDeletedMeal?.id == meal.id {
-                    withAnimation {
-                        recentlyDeletedMeal = nil
-                    }
-                }
-            }
-        } catch {
-            print("⚠️ Failed to delete meal: \(error)")
-        }
-    }
+    // MARK: - Undo & Error Banners
 
     private func undoBanner(_ meal: MealRecord) -> some View {
         HStack(spacing: 12) {
@@ -307,13 +291,13 @@ public struct NutritionView: View {
 
             Button("Відновити") {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    storage.restoreMeal(meal)
-                    recentlyDeletedMeal = nil
+                    viewModel.undoDeleteSafely()
                 }
             }
             .font(.subheadline)
             .fontWeight(.bold)
             .foregroundStyle(LifecoreTheme.statusWarning)
+            .accessibilityIdentifier("meal_undo")
         }
         .lifecoreGlassCard(cornerRadius: 14, padding: 12)
         .padding(.horizontal, 16)
@@ -321,85 +305,26 @@ public struct NutritionView: View {
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
-    // MARK: - Optimistic Food Logging Flow
-
-    private func processFoodLog(imageJpegData: Data?, textDescription: String?) {
-        let targetDietaryDate = selectedDietaryDate
-        let optimisticTitle = textDescription ?? "Фото страви"
-
-        // 1. Instant optimistic insertion (<0.2s)
-        let pendingRecord = storage.insertOptimisticPending(
-            name: optimisticTitle,
-            dietaryDate: targetDietaryDate
-        )
-
-        // 2. Asynchronous background analysis via Gemini or Fixture Provider
-        Task {
-            do {
-                let nutrition: MealNutrition
-                if env.isFixtureMode {
-                    nutrition = try await env.aiProvider.analyzeFood(
-                        imageJpegData: imageJpegData,
-                        textDescription: textDescription
-                    )
-                } else {
-                    nutrition = try await GeminiService.shared.analyzeFood(
-                        imageJpegData: imageJpegData,
-                        textDescription: textDescription
-                    )
-                }
-
-                // 3. Resolve pending card with finalized macros and tags
-                if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: nutrition) {
-                    // 4. Background write-back to Apple HealthKit
-                    if env.isFixtureMode {
-                        try? await env.healthProvider.saveMeal(meal: resolved)
-                    } else {
-                        try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
-                    }
-                }
-
-                // 5. Asynchronous cloud sync to Supabase
-                if env.isFixtureMode {
-                    _ = try? await env.syncProvider.syncPendingMeals()
-                } else {
-                    _ = try? await SupabaseSyncService.shared.syncPendingMeals()
-                }
-
-                let impact = UINotificationFeedbackGenerator()
-                impact.prepare()
-                impact.notificationOccurred(.success)
-
-            } catch {
-                print("[NutritionView] AI analysis failed with error: \(error.localizedDescription)")
-                let fallback: MealNutrition
-                if env.isFixtureMode {
-                    fallback = (try? await env.aiProvider.analyzeFood(imageJpegData: nil, textDescription: textDescription)) ?? MealNutrition(
-                        mealName: textDescription ?? "Страва",
-                        kcal: 300,
-                        protein: 15,
-                        fat: 10,
-                        carbs: 35,
-                        confidence: 0.8,
-                        tags: ["whole_food"]
-                    )
-                } else {
-                    fallback = GeminiService.shared.generateOfflineMeal(textDescription: textDescription)
-                }
-                if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: fallback) {
-                    if env.isFixtureMode {
-                        try? await env.healthProvider.saveMeal(meal: resolved)
-                    } else {
-                        try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
-                    }
-                }
-                if env.isFixtureMode {
-                    _ = try? await env.syncProvider.syncPendingMeals()
-                } else {
-                    _ = try? await SupabaseSyncService.shared.syncPendingMeals()
-                }
+    private func errorToast(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.octagon.fill")
+                .foregroundStyle(LifecoreTheme.statusDanger)
+            Text(message)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(LifecoreTheme.statusDanger)
+                .lineLimit(2)
+            Spacer()
+            Button(action: { viewModel.errorMessage = nil }) {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
             }
         }
+        .lifecoreGlassCard(cornerRadius: 14, padding: 12)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
 

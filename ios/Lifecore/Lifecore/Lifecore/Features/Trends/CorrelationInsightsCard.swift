@@ -5,13 +5,26 @@ import Charts
 
 public struct CorrelationInsightsCard: View {
     public let insights: [CorrelationInsight]
+    public let coverage: String?
+
+    public init(insights: [CorrelationInsight], coverage: String? = nil) {
+        self.insights = insights
+        self.coverage = coverage
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             LifecoreSectionHeader(
                 title: "Аналіз взаємозв'язків (Тайм-лаги)",
-                subtitle: "Кореляція харчування, відновлення та кардіо (День T → T+1, T+2)"
+                subtitle: "Статистичні асоціації харчування, відновлення та кардіо (День T → T+1, T+2)"
             )
+
+            if let cov = coverage, !cov.isEmpty {
+                Text(cov)
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+                    .padding(.horizontal, 2)
+            }
 
             if insights.isEmpty {
                 VStack(spacing: 8) {
@@ -34,6 +47,12 @@ public struct CorrelationInsightsCard: View {
                         insightRow(insight)
                     }
                 }
+
+                Text("Статистичні асоціації відображають взаємозв'язок у спостережуваних даних і не становлять медичного діагнозу чи доведеної прямої причинності.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
             }
         }
         .lifecoreGlassCard()
@@ -66,16 +85,22 @@ public struct CorrelationInsightsCard: View {
             Text(insight.effectDescriptionUk)
                 .font(.system(size: 12))
                 .foregroundStyle(LifecoreTheme.inkSecondary)
-                .lineLimit(3)
+                .lineLimit(4)
 
-            HStack(alignment: .top, spacing: 4) {
-                Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(LifecoreTheme.statusWarning)
-                    .padding(.top, 2)
-                Text(insight.actionDirectiveUk)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(LifecoreTheme.inkSecondary)
+            HStack {
+                HStack(alignment: .top, spacing: 4) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(LifecoreTheme.statusWarning)
+                        .padding(.top, 2)
+                    Text(insight.actionDirectiveUk)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                }
+                Spacer()
+                Text("N = \(insight.sampleCount) пар")
+                    .font(.caption2)
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
             }
         }
         .lifecoreWell(cornerRadius: 12, padding: 12)
@@ -93,9 +118,16 @@ public struct CorrelationInsightsCard: View {
 
 public struct ACWRWorkloadTrendCard: View {
     public let acwr: ACWREvaluation?
+    public let dailyLoads: [DailyTrimpLoadPoint]
 
     public init(acwr: ACWREvaluation? = nil, evaluation: ACWREvaluation? = nil, dailyLoads: [(date: Date, trimp: Double)] = []) {
         self.acwr = evaluation ?? acwr
+        self.dailyLoads = dailyLoads.map { DailyTrimpLoadPoint(date: $0.date, trimp: $0.trimp) }
+    }
+
+    public init(evaluation: ACWREvaluation?, dailyLoads: [DailyTrimpLoadPoint]) {
+        self.acwr = evaluation
+        self.dailyLoads = dailyLoads
     }
 
     public var body: some View {
@@ -151,6 +183,45 @@ public struct ACWRWorkloadTrendCard: View {
                     loadStat(label: "Хронічна база (28d)", value: "\(item.chronicLoad)", unit: "TRIMP/день", color: LifecoreTheme.accentIndigo)
                 }
                 .padding(.top, 4)
+
+                if !dailyLoads.isEmpty {
+                    let loadsDomain = ChartDomain.acwrDomain(dailyLoads.map(\.trimp)) ?? 0.0...100.0
+                    Chart {
+                        ForEach(dailyLoads) { point in
+                            BarMark(
+                                x: .value("Дата", point.date, unit: .day),
+                                y: .value("TRIMP", point.trimp)
+                            )
+                            .foregroundStyle(LifecoreTheme.accentPrimary.opacity(point.trimp > 0 ? 0.75 : 0.2))
+                            .cornerRadius(3)
+                        }
+                    }
+                    .chartYScale(domain: 0.0...max(loadsDomain.upperBound, 50.0))
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .day, count: dailyLoads.count > 45 ? 14 : 7)) { _ in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                                .foregroundStyle(LifecoreTheme.ruleHairline)
+                            AxisValueLabel(format: .dateTime.day().month(.defaultDigits))
+                                .font(.caption2)
+                                .foregroundStyle(LifecoreTheme.inkTertiary)
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { value in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                .foregroundStyle(LifecoreTheme.ruleHairline)
+                            AxisValueLabel {
+                                if let d = value.as(Double.self) {
+                                    Text("\(Int(d))")
+                                        .font(.caption2)
+                                        .monospacedDigit()
+                                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 120)
+                }
             } else {
                 Text("Розрахунок тренувального імпульсу Banister TRIMP...")
                     .font(.system(size: 13))

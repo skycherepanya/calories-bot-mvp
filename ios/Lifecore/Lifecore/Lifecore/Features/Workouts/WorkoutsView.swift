@@ -1,105 +1,33 @@
 import SwiftUI
 import HealthKit
 
-public enum WorkoutFilterCategory: String, CaseIterable, Identifiable {
-    case all = "All"
-    case running = "Running"
-    case strength = "Strength"
-    case cycling = "Cycling"
-    case hiit = "HIIT"
-    case walks = "Walks"
-
-    public var id: String { rawValue }
-
-    public var titleUk: String {
-        switch self {
-        case .all: return "Всі"
-        case .running: return "Біг"
-        case .strength: return "Силові"
-        case .cycling: return "Вело"
-        case .hiit: return "HIIT"
-        case .walks: return "Ходьба"
-        }
-    }
-
-    public var icon: String {
-        switch self {
-        case .all: return "square.grid.2x2"
-        case .running: return "figure.run"
-        case .strength: return "figure.strengthtraining.traditional"
-        case .cycling: return "figure.outdoor.cycle"
-        case .hiit: return "figure.hiit"
-        case .walks: return "figure.walk"
-        }
-    }
-
-    public func matches(_ workout: HKWorkout) -> Bool {
-        switch self {
-        case .all:
-            return true
-        case .running:
-            return workout.workoutActivityType == .running
-        case .strength:
-            return workout.workoutActivityType == .traditionalStrengthTraining ||
-                   workout.workoutActivityType == .functionalStrengthTraining
-        case .cycling:
-            return workout.workoutActivityType == .cycling
-        case .hiit:
-            return workout.workoutActivityType == .highIntensityIntervalTraining
-        case .walks:
-            return workout.workoutActivityType == .walking
-        }
-    }
-}
-
 public struct WorkoutsView: View {
-    @State private var workouts: [HKWorkout] = []
-    @State private var selectedCategory: WorkoutFilterCategory = .all
-    @State private var hideCasualWalks = false
-    @State private var isLoading = false
-    @State private var errorMessage: String?
+    @StateObject private var viewModel: WorkoutsViewModel
 
-    public init() {}
-
-    private var filteredWorkouts: [HKWorkout] {
-        workouts.filter { workout in
-            if hideCasualWalks && workout.workoutActivityType == .walking {
-                return false
-            }
-            return selectedCategory.matches(workout)
-        }
+    public init(viewModel: WorkoutsViewModel? = nil) {
+        _viewModel = StateObject(wrappedValue: viewModel ?? WorkoutsViewModel())
     }
 
     public var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Rolling Stimulus Horizon Deck (Lifecore v3.2 - Bevel Fitness Cockpit)
-                    RollingHorizonDeckView(pastWorkouts: workouts)
+                    // 1. Rolling Stimulus Horizon Deck (Lifecore v3.2 - Bevel Fitness Cockpit)
+                    RollingHorizonDeckView(
+                        snapshotState: viewModel.snapshotState,
+                        pastWorkouts: viewModel.rawWorkouts
+                    )
 
-                    // Category Filter Scroll
+                    // 2. Category Filter Scroll
                     filterScrollView
 
-                    // Casual walks toggle if "All" is active
-                    if selectedCategory == .all {
+                    // 3. Casual walks toggle if "All" is active
+                    if viewModel.selectedCategory == .all {
                         casualWalksToggle
                     }
 
-                    // Workout Cards List
-                    if isLoading && workouts.isEmpty {
-                        loadingView
-                    } else if filteredWorkouts.isEmpty {
-                        emptyStateView
-                    } else {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredWorkouts, id: \.uuid) { workout in
-                                NavigationLink(destination: WorkoutDetailView(workout: workout)) {
-                                    workoutRowCard(for: workout)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
+                    // 4. Workout Cards List or States
+                    contentList
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -109,9 +37,9 @@ public struct WorkoutsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
-                        Task { await loadWorkouts() }
+                        Task { await viewModel.refresh() }
                     }) {
-                        if isLoading {
+                        if viewModel.workoutsState.isRefreshing || viewModel.snapshotState.isRefreshing {
                             ProgressView().tint(LifecoreTheme.accentPrimary)
                         } else {
                             Image(systemName: "arrow.clockwise")
@@ -122,11 +50,30 @@ public struct WorkoutsView: View {
                 }
             }
             .refreshable {
-                await loadWorkouts()
+                await viewModel.refresh()
             }
             .task {
-                await loadWorkouts()
+                if viewModel.rawWorkouts.isEmpty {
+                    await viewModel.loadWorkouts()
+                }
             }
+        }
+    }
+
+    // MARK: - Content List Routing
+
+    @ViewBuilder
+    private var contentList: some View {
+        if viewModel.workoutsState.isLoading && viewModel.rawWorkouts.isEmpty {
+            loadingView
+        } else if case .failed(let message, _) = viewModel.workoutsState, viewModel.rawWorkouts.isEmpty {
+            errorView(message)
+        } else if case .empty = viewModel.workoutsState {
+            emptyHistoryView
+        } else if viewModel.isFilterEmptyingList {
+            filterEmptyStateView
+        } else {
+            workoutGroupedList
         }
     }
 
@@ -136,9 +83,9 @@ public struct WorkoutsView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(WorkoutFilterCategory.allCases) { cat in
-                    let isSelected = selectedCategory == cat
+                    let isSelected = viewModel.selectedCategory == cat
                     Button(action: {
-                        selectedCategory = cat
+                        viewModel.selectedCategory = cat
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: cat.icon)
@@ -167,7 +114,7 @@ public struct WorkoutsView: View {
     }
 
     private var casualWalksToggle: some View {
-        Toggle(isOn: $hideCasualWalks) {
+        Toggle(isOn: $viewModel.hideCasualWalks) {
             HStack(spacing: 6) {
                 Image(systemName: "figure.walk.motion")
                     .foregroundStyle(LifecoreTheme.inkTertiary)
@@ -180,6 +127,28 @@ public struct WorkoutsView: View {
         .lifecoreGlassCard(cornerRadius: 14, padding: 12)
     }
 
+    // MARK: - Workout List Grouped by Dietary Day
+
+    private var workoutGroupedList: some View {
+        LazyVStack(spacing: 16) {
+            ForEach(viewModel.groupedFilteredWorkouts) { group in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(viewModel.formattedDayHeader(for: group.day))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                        .padding(.horizontal, 4)
+
+                    ForEach(group.workouts, id: \.uuid) { workout in
+                        NavigationLink(destination: WorkoutDetailView(workout: workout)) {
+                            workoutRowCard(for: workout)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Workout Card
 
     private func workoutRowCard(for workout: HKWorkout) -> some View {
@@ -190,12 +159,17 @@ public struct WorkoutsView: View {
         let avgHr = workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
 
         let profile = AthleteProfileStore.shared.profile
-        let trimp = TrainingLoadAndBatteryEngine.computeBanisterTRIMP(
-            durationMin: durationMin,
-            avgHr: avgHr ?? 130.0,
-            restingHr: profile.restingHeartRateBaselineBpm,
-            maxHr: profile.maxHeartRateBpm
-        )
+        let trimp: Double?
+        if let hr = avgHr, hr > 0 {
+            trimp = TrainingLoadAndBatteryEngine.computeBanisterTRIMP(
+                durationMin: durationMin,
+                avgHr: hr,
+                restingHr: profile.restingHeartRateBaselineBpm,
+                maxHr: profile.maxHeartRateBpm
+            )
+        } else {
+            trimp = nil
+        }
 
         return VStack(alignment: .leading, spacing: 12) {
             // Header: Type + TRIMP badge + Date + Arrow
@@ -211,13 +185,14 @@ public struct WorkoutsView: View {
 
                 Spacer()
 
-                let loadLabel: String = {
-                    if trimp >= 80 { return "Високе" }
-                    else if trimp >= 45 { return "Помірне" }
-                    else { return "Легке" }
-                }()
-
-                LifecoreGlowPill(text: loadLabel, systemIcon: "flame.fill", color: typeColor)
+                if let load = trimp {
+                    let loadLabel: String = {
+                        if load >= 80 { return "Високе" }
+                        else if load >= 45 { return "Помірне" }
+                        else { return "Легке" }
+                    }()
+                    LifecoreGlowPill(text: loadLabel, systemIcon: "flame.fill", color: typeColor)
+                }
 
                 Text(formattedDate(workout.startDate))
                     .font(.system(size: 11))
@@ -245,16 +220,25 @@ public struct WorkoutsView: View {
                         color: LifecoreTheme.accentTeal
                     )
 
-                    let pace = durationMin / dist
-                    if pace.isFinite && pace > 0 {
-                        let totalSecs = max(0, Int(round(pace * 60.0)))
-                        let mins = totalSecs / 60
-                        let secs = totalSecs % 60
+                    if workout.workoutActivityType == .cycling {
+                        let speed = dist / (workout.duration / 3600.0)
                         metricColumn(
-                            title: "Темп",
-                            value: String(format: "%d:%02d", mins, secs),
+                            title: "Швидкість",
+                            value: String(format: "%.1f км/г", speed),
                             color: LifecoreTheme.statusOptimal
                         )
+                    } else {
+                        let pace = durationMin / dist
+                        if pace.isFinite && pace > 0 {
+                            let totalSecs = max(0, Int(round(pace * 60.0)))
+                            let mins = totalSecs / 60
+                            let secs = totalSecs % 60
+                            metricColumn(
+                                title: "Темп",
+                                value: String(format: "%d:%02d", mins, secs),
+                                color: LifecoreTheme.statusOptimal
+                            )
+                        }
                     }
                 }
 
@@ -304,7 +288,7 @@ public struct WorkoutsView: View {
         .padding(.vertical, 40)
     }
 
-    private var emptyStateView: some View {
+    private var emptyHistoryView: some View {
         VStack(spacing: 12) {
             Image(systemName: "figure.run.circle")
                 .font(.system(size: 44))
@@ -312,7 +296,7 @@ public struct WorkoutsView: View {
             Text("Тренувань не знайдено")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(LifecoreTheme.inkPrimary)
-            Text("У цій категорії за останні 30 днів немає записаних сесій в Apple Health.")
+            Text("За останні 30 днів немає зафіксованих сесій в Apple Health.")
                 .font(.system(size: 12))
                 .foregroundStyle(LifecoreTheme.inkSecondary)
                 .multilineTextAlignment(.center)
@@ -322,22 +306,78 @@ public struct WorkoutsView: View {
         .lifecoreGlassCard(cornerRadius: 18, padding: 32)
     }
 
-    // MARK: - Helpers
+    private var filterEmptyStateView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.system(size: 40))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+            Text("Немає відповідних тренувань")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(LifecoreTheme.inkPrimary)
+            Text("За обраними фільтрами не знайдено жодного тренування.")
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
 
-    private func loadWorkouts() async {
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            try await HealthKitManager.shared.requestAuthorization()
-            let list = try await HealthKitManager.shared.fetchRecentWorkouts(days: 30, limit: 60)
-            self.workouts = list
-        } catch {
-            self.errorMessage = error.localizedDescription
+            Button(action: {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    viewModel.resetFilters()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.counterclockwise")
+                    Text("Скинути фільтри")
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(LifecoreTheme.accentPrimary)
+                .foregroundStyle(Color.white)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("btn_reset_filters")
         }
-
-        isLoading = false
+        .frame(maxWidth: .infinity)
+        .lifecoreGlassCard(cornerRadius: 18, padding: 28)
     }
+
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(LifecoreTheme.statusWarning)
+            Text("Не вдалося завантажити тренування")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(LifecoreTheme.inkPrimary)
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            Button(action: {
+                Task { await viewModel.loadWorkouts(force: true) }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Спробувати знову")
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(LifecoreTheme.paperWell)
+                .foregroundStyle(LifecoreTheme.inkPrimary)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .lifecoreGlassCard(cornerRadius: 18, padding: 28)
+    }
+
+    // MARK: - Helpers
 
     private func iconName(for type: HKWorkoutActivityType) -> String {
         switch type {

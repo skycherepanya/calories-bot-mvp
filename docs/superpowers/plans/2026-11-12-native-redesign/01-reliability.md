@@ -210,17 +210,17 @@ Dependencies:R6 (and R5a contract before nutrition export). Findings:F09/F10/F22
 
 Dependencies:R5a/R7. Findings:F12. Own new `APP/Core/Configuration/{AppConfiguration,CredentialStore,AccountSession}.swift`, `TEST/ConfigurationTests.swift`, settings adapter, Gemini/Supabase configuration sections, RLS migration/tests. UI settings belongs to U1/U6; coordinate serialized integration.
 
-- [ ] Remove automatically decoded bundled provider credential. Supply BYOK through Keychain and explicit provider setup; preserve no-key as usable app state with AI disabled. Do not print keys or include them in logs/screenshots.
-- [ ] Add user-auth session token distinct from publishable app key. Introduce verified owner mapping from legacy numeric ID to authenticated user; never trust the client to assign ownership. Existing local data remains accessible if cloud sign-in/migration fails.
-- [ ] Inspect deployed policies read-only and record findings; test anon denial, userA own access, userB denial for read/write/delete in staging with RLS enabled. Backfill legacy ownership only from an explicitly verified mapping; unmatched rows remain protected/unassigned.
+- [x] Remove automatically decoded bundled provider credential. Supply BYOK through Keychain and explicit provider setup; preserve no-key as usable app state with AI disabled. Do not print keys or include them in logs/screenshots.
+- [x] Add user-auth session token distinct from publishable app key. Introduce verified owner mapping from legacy numeric ID to authenticated user; never trust the client to assign ownership (`user_account_mappings` is `SELECT`-only for `authenticated`). Existing local data remains accessible if cloud sign-in/migration fails.
+- [ ] Inspect deployed policies read-only and record findings; test anon denial, userA own access, userB denial for read/write/delete in staging with RLS enabled. Backfill legacy ownership only from an explicitly verified mapping; unmatched rows remain protected/unassigned. (`20261113140000_r8_rls_and_ownership.sql` and `supabase/tests/rls_ownership_contract.sql` authored; live `supabase db push` & staging Postgres replay pending D1.)
 - [ ] Rotate the embedded provider credential through its owner if active; record completion without the value. If external ownership/access is unavailable, leave the release gate open with a precise blocker rather than claiming safe deployment.
-- [ ] Test token expiry, signout, account switching (no cross-account queue replay), missing configuration and Keychain failure. Run `ConfigurationTests` plus RLS tests; update setup/privacy documentation; commit `fix: isolate credentials and authenticated cloud ownership`.
+- [x] Test token expiry, signout, account switching (no cross-account queue replay), missing configuration and Keychain failure (`ConfigurationTests` pass; RLS Postgres test execution pending remote DB in D1).
 
 ## R9 — Truthful AppIntents
 
 Dependencies:R5a/R6/R7/R8. Findings:F22. Own `APP/Intents/{LogMealIntent,LifecoreSyncIntent}.swift`, `TEST/IntentOutcomeTests.swift`.
 
-- [ ] Call durable repositories/coordinator; every task required after Intent termination must be persisted as work before returning.
-- [ ] Map analyzing/review/failed/saved-locally/synchronized to distinct Ukrainian dialogs. Do not say saved after provider failure; unreviewed estimates do not become confirmed nutrition.
-- [ ] Test provider failure, expired account, partial sync, app termination after draft save and later retry. Assert no indefinite anonymous pending entry and no detached success claim.
-- [ ] Run `IntentOutcomeTests`; update Siri/setup documentation; commit `fix: report durable intent outcomes accurately`.
+- [x] Call durable repositories/coordinator; every task required after Intent termination must be persisted as work before returning.
+- [x] Map analyzing/review/failed/saved-locally/synchronized to distinct Ukrainian dialogs. Do not say saved after provider failure; unreviewed estimates do not become confirmed nutrition.
+- [x] Test provider failure, expired account, partial sync, app termination after draft save and later retry. Assert no indefinite anonymous pending entry and no detached success claim.
+- [x] Run `IntentOutcomeTests`; update Siri/setup documentation.

@@ -28,7 +28,7 @@ public struct EfficiencyFactorCard: View {
                         .monospacedDigit()
                         .foregroundStyle(LifecoreTheme.inkPrimary)
                     Text("м/хв/уд")
-                        .font(.system(size: 11))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(LifecoreTheme.inkTertiary)
                 }
 
@@ -43,6 +43,10 @@ public struct EfficiencyFactorCard: View {
             }
         }
         .lifecoreGlassCard(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(efficiencyFactor.map {
+            "Ефективність бігу EF: \(String(format: "%.3f", $0)) метрів на хвилину на удар серця."
+        } ?? "Ефективність бігу EF: дані відсутні.")
     }
 }
 
@@ -105,6 +109,10 @@ public struct CardiacDriftCard: View {
             }
         }
         .lifecoreGlassCard(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(driftPct.map {
+            "Серцевий дрейф: \(String(format: "%+.1f", $0)) відсотків. Статус: \(info.badge)."
+        } ?? "Серцевий дрейф: дані відсутні.")
     }
 }
 
@@ -166,7 +174,7 @@ public struct BenchmarkComparisonCard: View {
 
                     deltaItem(
                         title: "Ефективність",
-                        value: String(format: "%+.3f", b.efDelta),
+                        value: String(format: "%+.3f EF", b.efDelta),
                         isPositiveGood: true,
                         actualValue: b.efDelta
                     )
@@ -185,6 +193,10 @@ public struct BenchmarkComparisonCard: View {
             }
         }
         .lifecoreGlassCard(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(benchmark.map {
+            "Порівняння форми: \($0.regime.badgeTitleUk). Різниця темпу: \(String(format: "%+.1f", $0.paceDeltaSecPerKm)) секунд на кілометр, різниця пульсу: \(String(format: "%+.1f", $0.hrDeltaBpm)) ударів на хвилину."
+        } ?? "Динаміка форми: немає попередніх сесій для порівняння.")
     }
 
     private func deltaItem(title: String, value: String, isPositiveGood: Bool, actualValue: Double) -> some View {
@@ -216,22 +228,28 @@ public struct SplitsTableView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("1 км спліти", systemImage: "flag.checkered")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(LifecoreTheme.statusOptimal)
+            HStack {
+                Label("1 км спліти", systemImage: "flag.checkered")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.statusOptimal)
+                Spacer()
+                Text("Одиниці: хв/км · уд/хв · м")
+                    .font(.system(size: 10))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
+            }
 
             if splits.isEmpty {
-                Text("Відрізки ще не зафіксовано або сесія коротша за 1 км.")
+                Text("Відрізки темпу не зафіксовано або сесія коротша за 1 км.")
                     .font(.system(size: 12))
                     .foregroundStyle(LifecoreTheme.inkSecondary)
             } else {
                 // Table Header
                 HStack {
-                    Text("Км").frame(width: 34, alignment: .leading)
-                    Text("Темп").frame(width: 70, alignment: .leading)
+                    Text("Км").frame(width: 32, alignment: .leading)
+                    Text("Темп").frame(width: 72, alignment: .leading)
                     Text("Сер. ЧСС").frame(width: 65, alignment: .center)
                     Text("Пік ЧСС").frame(width: 65, alignment: .center)
-                    Text("Δh").frame(width: 45, alignment: .trailing)
+                    Text("Δh (м)").frame(width: 48, alignment: .trailing)
                     Spacer()
                     Text("Каденс").frame(width: 55, alignment: .trailing)
                 }
@@ -247,13 +265,13 @@ public struct SplitsTableView: View {
                             .font(.system(size: 13, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(LifecoreTheme.inkPrimary)
-                            .frame(width: 34, alignment: .leading)
+                            .frame(width: 32, alignment: .leading)
 
                         Text(split.formattedPace)
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(LifecoreTheme.accentTeal)
-                            .frame(width: 70, alignment: .leading)
+                            .frame(width: 72, alignment: .leading)
 
                         Text(split.avgHeartRate != nil ? "\(Int(round(split.avgHeartRate!)))" : "—")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -274,7 +292,7 @@ public struct SplitsTableView: View {
                                 split.elevationDiffMeters > 0 ? LifecoreTheme.statusWarning :
                                 (split.elevationDiffMeters < 0 ? LifecoreTheme.statusOptimal : LifecoreTheme.inkTertiary)
                             )
-                            .frame(width: 45, alignment: .trailing)
+                            .frame(width: 48, alignment: .trailing)
 
                         Spacer()
 
@@ -285,6 +303,8 @@ public struct SplitsTableView: View {
                             .frame(width: 55, alignment: .trailing)
                     }
                     .padding(.vertical, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Кілометр \(split.km): темп \(split.formattedPace), середній пульс \(split.avgHeartRate.map { "\(Int(round($0))) уд/хв" } ?? "невідомо"), перепад висоти \(Int(round(split.elevationDiffMeters))) метрів.")
 
                     if split.km != splits.last?.km {
                         LifecoreHairlineDivider()
@@ -307,9 +327,15 @@ public struct IntervalLapsTableView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("Інтервальні відрізки", systemImage: "timer")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(LifecoreTheme.statusWarning)
+            HStack {
+                Label("Інтервальні відрізки", systemImage: "timer")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.statusWarning)
+                Spacer()
+                Text("Одиниці: м · уд/хв")
+                    .font(.system(size: 10))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
+            }
 
             // Table Header
             HStack {
@@ -381,6 +407,8 @@ public struct IntervalLapsTableView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Відрізок \(lap.lapIndex): тип \(lap.lapType), тривалість \(Int(lap.durationSeconds)) секунд, середній пульс \(lap.avgHeartRate.map { "\(Int(round($0))) уд/хв" } ?? "невідомо").")
 
                 if lap.lapIndex != laps.last?.lapIndex {
                     LifecoreHairlineDivider()
@@ -388,5 +416,200 @@ public struct IntervalLapsTableView: View {
             }
         }
         .lifecoreGlassCard(cornerRadius: 18)
+    }
+}
+
+// MARK: - 5. Cycling Presentation Card
+
+public struct CyclingMetricsCard: View {
+    public let metrics: CyclingPresentationMetrics
+
+    public init(metrics: CyclingPresentationMetrics) {
+        self.metrics = metrics
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Показники велотренування", systemImage: "figure.outdoor.cycle")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.accentTeal)
+                Spacer()
+            }
+
+            HStack(spacing: 12) {
+                metricColumn(
+                    title: "Швидкість",
+                    value: metrics.formattedSpeed,
+                    color: LifecoreTheme.statusOptimal
+                )
+
+                metricColumn(
+                    title: "Дистанція",
+                    value: metrics.formattedDistance,
+                    color: LifecoreTheme.accentTeal
+                )
+
+                metricColumn(
+                    title: "Час",
+                    value: metrics.formattedDuration,
+                    color: LifecoreTheme.inkPrimary
+                )
+
+                if let elev = metrics.elevationGainMeters, elev > 0 {
+                    metricColumn(
+                        title: "Набір висоти",
+                        value: "\(Int(elev)) м",
+                        color: LifecoreTheme.statusWarning
+                    )
+                }
+            }
+
+            if let avg = metrics.avgHeartRate {
+                LifecoreHairlineDivider()
+
+                HStack(spacing: 16) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(LifecoreTheme.statusDanger)
+                        Text("Сер. ЧСС: \(Int(avg)) уд/хв")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
+                    }
+
+                    if let maxHr = metrics.maxHeartRate {
+                        Text("Пік ЧСС: \(Int(maxHr)) уд/хв")
+                            .font(.system(size: 12, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .lifecoreGlassCard(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Велотренування: швидкість \(metrics.formattedSpeed), дистанція \(metrics.formattedDistance), тривалість \(metrics.formattedDuration).")
+    }
+
+    private func metricColumn(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - 6. Strength & Other Presentation Card
+
+public struct StrengthMetricsCard: View {
+    public let metrics: StrengthPresentationMetrics
+    public let titleUk: String
+
+    public init(metrics: StrengthPresentationMetrics, titleUk: String = "Силове тренування") {
+        self.metrics = metrics
+        self.titleUk = titleUk
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(titleUk, systemImage: "figure.strengthtraining.traditional")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.statusWarning)
+                Spacer()
+
+                if let trimp = metrics.banisterTrimp {
+                    LifecoreGlowPill(
+                        text: "\(metrics.effortLevelUk) (\(Int(trimp)) TRIMP)",
+                        systemIcon: "flame.fill",
+                        color: LifecoreTheme.statusWarning
+                    )
+                }
+            }
+
+            HStack(spacing: 12) {
+                metricColumn(
+                    title: "Тривалість",
+                    value: metrics.formattedDuration,
+                    color: LifecoreTheme.inkPrimary
+                )
+
+                if let hr = metrics.avgHeartRate {
+                    metricColumn(
+                        title: "Сер. ЧСС",
+                        value: "\(Int(hr)) уд/хв",
+                        color: LifecoreTheme.statusDanger
+                    )
+                }
+
+                if let maxHr = metrics.maxHeartRate {
+                    metricColumn(
+                        title: "Пік ЧСС",
+                        value: "\(Int(maxHr)) уд/хв",
+                        color: LifecoreTheme.statusWarning
+                    )
+                }
+
+                if let kcal = metrics.caloriesKcal {
+                    metricColumn(
+                        title: "Спалено",
+                        value: "\(Int(kcal)) ккал",
+                        color: LifecoreTheme.accentTeal
+                    )
+                }
+            }
+        }
+        .lifecoreGlassCard(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(titleUk): тривалість \(metrics.formattedDuration).")
+    }
+
+    private func metricColumn(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - 7. Stream Signal Note Card
+
+public struct StreamSignalNoteCard: View {
+    public let noteUk: String
+
+    public init(noteUk: String) {
+        self.noteUk = noteUk
+    }
+
+    public var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+                .padding(.top, 1)
+
+            Text(noteUk)
+                .font(.system(size: 12))
+                .foregroundStyle(LifecoreTheme.inkSecondary)
+                .lineSpacing(2)
+
+            Spacer()
+        }
+        .lifecoreWell(cornerRadius: 14, padding: 10)
     }
 }

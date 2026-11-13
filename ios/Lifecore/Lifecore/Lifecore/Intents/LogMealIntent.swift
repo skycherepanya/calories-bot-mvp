@@ -2,6 +2,137 @@ import AppIntents
 import Foundation
 import SwiftData
 
+// MARK: - LogMealOutcome
+
+public struct LogMealOutcome: Equatable, Sendable {
+    public let dialog: String
+    public let draftRecord: MealRecord?
+    public let isReviewNeeded: Bool
+    public let isRecoverableDraft: Bool
+
+    public init(
+        dialog: String,
+        draftRecord: MealRecord? = nil,
+        isReviewNeeded: Bool = false,
+        isRecoverableDraft: Bool = false
+    ) {
+        self.dialog = dialog
+        self.draftRecord = draftRecord
+        self.isReviewNeeded = isReviewNeeded
+        self.isRecoverableDraft = isRecoverableDraft
+    }
+
+    public static func == (lhs: LogMealOutcome, rhs: LogMealOutcome) -> Bool {
+        lhs.dialog == rhs.dialog &&
+        lhs.draftRecord?.id == rhs.draftRecord?.id &&
+        lhs.isReviewNeeded == rhs.isReviewNeeded &&
+        lhs.isRecoverableDraft == rhs.isRecoverableDraft
+    }
+}
+
+// MARK: - LogMealIntentHandler (Injectable Coordinator)
+
+@MainActor
+public enum LogMealIntentHandler {
+    public static func handle(
+        mealDescription: String,
+        aiProvider: (any AIProvider)? = nil,
+        storageService: MealStorageService? = nil,
+        date: Date = Date()
+    ) async -> LogMealOutcome {
+        let storageService = storageService ?? .shared
+        let trimmed = mealDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return LogMealOutcome(
+                dialog: "⚠️ Будь ласка, вкажи що саме ти з'їв.",
+                draftRecord: nil,
+                isReviewNeeded: false,
+                isRecoverableDraft: false
+            )
+        }
+
+        let dietaryDate = FoodPrompt.dietaryDate(for: date)
+
+        // 1. Durable draft persistence (<0.2s) in MealStorageService
+        let pending = storageService.insertOptimisticPending(
+            name: trimmed,
+            dietaryDate: dietaryDate,
+            provenance: "shortcuts"
+        )
+
+        let provider = aiProvider ?? AppEnvironment.current.aiProvider
+
+        // 2. AI Nutrition Analysis
+        do {
+            let nutrition = try await provider.analyzeFoodDescription(trimmed)
+
+            // AI Succeeded: update draft to review-needed state.
+            // NOT auto-confirmed and NOT exported to HealthKit until reviewed.
+            let context = LifecoreDataStore.shared.context
+            let descriptor = FetchDescriptor<MealEntity>(
+                predicate: #Predicate { $0.id == pending.id }
+            )
+            if let entity = try? context.fetch(descriptor).first {
+                entity.name = nutrition.mealName
+                entity.kcal = nutrition.kcal
+                entity.proteinG = nutrition.protein
+                entity.fatG = nutrition.fat
+                entity.carbsG = nutrition.carbs
+                entity.weightG = nutrition.weightG
+                entity.confidence = nutrition.confidence
+                entity.tags = nutrition.tags
+
+                if let micro = nutrition.micronutrients, let data = try? JSONEncoder().encode(micro) {
+                    entity.micronutrientsJson = String(data: data, encoding: .utf8)
+                }
+                if let amino = nutrition.aminoAcids, let data = try? JSONEncoder().encode(amino) {
+                    entity.aminoAcidsJson = String(data: data, encoding: .utf8)
+                }
+
+                entity.lifecycleState = .review
+                entity.isOptimisticPending = true
+                entity.syncedToCloud = false
+                entity.revision += 1
+                entity.updatedAt = Date()
+                try? context.save()
+                storageService.loadMealsFromSwiftData()
+            }
+
+            let summary = "🔍 Проаналізовано (потребує підтвердження в Lifecore): \(nutrition.mealName) — \(Int(nutrition.kcal)) ккал (Б: \(Int(nutrition.protein))г, Ж: \(Int(nutrition.fat))г, В: \(Int(nutrition.carbs))г)"
+            let record = storageService.allMeals.first(where: { $0.id == pending.id })
+            return LogMealOutcome(
+                dialog: summary,
+                draftRecord: record,
+                isReviewNeeded: true,
+                isRecoverableDraft: false
+            )
+        } catch {
+            // AI Failed (missing key, offline, or cascade error):
+            // Persist as a recoverable text draft.
+            // NEVER claim "Записано" or "Страву збережено" as confirmed!
+            let context = LifecoreDataStore.shared.context
+            let descriptor = FetchDescriptor<MealEntity>(
+                predicate: #Predicate { $0.id == pending.id }
+            )
+            if let entity = try? context.fetch(descriptor).first {
+                entity.lifecycleState = .draft
+                entity.isOptimisticPending = true
+                try? context.save()
+                storageService.loadMealsFromSwiftData()
+            }
+
+            let failureDialog = "⚠️ Не вдалося розпізнати страву зараз. Чернетку збережено в Lifecore для повтору."
+            let record = storageService.allMeals.first(where: { $0.id == pending.id })
+            return LogMealOutcome(
+                dialog: failureDialog,
+                draftRecord: record,
+                isReviewNeeded: false,
+                isRecoverableDraft: true
+            )
+        }
+    }
+}
+
 // MARK: - LogMealIntent (Siri / Action Button / Shortcuts Nutrition Capture)
 
 public struct LogMealIntent: AppIntent {
@@ -25,42 +156,7 @@ public struct LogMealIntent: AppIntent {
 
     @MainActor
     public func perform() async throws -> some IntentResult & ProvidesDialog {
-        let trimmed = mealDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return .result(dialog: "⚠️ Будь ласка, вкажи що саме ти з'їв.")
-        }
-
-        let storage = MealStorageService.shared
-        let dietaryDate = FoodPrompt.dietaryDate(for: Date())
-
-        // 1. Optimistic insertion (<0.2s)
-        let pending = storage.insertOptimisticPending(name: trimmed, dietaryDate: dietaryDate)
-
-        // 2. Background parsing via Gemini
-        do {
-            let nutrition = try await GeminiService.shared.analyzeFood(
-                imageJpegData: nil,
-                textDescription: trimmed
-            )
-
-            if let resolved = storage.resolvePending(id: pending.id, nutrition: nutrition) {
-                // Background HealthKit write-back
-                Task.detached {
-                    try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved, date: Date())
-                }
-
-                // Asynchronous cloud sync to Supabase
-                Task {
-                    _ = try? await SupabaseSyncService.shared.syncPendingMeals()
-                }
-
-                let summary = "✅ Записано: \(resolved.name) — \(Int(resolved.kcal)) ккал (Б: \(Int(resolved.proteinG))г, Ж: \(Int(resolved.fatG))г, В: \(Int(resolved.carbsG))г)"
-                return .result(dialog: IntentDialog(stringLiteral: summary))
-            } else {
-                return .result(dialog: "✅ Страву додано до списку.")
-            }
-        } catch {
-            return .result(dialog: "✅ Страву збережено: \(trimmed)")
-        }
+        let outcome = await LogMealIntentHandler.handle(mealDescription: mealDescription)
+        return .result(dialog: IntentDialog(stringLiteral: outcome.dialog))
     }
 }

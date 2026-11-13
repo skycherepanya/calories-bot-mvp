@@ -173,25 +173,31 @@ $$
 
 ---
 
-## 3. Current Implementation (updated 2026-11-13: Waves 1-4 / R1-R7 + U1)
+## 3. Current Implementation (updated 2026-11-13: Waves 1-6 / R1-R9 + U1-U6)
 
 ### 3.1. Platform and component boundaries
 
 Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifecore/Lifecore/`. Deployment floor: iOS 27.0. Language mode: Swift 5.0. Verified toolchain: Xcode 27.1. Swift 6 migration is a proposed explicit gate.
 
 - `App/`: `LifecoreApp`, `AppEnvironment` (`.live` / `.fixture` isolation with `snapshotCoordinator`), `MainTabView` (`MainTabNavigationState`, 4 tabs + Settings sheet).
+- `Core/Configuration/`: `CredentialStore` (`KeychainCredentialStore`, `InMemoryCredentialStore`), `AppConfiguration` (Supabase public constants + Keychain BYOK resolution/migration without bundled provider secrets), `AccountSession` (`AccountSessionManager` session state, expiration detection, and cross-account `SyncOutbox` purge).
 - `Core/HealthKit/`: queries, `HealthRepository` protocol, `SleepEpisodeReader`, and `WorkoutTelemetryExtractor`. Synthetic fallback branches removed; nocturnal vitals strictly bounded to sleep episodes; missingness truthfully preserved; 1km split timing anchored to $t_0$.
 - `Core/MathEngine/`: deterministic readiness, workouts, workouts telemetry/normalization, vitals, workload/battery, correlations (`T -> T+1` Gregorian calendar joins, sign-consistent observational wording, no canned magnitudes), adaptive physiology, and training prescription.
 - `Core/Services/`: `DailySnapshotCoordinator` (single shared `DailyDashboardSnapshot` with generation guard, cancellation reset, freshness coalescing, `NotificationCenter` store mutation invalidation, and `04:00 AM` rollover) and `TrainingPrescriptionService` (requires measured vitals, workload, and HR baselines without synthetic healthy defaults).
 - `Core/Repositories/`: `PhysiologyHistoryBuilder` joining confirmed meals, weight observations, sleep episodes (preserving `nil` stages), and workouts by `DietaryDay` (04:00 AM rollover).
-- `Core/Storage/`: SwiftData `MealEntity`, `WorkoutAnalysisEntity` (with `revision` for CAS), `AthleteTrainingPlanState`, `AthleteMemoryEntity`, and `SyncOperationEntity`; `SyncOutbox` (`meal`, `workout`, `healthkitMeal`); typed `CloudDTOs` (`MealCloudDTO`, `WorkoutAnalysisCloudDTO`); `@MainActor SyncCoordinator` (serialized FIFO flush, CAS `409` conflict retention, idempotent initial-`POST` recovery, paginated incremental `pullIncrementalAll`, serialized HealthKit meal export queue); `SupabaseSyncService` (with `SyncResult` propagation); `PersistenceRecovery`.
-- `Core/AI/`: food/report/chat provider (`GeminiService` with honest unfabricated offline fallback flagged `isOfflineFallback`), `FoodPrompt`, `NutritionNormalizer`, `CoachEvidence` (`CoachEvidenceBuilder`), `LifecoreContextRAG` (retrieving strictly confirmed memories), and `CoachPrompt`. Deficit buffer (+12.5%) applied natively once in Swift; raw AI nutrition estimates strictly validated.
-- `Core/UI/` and `Features/`: Semantic adaptive design system (`LifecoreDesignSystem`, `LifecoreLayout`, `MetricStatusTone`), reusable components (`MetricRow`, `SectionHeader`, `ScreenStateView`, `PrimaryAction`, `ChartSummary`), `SettingsView` (5 routes backed by `AppEnvironment`), and Today/Workouts/Nutrition/Trends views (feature view adoption of R4 coordinator follows in U2–U5).
-- `Intents/`: food and sync entry points (`R9` hardening upcoming).
+- `Core/Storage/`: SwiftData `MealEntity`, `WorkoutAnalysisEntity` (with `revision` for CAS), `AthleteTrainingPlanState`, `AthleteMemoryEntity`, and `SyncOperationEntity`; `SyncOutbox` (`meal`, `workout`, `healthkitMeal`); typed `CloudDTOs` (`MealCloudDTO`, `WorkoutAnalysisCloudDTO`); `@MainActor SyncCoordinator` (serialized FIFO flush, CAS `409` conflict retention, idempotent initial-`POST` recovery, paginated incremental `pullIncrementalAll`, serialized HealthKit meal export queue, outbox account-change isolation); `SupabaseSyncService` (bearer auth attachment & `SyncResult` propagation); `PersistenceRecovery`.
+- `Core/AI/`: food/report/chat provider (`GeminiService` with BYOK Keychain lookup, explicit `.missingAPIKey` errors, and honest unfabricated offline fallback flagged `isOfflineFallback`), `FoodPrompt`, `NutritionNormalizer`, `CoachEvidence` (`CoachEvidenceBuilder`), `LifecoreContextRAG` (retrieving strictly confirmed memories), and `CoachPrompt`. Deficit buffer (+12.5%) applied natively once in Swift; raw AI nutrition estimates strictly validated.
+- `Core/UI/` and `Features/`: Semantic adaptive design system (`LifecoreDesignSystem`, `LifecoreLayout`, `MetricStatusTone`), reusable components (`MetricRow`, `SectionHeader`, `ScreenStateView`, `PrimaryAction`, `ChartSummary`), `SettingsView`, and vertical slices with `@MainActor` ViewModels:
+  - `Today/` (`TodayViewModel`, `TodayView`, `TacticalPrescriptionCard`, `OvernightVitalsCard`, `AthleteProfileSheet`)
+  - `Workouts/` (`WorkoutsViewModel`, `WorkoutDetailViewModel`, `WorkoutsView`, `RollingHorizonDeckView`, `WorkoutDetailView`, `WorkoutDetailComponents`, `WorkoutChartsView`, `CoachReportView`, `LifecoreIntelligenceChatView`)
+  - `Nutrition/` (`NutritionViewModel`, `MealReviewSheet`, `NutritionView`, `NutritionComponents`, `FoodInputSheet`)
+  - `Trends/` (`ChartDomain`, `TrendsViewModel`, `TrendsView`, `TrendsComponents`, `CorrelationInsightsCard`)
+  - `Coach/` (`CoachViewModel`, `CoachEvidenceView`, `MemoryReviewView`)
+- `Intents/`: `LogMealIntent` (`LogMealIntentHandler`, `LogMealOutcome` — review/recoverable draft only, zero HealthKit export) and `LifecoreSyncIntent` (`LifecoreSyncIntentHandler`, `LifecoreSyncOutcome` — truthful queued/auth/HealthKit/clean sync dialogs).
 
 ### 3.2. Verification evidence
 
-`LifecoreTests` hosted test suite compiles and passes **98 tests, 0 failures** on iPhone 17 (`iOS 27.0`), covering `EnvironmentIsolationTests` (Task B), `HealthRepositoryTests` (R3a), `WorkoutTelemetryTests` (R3b), `PhysiologyTests` (R3c), `LongitudinalTests` (R3d), `DailySnapshotTests` (R4), `NutritionContractTests` (R5a), `CoachEvidenceTests` (R5b), `PersistenceTests` (R6), `SyncContractTests` (R7), and `NavigationTests` (U1). Checked-in SQL migration `20261113120000_r7_sync_convergence.sql`, `005_daily_metrics_enhancements.sql` bootstrap fix, and `supabase/tests/sync_contract.sql` remain pending remote deployment via `supabase db push` (`psql`/`docker` unavailable locally).
+`LifecoreTests` hosted test suite compiles and passes **140 tests, 0 failures** (`** TEST SUCCEEDED **`) on iPhone 17 (`iOS 27.0`), covering `EnvironmentIsolationTests` (Task B), `HealthRepositoryTests` (R3a), `WorkoutTelemetryTests` (R3b), `PhysiologyTests` (R3c), `LongitudinalTests` (R3d), `DailySnapshotTests` (R4), `NutritionContractTests` (R5a), `CoachEvidenceTests` (R5b), `PersistenceTests` (R6), `SyncContractTests` (R7), `ConfigurationTests` (R8), `IntentOutcomeTests` (R9), `NavigationTests` (U1), `TodayViewModelTests` (U2), `WorkoutsViewModelTests` (U3), `NutritionFlowTests` (U4), `TrendsViewModelTests` (U5), and `CoachFlowTests` (U6). Checked-in SQL migrations `20261113120000_r7_sync_convergence.sql`, `20261113140000_r8_rls_and_ownership.sql`, and SQL contract suites (`sync_contract.sql`, `rls_ownership_contract.sql`) remain pending remote deployment via `supabase db push` (`psql`/`docker` unavailable locally). Live Maestro E2E verification (`D1`) remains open.
 
 ### 3.3. Persistence and cloud limitations
 

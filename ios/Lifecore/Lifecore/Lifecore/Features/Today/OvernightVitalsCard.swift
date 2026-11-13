@@ -66,6 +66,10 @@ public struct OvernightVitalsCard: View {
         self.evaluation = evaluation
     }
 
+    public init(snapshot: DailyDashboardSnapshot?) {
+        self.init(evaluation: snapshot?.vitalsEvaluation)
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             LifecoreSectionHeader(
@@ -90,9 +94,14 @@ public struct OvernightVitalsCard: View {
                     }
                 }
             } else {
-                Text("Очікування нічних вимірювань Apple Watch…")
-                    .font(.system(size: 13))
-                    .foregroundStyle(LifecoreTheme.inkSecondary)
+                HStack(spacing: 8) {
+                    Image(systemName: "moon.stars")
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                    Text("Очікування нічних вимірювань Apple Watch…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                }
+                .padding(.vertical, 4)
             }
         }
         .lifecoreGlassCard()
@@ -107,6 +116,10 @@ public struct EnergyBankCard: View {
 
     public init(energyBank: EnergyBankEvaluation?) {
         self.energyBank = energyBank
+    }
+
+    public init(snapshot: DailyDashboardSnapshot?) {
+        self.energyBank = nil
     }
 
     public var body: some View {

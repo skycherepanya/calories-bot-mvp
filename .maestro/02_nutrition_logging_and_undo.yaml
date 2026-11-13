@@ -31,12 +31,18 @@ appId: com.skycherepanya.Lifecore
 - assertVisible:
     id: "btn_submit_food"
 
-# 4. Trigger Food Logging & Assert Modal Dismissal
+# 4. Trigger Food Analysis, Review, Confirm & Assert Persistence
 - tapOn:
     id: "btn_submit_food"
 
 - assertNotVisible:
     id: "sheet_food_input"
+
+- assertVisible:
+    id: "meal_review_confirm"
+
+- tapOn:
+    id: "meal_review_confirm"
 
 - assertVisible:
     id: "card_nutrition_summary"

@@ -57,14 +57,14 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 - [x] R5b — Scoped evidence, factual offline explanation and controlled memory.
 - [x] R6 — Durable mutations, migration preservation and meal lifecycle.
 - [x] R7 — Typed, idempotent, revisioned, paginated sync. (Swift/DTO/Coordinator verified via `SyncContractTests`; `supabase db push` deployment pending remote DB check)
-- [ ] R8 — Configuration, credential migration and cloud authorization.
-- [ ] R9 — Durable and truthful AppIntents.
+- [x] R8 — Configuration, credential migration and cloud authorization. (`ConfigurationTests` pass; `20261113140000_r8_rls_and_ownership.sql` & `rls_ownership_contract.sql` authored; live `supabase db push`, remote RLS replay, legacy ownership backfill & key rotation pending D1/staging verification)
+- [x] R9 — Durable and truthful AppIntents. (`IntentOutcomeTests` pass)
 - [x] U1 — Semantic design system, native shell and settings.
-- [ ] U2 — Today hierarchy and all data states.
-- [ ] U3 — Workout planning/history/detail by sport.
-- [ ] U4 — Food capture/review/confirm/delete/undo.
-- [ ] U5 — Trends range, safe domains and coverage.
-- [ ] U6 — Coach report/chat/evidence/memory.
+- [x] U2 — Today hierarchy and all data states. (`TodayViewModelTests` pass; D1 Maestro/screenshot verification pending)
+- [x] U3 — Workout planning/history/detail by sport. (`WorkoutsViewModelTests` pass; D1 Maestro/screenshot verification pending)
+- [x] U4 — Food capture/review/confirm/delete/undo. (`NutritionFlowTests` pass; D1 Maestro/screenshot verification pending)
+- [x] U5 — Trends range, safe domains and coverage. (`TrendsViewModelTests` pass; D1 Maestro/screenshot verification pending)
+- [x] U6 — Coach report/chat/evidence/memory. (`CoachFlowTests` pass; D1 Maestro/screenshot verification pending)
 - [ ] D1 — Integrated verification, visual/accessibility acceptance and release evidence.
 
 ## Shared commands

@@ -7,8 +7,8 @@ public final class SupabaseSyncService: @unchecked Sendable {
     public static let shared = SupabaseSyncService()
     public static var networkRequestAttemptCount: Int = 0
 
-    public var supabaseURL = URL(string: "https://khmviccwbuktnvdxhnwg.supabase.co")!
-    public var supabaseKey = "sb_publishable_kf0wGKz9z9VpZiu_hQe0xQ_6WTvrpXy"
+    public var supabaseURL = AppConfiguration.supabaseURL
+    public var supabaseKey = AppConfiguration.supabaseAnonKey
     public var userId: Int64 = 472025574
 
     private let isoFormatter: ISO8601DateFormatter = {
@@ -21,11 +21,12 @@ public final class SupabaseSyncService: @unchecked Sendable {
 
     @MainActor
     private func configureCoordinator() {
+        let effectiveUserId = AccountSessionManager.shared.verifiedLegacyUserId ?? userId
         let transport = URLSessionCloudSyncTransport(
             supabaseURL: supabaseURL,
             supabaseKey: supabaseKey
         )
-        SyncCoordinator.shared.updateTransport(transport, userId: userId)
+        SyncCoordinator.shared.updateTransport(transport, userId: effectiveUserId)
     }
 
     // MARK: - Meals Synchronization
@@ -133,7 +134,12 @@ public final class SupabaseSyncService: @unchecked Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+
+        if let userToken = try AccountSessionManager.currentAccessTokenIfValid() {
+            request.setValue("Bearer \(userToken)", forHTTPHeaderField: "Authorization")
+        } else {
+            request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+        }
         request.setValue("resolution=merge-duplicates,return=minimal", forHTTPHeaderField: "Prefer")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
@@ -169,6 +175,12 @@ public final class SupabaseSyncService: @unchecked Sendable {
 
     @MainActor
     public func syncAllWithResult() async -> SyncResult {
+        if AccountSessionManager.shared.isTokenExpired {
+            return SyncResult(
+                errorClassification: .unauthorized,
+                isCleanSuccess: false
+            )
+        }
         guard !AppEnvironment.current.isFixtureMode else { return SyncResult() }
         Self.networkRequestAttemptCount += 1
         configureCoordinator()

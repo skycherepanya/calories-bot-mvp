@@ -6,36 +6,38 @@ public struct LifecoreIntelligenceChatView: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
-    @State private var messages: [AnalystChatMessage] = []
-    @State private var inputText: String = ""
-    @State private var isLoading: Bool = false
-    @State private var showMemoryBank: Bool = false
-    @State private var storedFacts: [AthleteMemoryEntity] = []
+    @StateObject private var viewModel: CoachViewModel
 
-    public init(dossier: AssembledHealthDossier, initialQuestion: String? = nil) {
+    @State private var showMemorySheet: Bool = false
+    @State private var showEvidenceSheet: Bool = false
+
+    public init(
+        dossier: AssembledHealthDossier,
+        initialQuestion: String? = nil,
+        viewModel: CoachViewModel? = nil
+    ) {
         self.dossier = dossier
         self.initialQuestion = initialQuestion
+        if let injected = viewModel {
+            _viewModel = StateObject(wrappedValue: injected)
+        } else {
+            _viewModel = StateObject(wrappedValue: CoachViewModel(dossier: dossier))
+        }
     }
 
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Top RAG Active Context Indicator Bar
-                ragContextBar
-
-                // Expandable Memory Drawer (if toggled)
-                if showMemoryBank {
-                    memoryBankDrawer
-                }
+                // Top Evidence Context Indicator Bar
+                evidenceContextBar
 
                 // Chat Messages Feed
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            // Welcome message
                             welcomeCard
 
-                            ForEach(messages) { msg in
+                            ForEach(viewModel.messages) { msg in
                                 if msg.sender == "user" {
                                     userBubble(msg)
                                 } else {
@@ -43,7 +45,7 @@ public struct LifecoreIntelligenceChatView: View {
                                 }
                             }
 
-                            if isLoading {
+                            if viewModel.isSubmitting {
                                 loadingBubble
                             }
                         }
@@ -59,8 +61,8 @@ public struct LifecoreIntelligenceChatView: View {
                             hideKeyboard()
                         }
                     }
-                    .onChange(of: messages.count) { _, _ in
-                        if let lastId = messages.last?.id {
+                    .onChange(of: viewModel.messages.count) { _, _ in
+                        if let lastId = viewModel.messages.last?.id {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                 proxy.scrollTo(lastId, anchor: .bottom)
                             }
@@ -68,10 +70,26 @@ public struct LifecoreIntelligenceChatView: View {
                     }
                 }
 
-                // Contextual Suggestion Chips (if last assistant response has suggestions)
-                if let lastSuggestions = messages.last(where: { $0.sender == "assistant" })?.turnResponse?.suggestedFollowUpsUk,
-                   !lastSuggestions.isEmpty && !isLoading {
+                // Contextual Suggestion Chips (from last assistant message)
+                if let lastSuggestions = viewModel.messages.last(where: { $0.sender == "assistant" })?.turnResponse?.suggestedFollowUpsUk,
+                   !lastSuggestions.isEmpty && !viewModel.isSubmitting {
                     suggestionChips(lastSuggestions)
+                }
+
+                if let errorUk = viewModel.lastErrorMessageUk, !errorUk.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(LifecoreTheme.statusDanger)
+                        Text(errorUk)
+                            .font(.system(size: 12))
+                            .foregroundStyle(LifecoreTheme.statusDanger)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(LifecoreTheme.statusDanger.opacity(0.08))
+                    .accessibilityIdentifier("coach_chat_error_banner")
                 }
 
                 LifecoreHairlineDivider()
@@ -80,21 +98,34 @@ public struct LifecoreIntelligenceChatView: View {
                 inputBar
             }
             .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
-            .navigationTitle("Lifecore Intelligence")
+            .navigationTitle("Тренер Lifecore")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showMemoryBank.toggle()
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            showMemorySheet = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "brain.head.profile")
+                                Text("Пам'ять (\(viewModel.confirmedMemories.count))")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                         }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "brain.head.profile")
-                            Text("Пам'ять")
-                                .font(.system(size: 13, weight: .semibold))
+                        .accessibilityIdentifier("btn_open_memory_review")
+
+                        Button(action: {
+                            showEvidenceSheet = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.shield")
+                                Text("Докази")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                         }
-                        .foregroundStyle(showMemoryBank ? LifecoreTheme.accentPrimary : LifecoreTheme.inkSecondary)
+                        .accessibilityIdentifier("btn_open_evidence_sheet")
                     }
                 }
 
@@ -107,20 +138,31 @@ public struct LifecoreIntelligenceChatView: View {
                     .accessibilityIdentifier("btn_close_chat")
                 }
             }
+            .sheet(isPresented: $showMemorySheet) {
+                NavigationStack {
+                    MemoryReviewView(viewModel: viewModel)
+                }
+            }
+            .sheet(isPresented: $showEvidenceSheet) {
+                NavigationStack {
+                    CoachEvidenceView(viewModel: viewModel)
+                }
+            }
             .task {
-                refreshMemoryBank()
-                if messages.isEmpty {
+                viewModel.refreshMemories()
+                if viewModel.messages.isEmpty {
                     if let initQ = initialQuestion, !initQ.isEmpty {
-                        await sendMessage(initQ)
+                        await viewModel.submit(initQ)
                     }
                 }
             }
         }
+        .lifecoreKeyboardDismissToolbar()
     }
 
-    // MARK: - Subviews
+    // MARK: - Evidence Context Bar
 
-    private var ragContextBar: some View {
+    private var evidenceContextBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 contextPill(
@@ -154,7 +196,7 @@ public struct LifecoreIntelligenceChatView: View {
 
                 contextPill(
                     icon: "brain.head.profile",
-                    title: "\(storedFacts.count) фактів пам'яті",
+                    title: "\(viewModel.confirmedMemories.count) фактів пам'яті",
                     color: LifecoreTheme.accentIndigo
                 )
             }
@@ -180,76 +222,7 @@ public struct LifecoreIntelligenceChatView: View {
         .overlay(Capsule().stroke(LifecoreTheme.ruleHairline, lineWidth: 1))
     }
 
-    private var memoryBankDrawer: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Епізодична пам'ять атлета (L3 RAG)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(LifecoreTheme.inkPrimary)
-                Spacer()
-                Text("\(storedFacts.count) збережено")
-                    .font(.system(size: 11))
-                    .foregroundStyle(LifecoreTheme.inkTertiary)
-            }
-
-            if storedFacts.isEmpty {
-                Text("Lifecore ще не зберіг особистих фактів. Напиши тренеру про цілі, травми або взуття.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(LifecoreTheme.inkSecondary)
-            } else {
-                ForEach(storedFacts) { fact in
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: fact.isPinnedGoal ? "star.fill" : "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(fact.isPinnedGoal ? LifecoreTheme.statusWarning : LifecoreTheme.accentPrimary)
-                            .padding(.top, 4)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(fact.factTextUk)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(LifecoreTheme.inkPrimary)
-                            HStack(spacing: 4) {
-                                Text(fact.category)
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(LifecoreTheme.inkTertiary)
-                                if fact.confirmationStatus == "candidate" {
-                                    Text("• очікує підтвердження")
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(LifecoreTheme.statusWarning)
-                                }
-                            }
-                        }
-
-                        Spacer()
-
-                        if fact.confirmationStatus == "candidate" {
-                            Button(action: {
-                                _ = AthleteMemoryStorageService.confirmCandidateFact(id: fact.id)
-                                refreshMemoryBank()
-                            }) {
-                                Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(LifecoreTheme.statusOptimal)
-                            }
-                        }
-
-                        Button(action: {
-                            AthleteMemoryStorageService.deleteFact(id: fact.id)
-                            refreshMemoryBank()
-                        }) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 10))
-                                .foregroundStyle(LifecoreTheme.inkTertiary)
-                        }
-                    }
-                    .padding(.vertical, 3)
-                }
-            }
-        }
-        .padding(12)
-        .background(LifecoreTheme.paperWell)
-        .overlay(Rectangle().frame(height: 1).foregroundStyle(LifecoreTheme.ruleHairline), alignment: .bottom)
-    }
+    // MARK: - Feed Cards
 
     private var welcomeCard: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -257,12 +230,12 @@ public struct LifecoreIntelligenceChatView: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(LifecoreTheme.accentPrimary)
-                Text("Багаторівневий спортивний аналітик")
+                Text("Спортивний аналітик Lifecore")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(LifecoreTheme.inkPrimary)
             }
 
-            Text("Я аналізую всю картину твого стану: спліти сьогоднішньої сесії, баланс харчування, нічні Vitals, Body Battery та твої особисті цілі. Запитай мене будь-що про тренування чи самопочуття.")
+            Text("Я аналізую всю картину твого стану: спліти тренування, кардіо-динаміку, харчування, нічні Vitals та твої підтверджені цілі. Запитай мене будь-що про сьогоднішню сесію чи відновлення.")
                 .font(.system(size: 12))
                 .foregroundStyle(LifecoreTheme.inkSecondary)
                 .lineSpacing(3)
@@ -270,7 +243,7 @@ public struct LifecoreIntelligenceChatView: View {
         .lifecoreGlassCard(cornerRadius: 16, padding: 14)
     }
 
-    private func userBubble(_ msg: AnalystChatMessage) -> some View {
+    private func userBubble(_ msg: CoachChatMessage) -> some View {
         HStack {
             Spacer(minLength: 40)
             Text(msg.text)
@@ -284,7 +257,7 @@ public struct LifecoreIntelligenceChatView: View {
         .id(msg.id)
     }
 
-    private func assistantCard(_ msg: AnalystChatMessage) -> some View {
+    private func assistantCard(_ msg: CoachChatMessage) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if let resp = msg.turnResponse {
                 // Headline
@@ -339,21 +312,28 @@ public struct LifecoreIntelligenceChatView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
-                // Memory Saved Badge (if extracted)
+                // Candidate memory banner
                 if let memory = resp.extractedMemoryFactUk, !memory.isEmpty {
-                    HStack(spacing: 5) {
-                        Image(systemName: "brain.head.profile")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("Збережено в пам'ять: «\(memory)»")
-                            .font(.system(size: 10, weight: .medium))
+                    Button(action: {
+                        showMemorySheet = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("Збережено кандидата в пам'ять: «\(memory)»")
+                                .font(.system(size: 10, weight: .medium))
+                            Spacer()
+                            Text("Перевірити")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(LifecoreTheme.accentIndigo)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(LifecoreTheme.accentIndigo.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
-                    .foregroundStyle(LifecoreTheme.accentIndigo)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(LifecoreTheme.accentIndigo.opacity(0.10))
-                    .clipShape(Capsule())
+                    .buttonStyle(.plain)
                 }
-
             } else {
                 Text(msg.text)
                     .font(.system(size: 13))
@@ -385,7 +365,7 @@ public struct LifecoreIntelligenceChatView: View {
                     Button(action: {
                         isInputFocused = false
                         hideKeyboard()
-                        Task { await sendMessage(question) }
+                        Task { await viewModel.submit(question) }
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "bubble.left")
@@ -408,9 +388,11 @@ public struct LifecoreIntelligenceChatView: View {
         }
     }
 
+    // MARK: - Input Bar
+
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField("Запитай про пульс, спліти чи їжу...", text: $inputText)
+            TextField("Запитай про пульс, спліти чи їжу...", text: $viewModel.draftText)
                 .focused($isInputFocused)
                 .font(.system(size: 14))
                 .padding(.horizontal, 14)
@@ -422,7 +404,7 @@ public struct LifecoreIntelligenceChatView: View {
                     handleSubmitCurrentInput()
                 }
 
-            if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !viewModel.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Button(action: {
                     handleSubmitCurrentInput()
                 }) {
@@ -430,7 +412,7 @@ public struct LifecoreIntelligenceChatView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(LifecoreTheme.accentPrimary)
                 }
-                .disabled(isLoading)
+                .disabled(viewModel.isSubmitting)
                 .accessibilityIdentifier("btn_send_chat_message")
             } else if isInputFocused {
                 Button(action: {
@@ -452,84 +434,18 @@ public struct LifecoreIntelligenceChatView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(LifecoreTheme.paperCard)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(LifecoreTheme.paperCard.ignoresSafeArea(edges: .bottom))
     }
 
     private func handleSubmitCurrentInput() {
-        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = viewModel.draftText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        inputText = ""
+        viewModel.draftText = ""
         isInputFocused = false
         hideKeyboard()
-        Task { await sendMessage(trimmed) }
-    }
-
-    // MARK: - Actions
-
-    private func refreshMemoryBank() {
-        storedFacts = AthleteMemoryStorageService.fetchAllFacts(includeCandidates: true)
-    }
-
-    private func sendMessage(_ text: String) async {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        let userMsg = AnalystChatMessage(sender: "user", text: trimmed)
-        messages.append(userMsg)
-        isLoading = true
-
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.prepare()
-
-        do {
-            let response = try await GeminiService.shared.sendAnalystChatMessage(
-                userQuery: trimmed,
-                history: messages,
-                dossier: dossier
-            )
-            impact.impactOccurred()
-
-            let assistantMsg = AnalystChatMessage(
-                sender: "assistant",
-                text: response.answerBodyUk,
-                turnResponse: response
-            )
-            messages.append(assistantMsg)
-
-            // Save AI-extracted memory as unconfirmed candidate requiring user review
-            if let fact = response.extractedMemoryFactUk, !fact.isEmpty {
-                AthleteMemoryStorageService.saveCandidateFact(
-                    factTextUk: fact,
-                    category: response.extractedMemoryCategory ?? "workout_feel",
-                    tags: ["chat", "insight"]
-                )
-                refreshMemoryBank()
-            }
-        } catch {
-            let fallback = GeminiService.shared.generateOfflineAnalystChatResponse(
-                userQuery: trimmed,
-                dossier: dossier
-            )
-            impact.impactOccurred()
-            let assistantMsg = AnalystChatMessage(
-                sender: "assistant",
-                text: fallback.answerBodyUk,
-                turnResponse: fallback
-            )
-            messages.append(assistantMsg)
-
-            if let fact = fallback.extractedMemoryFactUk, !fact.isEmpty {
-                AthleteMemoryStorageService.saveCandidateFact(
-                    factTextUk: fact,
-                    category: fallback.extractedMemoryCategory ?? "workout_feel",
-                    tags: ["chat", "insight"]
-                )
-                refreshMemoryBank()
-            }
-        }
-
-        isLoading = false
+        Task { await viewModel.submit(trimmed) }
     }
 
     private func colorForTone(_ tone: String) -> Color {
@@ -542,4 +458,3 @@ public struct LifecoreIntelligenceChatView: View {
         }
     }
 }
-

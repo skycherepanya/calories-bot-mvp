@@ -1,6 +1,6 @@
 # Lifecore storage and database reference
 
-Updated: 2026-11-13 (R7 Cloud & HealthKit Convergence). Source: checked-in migrations (`001`–`20261113120000`) and Swift models/DTOs (`SwiftDataModels.swift`, `CloudDTOs.swift`, `SyncCoordinator.swift`). Deployed Supabase schema/RLS remains to be verified and applied via `supabase db push` (R8/D1).
+Updated: 2026-11-13 (R7 Cloud & HealthKit Convergence + R8 RLS & Ownership Schema). Source: checked-in migrations (`001`–`20261113140000`) and Swift models/DTOs (`SwiftDataModels.swift`, `CloudDTOs.swift`, `SyncCoordinator.swift`, `AccountSession.swift`). Deployed Supabase schema/RLS replay and legacy backfill remain pending `supabase db push` (D1).
 
 ## Current local and cloud roles
 
@@ -80,6 +80,6 @@ Models live in `Core/Storage/SwiftDataModels.swift`, `Core/Storage/SyncOutbox.sw
 - **`public.meals`:** `ALTER COLUMN weight_g DROP NOT NULL`; adds `client_uuid UUID`, `revision INTEGER NOT NULL DEFAULT 1`, `is_deleted BOOLEAN NOT NULL DEFAULT FALSE`, `kcal_exact NUMERIC`, `buffer_version INTEGER NOT NULL DEFAULT 1`, `provenance TEXT NOT NULL DEFAULT 'legacy'`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`, partial unique index `idx_meals_user_client_uuid` on `(user_id, client_uuid)`, and `idx_meals_user_updated_at`. Swift confidence `0...1` is normalized to `0...100` (`confidence * 100`) at `MealCloudDTO` boundary.
 - **`public.workout_analyses`:** Adds `revision INTEGER NOT NULL DEFAULT 1` for CAS updates; `WorkoutAnalysisCloudDTO` matches `006_workout_analyses.sql` column names and converts `m <-> km` and `s <-> min` losslessly.
 
-1. Local Swift `SyncContractTests` verify DTO round-trips, outbox CAS, 409 conflict preservation, paginated pulls (>60 meals / >30 workouts), and HealthKit export serialization.
-2. Live remote application via `supabase db push` and PostgreSQL execution of `supabase/tests/sync_contract.sql` remain pending remote deployment (`psql`/`docker` unavailable locally).
-3. Checked-in migrations still contain no RLS policies; R8 owns authenticated ownership verification and cross-user denial tests before wider distribution.
+1. Local Swift `SyncContractTests` and `ConfigurationTests` verify DTO round-trips, outbox CAS, 409 conflict preservation, paginated pulls, HealthKit export serialization, session expiry, and cross-account outbox isolation.
+2. Authored R8 RLS migration [20261113140000_r8_rls_and_ownership.sql](../supabase/migrations/20261113140000_r8_rls_and_ownership.sql) and contract test [rls_ownership_contract.sql](../supabase/tests/rls_ownership_contract.sql): adds `auth_user_id UUID DEFAULT auth.uid()` across all 7 user tables (`meals`, `workout_analyses`, `daily_metrics`, `sleep_logs`, `workouts`, `body_measurements`, `activities`), creates `public.user_account_mappings` (`SELECT`-only RLS for `authenticated`; writes restricted to `service_role`), and enables owner-only RLS policies (`auth.uid() = auth_user_id`).
+3. Live remote application via `supabase db push`, PostgreSQL execution of `sync_contract.sql` / `rls_ownership_contract.sql`, and verified legacy ownership backfill remain pending remote DB deployment (`psql`/`docker` unavailable locally).

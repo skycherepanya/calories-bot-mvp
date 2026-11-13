@@ -2,16 +2,18 @@ import SwiftUI
 import HealthKit
 
 public struct WorkoutDetailView: View {
-    public let workout: HKWorkout
+    @StateObject private var viewModel: WorkoutDetailViewModel
 
-    @State private var series: WorkoutTelemetrySeries?
-    @State private var analysis: WorkoutAnalysisResult?
-    @State private var recoveryContext: RecentRecoveryContext?
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    public var workout: HKWorkout {
+        viewModel.workout
+    }
 
     public init(workout: HKWorkout) {
-        self.workout = workout
+        _viewModel = StateObject(wrappedValue: WorkoutDetailViewModel(workout: workout))
+    }
+
+    public init(viewModel: WorkoutDetailViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
 
     public var body: some View {
@@ -20,85 +22,168 @@ public struct WorkoutDetailView: View {
                 // 1. Header Overview Card
                 headerOverviewCard
 
-                if isLoading {
+                if viewModel.isLoading {
                     loadingCard
-                } else if let analysis = analysis {
-                    // 2. EF & Cardiac Drift Metrics Row
-                    HStack(spacing: 12) {
-                        EfficiencyFactorCard(efficiencyFactor: analysis.efficiencyFactor)
-                        CardiacDriftCard(driftPct: analysis.aerobicDecouplingPct)
-                    }
-
-                    // 3. Telemetry Visualizer (Swift Charts)
-                    if let series = series {
-                        WorkoutChartsView(
-                            series: series,
-                            avgPaceMinKm: analysis.avgPaceMinKm,
-                            avgHeartRate: analysis.avgHeartRate
-                        )
-                    }
-
-                    // 4. 1km Auto-Splits Table
-                    SplitsTableView(splits: analysis.splits)
-
-                    // 5. Structured Interval Laps (if present)
-                    if !analysis.laps.isEmpty {
-                        IntervalLapsTableView(laps: analysis.laps)
-                    }
-
-                    // 6. Historical Benchmark Comparison
-                    BenchmarkComparisonCard(benchmark: analysis.benchmarkDelta)
-
-                    // 7. 70/15/15 AI Coach Report Card
-                    CoachReportView(
-                        analysis: analysis,
-                        workoutDate: workout.startDate,
-                        recoveryContext: recoveryContext
-                    )
-                } else if let err = errorMessage {
+                } else if let err = viewModel.errorMessage {
                     errorCard(err)
+                } else {
+                    sportSpecificContent
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
         .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
-        .navigationTitle(workoutTitle)
+        .navigationTitle(viewModel.summary.titleUk)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await loadWorkoutTelemetry()
+            if viewModel.series == nil && viewModel.analysis == nil {
+                await viewModel.loadWorkoutTelemetry()
+            }
         }
     }
 
-    // MARK: - Header Card
+    // MARK: - Sport-Specific Sections
 
-    private var workoutTitle: String {
-        switch workout.workoutActivityType {
-        case .running: return "Біг"
-        case .cycling: return "Велосипед"
-        case .walking: return "Прогулянка"
-        case .traditionalStrengthTraining, .functionalStrengthTraining: return "Силове тренування"
-        case .highIntensityIntervalTraining: return "HIIT"
-        case .swimming: return "Плавання"
-        default: return "Тренування"
+    @ViewBuilder
+    private var sportSpecificContent: some View {
+        if viewModel.isRunning {
+            runningContent
+        } else if viewModel.isCycling {
+            cyclingContent
+        } else {
+            strengthAndOtherContent
         }
     }
+
+    // MARK: - Running Content
+
+    @ViewBuilder
+    private var runningContent: some View {
+        // EF & Cardiac Drift Metrics Row
+        HStack(spacing: 12) {
+            EfficiencyFactorCard(efficiencyFactor: viewModel.runningPresentation?.efficiencyFactor)
+            CardiacDriftCard(driftPct: viewModel.runningPresentation?.aerobicDecouplingPct)
+        }
+
+        // Telemetry Visualizer (Swift Charts)
+        if let series = viewModel.series {
+            WorkoutChartsView(
+                series: series,
+                avgPaceMinKm: viewModel.analysis?.avgPaceMinKm,
+                avgHeartRate: viewModel.analysis?.avgHeartRate
+            )
+        }
+
+        // 1km Auto-Splits Table
+        SplitsTableView(splits: viewModel.runningPresentation?.splits ?? [])
+
+        // Structured Interval Laps (if present)
+        if let laps = viewModel.runningPresentation?.laps, !laps.isEmpty {
+            IntervalLapsTableView(laps: laps)
+        }
+
+        // Historical Benchmark Comparison
+        BenchmarkComparisonCard(benchmark: viewModel.runningPresentation?.benchmarkDelta)
+
+        // Stream signal status note
+        StreamSignalNoteCard(noteUk: viewModel.streamSignalNoteUk)
+
+        // 70/15/15 AI Coach Report Card
+        if let analysis = viewModel.analysis {
+            CoachReportView(
+                analysis: analysis,
+                workoutDate: workout.startDate,
+                recoveryContext: viewModel.recoveryContext
+            )
+        }
+    }
+
+    // MARK: - Cycling Content
+
+    @ViewBuilder
+    private var cyclingContent: some View {
+        if let cycling = viewModel.cyclingPresentation {
+            CyclingMetricsCard(metrics: cycling)
+        }
+
+        // Telemetry Visualizer (Swift Charts)
+        if let series = viewModel.series {
+            WorkoutChartsView(
+                series: series,
+                avgPaceMinKm: viewModel.analysis?.avgPaceMinKm,
+                avgHeartRate: viewModel.analysis?.avgHeartRate
+            )
+        }
+
+        // Historical Benchmark Comparison (if present)
+        if let delta = viewModel.analysis?.benchmarkDelta {
+            BenchmarkComparisonCard(benchmark: delta)
+        }
+
+        // Stream signal status note
+        StreamSignalNoteCard(noteUk: viewModel.streamSignalNoteUk)
+
+        // AI Coach Report
+        if let analysis = viewModel.analysis {
+            CoachReportView(
+                analysis: analysis,
+                workoutDate: workout.startDate,
+                recoveryContext: viewModel.recoveryContext
+            )
+        }
+    }
+
+    // MARK: - Strength & Other Content
+
+    @ViewBuilder
+    private var strengthAndOtherContent: some View {
+        if let strength = viewModel.strengthPresentation {
+            StrengthMetricsCard(metrics: strength, titleUk: viewModel.summary.titleUk)
+        }
+
+        // Stream signal note
+        StreamSignalNoteCard(noteUk: viewModel.streamSignalNoteUk)
+
+        // Telemetry Visualizer (if HR points exist)
+        if let series = viewModel.series, series.samples.contains(where: { $0.heartRateBpm != nil }) {
+            WorkoutChartsView(
+                series: series,
+                avgPaceMinKm: nil,
+                avgHeartRate: viewModel.analysis?.avgHeartRate
+            )
+        }
+
+        // AI Coach Report (if analysis exists)
+        if let analysis = viewModel.analysis {
+            CoachReportView(
+                analysis: analysis,
+                workoutDate: workout.startDate,
+                recoveryContext: viewModel.recoveryContext
+            )
+        }
+    }
+
+    // MARK: - Header Overview Card
 
     private var headerOverviewCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let summary = viewModel.summary
+        let typeColor = workoutColor(for: summary.activityType)
+
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 HStack(spacing: 8) {
-                    Image(systemName: iconName(for: workout.workoutActivityType))
+                    Image(systemName: summary.sportKind.icon)
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(LifecoreTheme.statusOptimal)
-                    Text(workoutTitle)
+                        .foregroundStyle(typeColor)
+                    Text(summary.titleUk)
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(LifecoreTheme.inkPrimary)
                 }
 
                 Spacer()
 
-                Text(formattedDate(workout.startDate))
+                Text(formattedDate(summary.startDate))
                     .font(.system(size: 12))
                     .foregroundStyle(LifecoreTheme.inkTertiary)
             }
@@ -108,19 +193,28 @@ public struct WorkoutDetailView: View {
             HStack(spacing: 12) {
                 metricCell(
                     title: "Тривалість",
-                    value: String(format: "%.0f хв", workout.duration / 60.0),
+                    value: String(format: "%.0f хв", summary.durationMinutes),
                     highlight: LifecoreTheme.inkPrimary
                 )
 
-                if let dist = workout.totalDistance?.doubleValue(for: .meter()) {
+                if let distKm = summary.distanceKm, distKm > 0.01 {
                     metricCell(
                         title: "Дистанція",
-                        value: String(format: "%.2f км", dist / 1000.0),
+                        value: String(format: "%.2f км", distKm),
                         highlight: LifecoreTheme.accentTeal
                     )
                 }
 
-                if let kcal = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie()) {
+                if summary.sportKind == .cycling, summary.durationSeconds > 0, let distKm = summary.distanceKm {
+                    let speed = distKm / (summary.durationSeconds / 3600.0)
+                    metricCell(
+                        title: "Швидкість",
+                        value: String(format: "%.1f км/г", speed),
+                        highlight: LifecoreTheme.statusOptimal
+                    )
+                }
+
+                if let kcal = summary.caloriesKcal {
                     metricCell(
                         title: "Калорії",
                         value: "\(Int(kcal)) ккал",
@@ -128,11 +222,19 @@ public struct WorkoutDetailView: View {
                     )
                 }
 
-                if let hr = workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) {
+                if let hr = summary.avgHeartRate {
                     metricCell(
                         title: "Сер. ЧСС",
                         value: "\(Int(hr)) bpm",
                         highlight: LifecoreTheme.statusDanger
+                    )
+                }
+
+                if let elev = summary.elevationGainMeters, elev > 0 {
+                    metricCell(
+                        title: "Висота",
+                        value: "\(Int(elev)) м",
+                        highlight: LifecoreTheme.accentIndigo
                     )
                 }
             }
@@ -152,6 +254,8 @@ public struct WorkoutDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    // MARK: - Loading & Error States
 
     private var loadingCard: some View {
         VStack(spacing: 12) {
@@ -179,7 +283,7 @@ public struct WorkoutDetailView: View {
 
             Button(action: {
                 Task {
-                    await loadWorkoutTelemetry()
+                    await viewModel.loadWorkoutTelemetry()
                 }
             }) {
                 HStack(spacing: 6) {
@@ -200,70 +304,17 @@ public struct WorkoutDetailView: View {
         .lifecoreGlassCard(cornerRadius: 20)
     }
 
-    // MARK: - Actions
+    // MARK: - Helpers
 
-    private func loadWorkoutTelemetry() async {
-        isLoading = true
-        errorMessage = nil
-
-        do {
-            // 0. Ensure HealthKit permissions are determined
-            try await HealthKitManager.shared.requestAuthorization()
-
-            // 1. Extract raw continuous series
-            let series = try await WorkoutTelemetryExtractor.shared.extractTelemetry(for: workout)
-            self.series = series
-
-            // 2. Query historical benchmarks (matching workouts within ±25% distance)
-            let benchmarks = (try? await HealthKitManager.shared.fetchHistoricalSimilarWorkouts(to: workout)) ?? []
-
-            // 3. Query 48h recovery context
-            let recovery = await HealthKitManager.shared.fetchRecentRecoveryContext(for: workout.startDate)
-            self.recoveryContext = recovery
-
-            // 4. Run deterministic pure Swift Math Engine
-            let analysisResult = WorkoutMathEngine.analyze(
-                series: series,
-                historicalWorkouts: benchmarks
-            )
-            self.analysis = analysisResult
-
-            // 5. Persist to SwiftData
-            let distanceM = workout.totalDistance?.doubleValue(for: .meter()) ?? 0
-            let cached = WorkoutStorageService.fetchAnalysis(for: workout.uuid)
-            WorkoutStorageService.saveOrUpdate(
-                workoutUUID: workout.uuid,
-                workoutType: workoutTitle,
-                startedAt: workout.startDate,
-                distanceMeters: distanceM,
-                durationSeconds: workout.duration,
-                avgPaceSecPerKm: analysisResult.avgPaceMinKm * 60.0,
-                avgHeartRate: analysisResult.avgHeartRate,
-                maxHeartRate: analysisResult.maxHeartRate,
-                elevationGainMeters: analysisResult.elevationGainMeters,
-                efficiencyFactor: analysisResult.efficiencyFactor,
-                cardiacDriftPercentage: analysisResult.aerobicDecouplingPct,
-                splits: analysisResult.splits,
-                laps: analysisResult.laps,
-                aiCoachReport: cached?.aiCoachReport
-            )
-
-        } catch {
-            self.errorMessage = "Помилка читання телеметрії: \(error.localizedDescription)"
-        }
-
-        isLoading = false
-    }
-
-    private func iconName(for type: HKWorkoutActivityType) -> String {
+    private func workoutColor(for type: HKWorkoutActivityType) -> Color {
         switch type {
-        case .running: return "figure.run"
-        case .cycling: return "figure.outdoor.cycle"
-        case .walking: return "figure.walk"
-        case .traditionalStrengthTraining, .functionalStrengthTraining: return "figure.strengthtraining.traditional"
-        case .highIntensityIntervalTraining: return "figure.hiit"
-        case .swimming: return "figure.pool.swim"
-        default: return "figure.mixed.cardio"
+        case .running: return LifecoreTheme.statusOptimal
+        case .cycling: return LifecoreTheme.accentTeal
+        case .walking: return LifecoreTheme.accentIndigo
+        case .traditionalStrengthTraining, .functionalStrengthTraining: return LifecoreTheme.statusWarning
+        case .highIntensityIntervalTraining: return LifecoreTheme.statusDanger
+        case .swimming: return LifecoreTheme.accentTeal
+        default: return LifecoreTheme.inkSecondary
         }
     }
 

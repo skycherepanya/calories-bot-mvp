@@ -11,6 +11,7 @@ public struct MacroSummaryCard: View {
     public let targetFatG: Double
     public let carbsG: Double
     public let targetCarbsG: Double
+    public let mealCount: Int
 
     public init(
         consumedKcal: Double,
@@ -20,7 +21,8 @@ public struct MacroSummaryCard: View {
         fatG: Double,
         targetFatG: Double = 70.0,
         carbsG: Double,
-        targetCarbsG: Double = 250.0
+        targetCarbsG: Double = 250.0,
+        mealCount: Int = 1
     ) {
         self.consumedKcal = consumedKcal
         self.targetKcal = targetKcal
@@ -30,6 +32,7 @@ public struct MacroSummaryCard: View {
         self.targetFatG = targetFatG
         self.carbsG = carbsG
         self.targetCarbsG = targetCarbsG
+        self.mealCount = mealCount
     }
 
     public var body: some View {
@@ -57,21 +60,36 @@ public struct MacroSummaryCard: View {
 
             // Calorie Main Meter
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(Int(consumedKcal))")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(LifecoreTheme.inkPrimary)
-                Text("/ \(Int(targetKcal)) ккал")
-                    .font(.subheadline)
-                    .monospacedDigit()
-                    .foregroundStyle(LifecoreTheme.inkSecondary)
-                Spacer()
-                let remaining = max(0, Int(targetKcal - consumedKcal))
-                Text("Залишилось: \(remaining) ккал")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                    .foregroundStyle(remaining > 0 ? LifecoreTheme.statusOptimal : LifecoreTheme.statusDanger)
+                if mealCount == 0 {
+                    Text("—")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                    Text("/ \(Int(targetKcal)) ккал")
+                        .font(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                    Spacer()
+                    Text("Ще немає підтверджених страв")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                } else {
+                    Text("\(Int(consumedKcal))")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
+                    Text("/ \(Int(targetKcal)) ккал")
+                        .font(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                    Spacer()
+                    let remaining = max(0, Int(targetKcal - consumedKcal))
+                    Text("Залишилось: \(remaining) ккал")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .foregroundStyle(remaining > 0 ? LifecoreTheme.statusOptimal : LifecoreTheme.statusDanger)
+                }
             }
 
             // Calorie Progress Bar
@@ -320,6 +338,7 @@ public struct SwipeableMealCardContainer<Content: View>: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("meal_delete")
             .padding(.trailing, 2)
             .opacity(offset < -15 ? 1 : 0)
 
@@ -461,6 +480,7 @@ public struct MealItemCard: View {
             Button(role: .destructive, action: onDelete) {
                 Label("Видалити страву", systemImage: "trash")
             }
+            .accessibilityIdentifier("meal_delete")
         }
         .sheet(isPresented: $showingDetails) {
             MealDetailSheet(meal: meal, onDelete: onDelete)
@@ -730,6 +750,7 @@ public struct MealDetailSheet: View {
                             }
                             .foregroundStyle(LifecoreTheme.statusDanger)
                         }
+                        .accessibilityIdentifier("meal_delete")
                     }
                 }
             }

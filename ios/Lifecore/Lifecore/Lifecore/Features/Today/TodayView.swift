@@ -2,797 +2,525 @@ import SwiftUI
 import HealthKit
 
 public struct TodayView: View {
-    @State private var snapshot: TodaySnapshot?
-    @State private var adaptiveSnapshot: AdaptivePhysiologySnapshot?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var isSyncingWithCloud = false
-    @State private var cloudSyncMessage: String?
-    @State private var isShowingProfileSheet = false
-    @State private var isShowingIntelligenceChat = false
-    @ObservedObject private var athleteStore = AthleteProfileStore.shared
-    @ObservedObject private var planStore = TrainingPlanStore.shared
-    @State private var prescriptionPlan: TrainingPrescriptionPlan?
+    @StateObject private var viewModel: TodayViewModel
+    public var onNavigateToWorkouts: () -> Void
 
-    public var onNavigateToWorkouts: (() -> Void)?
-
-    public init(onNavigateToWorkouts: (() -> Void)? = nil) {
+    public init(
+        viewModel: TodayViewModel? = nil,
+        onNavigateToWorkouts: @escaping () -> Void = {}
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel ?? TodayViewModel())
         self.onNavigateToWorkouts = onNavigateToWorkouts
-    }
-
-    private var todayDateKey: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        // Lifecore 04:00 AM day cutoff
-        let calendar = Calendar.current
-        let shifted = calendar.date(byAdding: .hour, value: -4, to: Date()) ?? Date()
-        return formatter.string(from: shifted)
-    }
-
-    private var assembledTodayDossier: AssembledHealthDossier {
-        let now = Date()
-        let meals = MealStorageService.fetchAcuteNutritionMeals(for: now, hoursBefore: 24.0)
-        let recovery = RecentRecoveryContext(
-            lastNightSleepHours: snapshot?.sleepLog.totalHours,
-            lastNightDeepHours: snapshot?.sleepLog.deepHours,
-            lastNightRemHours: snapshot?.sleepLog.remHours,
-            morningHrvMs: snapshot?.vitalsEvaluation?.hrvPillar.currentValue,
-            baselineHrvMs: snapshot?.vitalsEvaluation?.hrvPillar.baselineValue,
-            morningRhrBpm: snapshot?.vitalsEvaluation?.rhrPillar.currentValue,
-            baselineRhrBpm: snapshot?.vitalsEvaluation?.rhrPillar.baselineValue,
-            yesterdayActiveKcal: nil,
-            recoveryScore: snapshot?.recovery.score,
-            vitalsConfluenceState: snapshot?.vitalsEvaluation?.state.titleUk,
-            acwrRatio: snapshot?.acwr?.ratio,
-            acwrZoneTitleUk: snapshot?.acwr?.titleUk,
-            wristTempDeltaC: snapshot?.sleepLog.wristTempDeltaC,
-            topCorrelationInsightUk: nil
-        )
-
-        return LifecoreContextRAG.assembleDossier(
-            workoutAnalysis: nil,
-            recoveryContext: recovery,
-            meals: meals,
-            adaptiveSummaryUk: adaptiveSnapshot?.statusSummaryUk,
-            prescriptionSummaryUk: prescriptionPlan?.today.archetype.titleUk,
-            anchorDate: now,
-            nutritionWindowHours: 24
-        )
     }
 
     public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
-                    // 1. Hero Cockpit Bento Card (Rings + Adaptive Engine Badge + 1-Tap RPE)
-                    ringsHeaderView
-
-                    // Tactical Training Prescription Card (Lifecore v3.2)
-                    TacticalPrescriptionCard(
-                        plan: prescriptionPlan,
-                        onNavigateToWorkouts: onNavigateToWorkouts
-                    )
-
-                    // 2. Overnight Vitals Corridor & Pre-Symptomatic Illness Radar
-                    OvernightVitalsCard(evaluation: snapshot?.vitalsEvaluation)
-                        .accessibilityIdentifier("card_overnight_vitals")
-
-                    // 3. 24h Energy Bank (Body Battery & Sleep Debt)
-                    EnergyBankCard(energyBank: snapshot?.energyBank)
-                        .accessibilityIdentifier("card_body_battery")
-
-                    // 4. Bento Section: Sleep Architecture & Metabolism (Pure NEAT + Adaptive TDEE)
-                    sleepAndMetabolismBentoSection
-
-                    // 5. Today's Workouts Card
-                    todayWorkoutsCard
-
-                    // 6. Cloud Sync Action
-                    cloudSyncSection
+                ScreenStateView(
+                    state: viewModel.state,
+                    emptyTitle: "Немає фізіологічних даних",
+                    emptyMessage: "Очікування нічних вимірювань Apple Watch або першого тренування.",
+                    emptySystemImage: "bolt.heart",
+                    retryTitle: "Оновити",
+                    onRetry: {
+                        Task { await viewModel.refresh(force: true) }
+                    }
+                ) { snapshot in
+                    dashboardContent(snapshot)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, LifecoreLayout.spacing16)
+                .padding(.vertical, LifecoreLayout.spacing12)
             }
             .accessibilityIdentifier("today_scroll_view")
             .background(LifecoreTheme.paperCanvas.ignoresSafeArea())
             .navigationTitle("Lifecore")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { isShowingProfileSheet = true }) {
+                    Button {
+                        viewModel.isShowingProfile = true
+                    } label: {
                         Image(systemName: "person.crop.circle")
                             .foregroundStyle(LifecoreTheme.accentPrimary)
                     }
                     .accessibilityIdentifier("btn_open_profile")
                 }
+
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 12) {
-                        Button(action: { isShowingIntelligenceChat = true }) {
-                            Image(systemName: "sparkles")
+                    Button {
+                        Task { await viewModel.refresh(force: true) }
+                    } label: {
+                        if viewModel.isRefreshing {
+                            ProgressView()
+                                .tint(LifecoreTheme.accentPrimary)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
                                 .foregroundStyle(LifecoreTheme.accentPrimary)
                         }
-                        .accessibilityIdentifier("btn_open_intelligence")
+                    }
+                    .accessibilityLabel("Оновити дані")
+                }
+            }
+            .sheet(isPresented: $viewModel.isShowingProfile) {
+                AthleteProfileSheet(coordinator: viewModel.coordinator)
+            }
+            .sheet(isPresented: $viewModel.isShowingEvidence) {
+                if let snapshot = viewModel.snapshot {
+                    PhysiologicalEvidenceSheet(snapshot: snapshot)
+                }
+            }
+            .refreshable {
+                await viewModel.refresh(force: true)
+            }
+            .task {
+                await viewModel.refresh(force: false)
+            }
+        }
+    }
 
-                        Button(action: {
-                            Task { await loadData(forceRefresh: true) }
-                        }) {
-                            if isLoading {
-                                ProgressView()
-                                    .tint(LifecoreTheme.accentPrimary)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundStyle(LifecoreTheme.accentPrimary)
+    // MARK: - Dashboard Content
+
+    @ViewBuilder
+    private func dashboardContent(_ snapshot: DailyDashboardSnapshot) -> some View {
+        VStack(spacing: LifecoreLayout.spacing16) {
+            // 1. Date & Freshness Header Row + Profile Button
+            dateAndFreshnessRow(snapshot)
+
+            // 2. Primary Readiness Score & Explanation Card
+            readinessCockpitCard(snapshot)
+
+            // 3. Tactical Next-Session Action Card
+            TacticalPrescriptionCard(
+                snapshot: snapshot,
+                onNavigateToWorkouts: {
+                    viewModel.openWorkout(onNavigate: onNavigateToWorkouts)
+                }
+            )
+
+            // 4. Compact Sleep Architecture
+            compactSleepSection(snapshot)
+
+            // 5. Overnight Vitals Radar & Corridor
+            OvernightVitalsCard(snapshot: snapshot)
+
+            // 6. Activity & Pure NEAT & Nutrition
+            activityAndNutritionSection(snapshot)
+
+            // 7. Latest Workout Row
+            latestWorkoutSection(snapshot)
+
+            // 8. Physiological Evidence Trigger Button
+            evidenceDisclosureRow(snapshot)
+        }
+    }
+
+    // MARK: - Subviews
+
+    private func dateAndFreshnessRow(_ snapshot: DailyDashboardSnapshot) -> some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(formattedDietaryDayUk(snapshot.day))
+                    .font(.headline)
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
+
+                if viewModel.isStale {
+                    LifecoreGlowPill(
+                        text: "Застарілі дані",
+                        systemIcon: "exclamationmark.arrow.triangle.2.circlepath",
+                        color: LifecoreTheme.statusWarning
+                    )
+                } else if viewModel.isRefreshing {
+                    LifecoreGlowPill(
+                        text: "Оновлення...",
+                        systemIcon: "arrow.triangle.2.circlepath",
+                        color: LifecoreTheme.accentPrimary
+                    )
+                }
+            }
+
+            Spacer()
+
+            Button {
+                viewModel.isShowingProfile = true
+            } label: {
+                Image(systemName: "person.crop.circle")
+                    .font(.title2)
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
+                    .frame(minWidth: LifecoreLayout.minTouchTarget, minHeight: LifecoreLayout.minTouchTarget)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("btn_athlete_profile")
+        }
+    }
+
+    private func readinessCockpitCard(_ snapshot: DailyDashboardSnapshot) -> some View {
+        Group {
+            if let score = snapshot.readinessScore {
+                HStack(spacing: 16) {
+                    let recoveryColor: Color = score >= 80 ? LifecoreTheme.statusOptimal :
+                                               (score >= 60 ? LifecoreTheme.statusWarning : LifecoreTheme.statusDanger)
+                    let recoverySubtitle: String = {
+                        if score >= 80 { return "Оптимально" }
+                        if score >= 60 { return "Адаптивно" }
+                        return "Відпочинок"
+                    }()
+
+                    BevelRingView(
+                        title: "Відновлення",
+                        value: "\(score)%",
+                        subtitle: recoverySubtitle,
+                        progress: Double(score) / 100.0,
+                        ringColor: recoveryColor
+                    )
+                    .frame(width: 84)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Індекс готовності")
+                            .font(.headline)
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
+
+                        if let headline = snapshot.vitalsEvaluation?.headline {
+                            Text(headline)
+                                .font(.subheadline)
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
+                                .lineLimit(2)
+                        } else {
+                            Text(recoverySubtitle)
+                                .font(.subheadline)
+                                .foregroundStyle(recoveryColor)
+                        }
+
+                        if let battery = snapshot.currentBodyBattery ?? snapshot.morningBodyBattery {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(LifecoreTheme.accentTeal)
+                                Text("Батарея: \(battery)%")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .monospacedDigit()
+                                    .foregroundStyle(LifecoreTheme.inkSecondary)
                             }
                         }
                     }
+                    Spacer()
                 }
-            }
-            .sheet(isPresented: $isShowingProfileSheet) {
-                AthleteProfileSheet()
-            }
-            .sheet(isPresented: $isShowingIntelligenceChat) {
-                LifecoreIntelligenceChatView(dossier: assembledTodayDossier)
-            }
-            .onChange(of: planStore.queueState) { _ in
-                updatePrescriptionPlan()
-            }
-            .refreshable {
-                await loadData(forceRefresh: true)
-            }
-            .task {
-                await loadData(forceRefresh: false)
-            }
-        }
-    }
-
-    // MARK: - 1. Hero Cockpit Bento Card
-
-    private var ringsHeaderView: some View {
-        VStack(spacing: 14) {
-            // Rings Row
-            HStack(spacing: 10) {
-                // Readiness Ring
-                let recoveryScore = snapshot?.recovery.score ?? 85
-                let recoveryColor: Color = recoveryScore >= 80 ? LifecoreTheme.statusOptimal :
-                                           (recoveryScore >= 60 ? LifecoreTheme.statusWarning : LifecoreTheme.statusDanger)
-                let recoverySubtitle: String = {
-                    switch snapshot?.recovery.state {
-                    case .prime: return "Оптимально"
-                    case .moderate: return "Адаптивно"
-                    case .low: return "Відпочинок"
-                    case .none: return "Оптимально"
+                .padding(.vertical, 4)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "heart.text.square")
+                            .font(.title3)
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
+                        Text("Готовність очікує вимірювань")
+                            .font(.headline)
+                            .foregroundStyle(LifecoreTheme.inkPrimary)
                     }
-                }()
 
-                BevelRingView(
-                    title: "Відновлення",
-                    value: "\(recoveryScore)%",
-                    subtitle: recoverySubtitle,
-                    progress: Double(recoveryScore) / 100.0,
-                    ringColor: recoveryColor
-                )
-
-                // Strain Ring
-                let strain21 = snapshot?.strain.whoopScale21 ?? 11.2
-                let strainPercent = (snapshot?.strain.score100 ?? 53.0) / 100.0
-                BevelRingView(
-                    title: "Навантаження",
-                    value: String(format: "%.1f", strain21),
-                    subtitle: "Шкала 0-21",
-                    progress: strainPercent,
-                    ringColor: LifecoreTheme.statusWarning
-                )
-
-                // Active Move Ring
-                let activeKcal = snapshot?.dailyActivity.activeKcal ?? 0.0
-                let targetMoveKcal = athleteStore.profile.activeMoveGoalKcal
-                let moveRatio = min(1.2, activeKcal / max(100.0, targetMoveKcal))
-                BevelRingView(
-                    title: "Калорії",
-                    value: "\(Int(activeKcal))",
-                    subtitle: "Ціль: \(Int(targetMoveKcal)) ккал",
-                    progress: moveRatio,
-                    ringColor: LifecoreTheme.accentTeal
-                )
-            }
-
-            LifecoreHairlineDivider()
-
-            // ACWR Status Pill
-            if let acwr = snapshot?.acwr {
-                HStack(spacing: 6) {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(acwrColor(acwr.zone))
-                    Text("ACWR \(String(format: "%.2f", acwr.ratio)):")
-                        .font(.system(size: 12, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(LifecoreTheme.inkPrimary)
-                    Text(acwr.titleUk)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(acwrColor(acwr.zone))
+                    Text("Для розрахунку індексу відновлення потрібні нічні вимірювання Apple Watch (HRV та пульс спокою).")
+                        .font(.subheadline)
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule()
-                        .fill(acwrColor(acwr.zone).opacity(0.12))
-                )
-
-                LifecoreHairlineDivider()
-            }
-
-            // Adaptive Engine Live Badge Bar
-            if let adaptive = adaptiveSnapshot {
-                AdaptiveEngineBadgeBar(snapshot: adaptive)
-                LifecoreHairlineDivider()
-            }
-
-            // 1-Tap Subjective RPE Calibration
-            let isCalibrated = athleteStore.profile.lastRpeCalibrationDate == todayDateKey
-            RPEQuickCalibrationRow(isCalibratedToday: isCalibrated) { feedback in
-                athleteStore.recordRPEFeedback(
-                    feedback,
-                    hrvWasLow: (snapshot?.recovery.hrvZScore ?? 0) < -0.8,
-                    sleepWasLow: (snapshot?.sleepLog.totalHours ?? 7.5) < 6.8,
-                    dietaryDate: todayDateKey
-                )
-                Task {
-                    await loadData(forceRefresh: false)
-                }
-            }
-        }
-        .lifecoreGlassCard(cornerRadius: 24)
-    }
-
-    private func acwrColor(_ zone: ACWRZone) -> Color {
-        switch zone {
-        case .undertraining: return LifecoreTheme.accentTeal
-        case .sweetSpot: return LifecoreTheme.statusOptimal
-        case .caution: return LifecoreTheme.statusWarning
-        case .dangerSpike: return LifecoreTheme.statusDanger
-        }
-    }
-
-    // MARK: - 4. Bento Section: Sleep Architecture & Metabolism
-
-    private var sleepAndMetabolismBentoSection: some View {
-        VStack(spacing: 16) {
-            sleepArchitectureCard
-            activityAndNeatCard
-        }
-    }
-
-    private var sleepArchitectureCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("Архітектура сну", systemImage: "moon.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(LifecoreTheme.accentIndigo)
-                Spacer()
-                let total = snapshot?.sleepLog.totalHours ?? 7.5
-                Text(String(format: "%.1f год", total))
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(LifecoreTheme.inkPrimary)
-            }
-
-            let deep = snapshot?.sleepLog.deepHours ?? 1.3
-            let rem = snapshot?.sleepLog.remHours ?? 1.6
-            let core = snapshot?.sleepLog.coreHours ?? 4.2
-            let awake = snapshot?.sleepLog.awakeHours ?? 0.4
-            let sleepDebt = max(0.0, athleteStore.profile.targetSleepHours - (snapshot?.sleepLog.totalHours ?? 7.5))
-
-            HStack(spacing: 8) {
-                sleepBar(label: "Глибокий", hours: deep, color: Color(red: 0.35, green: 0.35, blue: 0.95))
-                sleepBar(label: "REM", hours: rem, color: Color(red: 0.7, green: 0.35, blue: 0.95))
-                sleepBar(label: "Легкий", hours: core, color: Color(red: 0.3, green: 0.7, blue: 0.95))
-                sleepBar(label: "Не спав", hours: awake, color: LifecoreTheme.inkTertiary.opacity(0.4))
-            }
-
-            HStack {
-                if deep >= 1.2 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Оптимальний глибокий сон (клітинне відновлення)")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(LifecoreTheme.statusOptimal)
-                } else {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                        Text("Дефіцит глибокого сну (<1.2 год)")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(LifecoreTheme.statusWarning)
-                }
-
-                Spacer()
-
-                if sleepDebt > 0.2 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                        Text("Борг сну: \(String(format: "%.1f", sleepDebt)) год")
-                    }
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                    .foregroundStyle(LifecoreTheme.statusDanger)
-                } else {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Борг сну відсутній")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(LifecoreTheme.statusOptimal)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
             }
         }
         .lifecoreGlassCard()
     }
 
-    private var activityAndNeatCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("Чистий NEAT та Адаптивний TDEE", systemImage: "flame.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(LifecoreTheme.statusWarning)
-                Spacer()
-                if let adapt = adaptiveSnapshot {
-                    Text("BMR: \(Int(adapt.dynamicTDEE.learnedBmrKcal)) ккал")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(LifecoreTheme.statusOptimal)
+    private func compactSleepSection(_ snapshot: DailyDashboardSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: LifecoreLayout.spacing8) {
+            SectionHeader(title: "Сон", subtitle: "Архітектура останньої ночі")
+
+            if let sleep = snapshot.sleepEpisode {
+                HStack(spacing: LifecoreLayout.spacing12) {
+                    compactSleepPill(
+                        title: "Всього",
+                        value: String(format: "%.1f год", sleep.totalSleepHours),
+                        color: LifecoreTheme.accentIndigo
+                    )
+                    compactSleepPill(
+                        title: "Глибокий",
+                        value: String(format: "%.1f год", sleep.deepDurationSeconds / 3600.0),
+                        color: Color(red: 0.35, green: 0.35, blue: 0.95)
+                    )
+                    compactSleepPill(
+                        title: "REM",
+                        value: String(format: "%.1f год", sleep.remDurationSeconds / 3600.0),
+                        color: Color(red: 0.7, green: 0.35, blue: 0.95)
+                    )
                 }
-            }
-
-            let act = snapshot?.dailyActivity
-            let neat = snapshot?.pureNEATKcal ?? 450.0
-            let workoutKcal = snapshot?.strain.workoutKcal ?? 0.0
-
-            HStack(spacing: 12) {
-                metricCell(title: "Кроки", value: "\(act?.steps ?? 8450)")
-                metricCell(title: "Активні ккал", value: "\(Int(act?.activeKcal ?? 850))")
-                metricCell(title: "Дистанція", value: String(format: "%.1f км", act?.distanceKm ?? 6.2))
-            }
-
-            LifecoreHairlineDivider()
-
-            // NEAT Isolation & Dynamic TDEE Breakdown
-            VStack(alignment: .leading, spacing: 7) {
-                HStack {
-                    Text("Чистий NEAT (побутовий рух)")
-                        .font(.caption)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "moon.fill")
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                    Text("Очікування даних сну Apple Watch...")
+                        .font(.subheadline)
                         .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
-                    Text("\(Int(neat)) ккал")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .monospacedDigit()
-                        .foregroundStyle(LifecoreTheme.statusWarning)
                 }
-
-                HStack {
-                    Text("Тренування (структуровані)")
-                        .font(.caption)
-                        .foregroundStyle(LifecoreTheme.inkSecondary)
-                    Spacer()
-                    Text("\(Int(workoutKcal)) ккал")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .monospacedDigit()
-                        .foregroundStyle(LifecoreTheme.statusOptimal)
-                }
-
-                let learnedBmr = adaptiveSnapshot?.dynamicTDEE.learnedBmrKcal ?? athleteStore.profile.bmrKcalPerDay
-                let elapsedMinutes = max(1.0, Date().timeIntervalSince(Calendar.current.startOfDay(for: Date())) / 60.0)
-                let accruedBMR = learnedBmr * min(1.0, elapsedMinutes / 1440.0)
-                let currentTDEE = (act?.activeKcal ?? 0.0) + accruedBMR
-
-                HStack {
-                    Text("Адаптивний BMR (на цей час)")
-                        .font(.caption)
-                        .foregroundStyle(LifecoreTheme.inkSecondary)
-                    Spacer()
-                    Text("\(Int(accruedBMR)) ккал")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .monospacedDigit()
-                        .foregroundStyle(LifecoreTheme.accentTeal)
-                }
-
-                HStack {
-                    Text("Реальний TDEE (активність + BMR)")
-                        .font(.caption)
-                        .foregroundStyle(LifecoreTheme.inkPrimary)
-                    Spacer()
-                    Text("\(Int(currentTDEE)) ккал")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .monospacedDigit()
-                        .foregroundStyle(LifecoreTheme.statusOptimal)
-                }
-
-                Text("Apple Health активна енергія фіксує лише рух. Базальний метаболізм (BMR ~\(Int(learnedBmr)) ккал/добу) нараховується рівномірно протягом 24 годин.")
-                    .font(.caption2)
-                    .foregroundStyle(LifecoreTheme.inkTertiary)
-                    .padding(.top, 2)
+                .padding(.vertical, LifecoreLayout.spacing4)
             }
         }
         .lifecoreGlassCard()
     }
 
-    // MARK: - 5. Today's Workouts Card
+    private func compactSleepPill(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(LifecoreTheme.inkTertiary)
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(LifecoreTheme.inkPrimary)
+            Capsule()
+                .fill(color)
+                .frame(height: 3)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-    private var todayWorkoutsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Сьогоднішні сесії", systemImage: "figure.run")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(LifecoreTheme.accentPrimary)
+    private func activityAndNutritionSection(_ snapshot: DailyDashboardSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: LifecoreLayout.spacing8) {
+            SectionHeader(title: "Активність та харчування")
 
-            let workouts = snapshot?.workouts ?? []
-            if workouts.isEmpty {
+            VStack(spacing: LifecoreLayout.spacing8) {
+                if let workload = snapshot.workloadEvaluation {
+                    MetricRow(
+                        title: "ACWR Навантаження",
+                        value: String(format: "%.2f", workload.ratio),
+                        detail: "\(workload.titleUk)\(snapshot.isProvisionalWorkload ? " (попереднє)" : "")",
+                        systemImage: "chart.line.uptrend.xyaxis",
+                        statusTone: acwrStatusTone(workload.zone)
+                    )
+                }
+
+                if let adaptive = snapshot.adaptiveSnapshot {
+                    MetricRow(
+                        title: "Адаптивний BMR",
+                        value: "\(Int(round(adaptive.dynamicTDEE.learnedBmrKcal))) ккал",
+                        detail: "Впевненість моделі: \(adaptive.confidencePct)%",
+                        systemImage: "flame.fill",
+                        statusTone: .teal
+                    )
+                }
+
+                let mealsCount = snapshot.confirmedMealsCount
+                let intakeKcal = snapshot.confirmedIntakeKcal
+                MetricRow(
+                    title: "Калорійність харчування",
+                    value: intakeKcal != nil ? "\(Int(round(intakeKcal!))) ккал" : "0 ккал",
+                    detail: "\(mealsCount) підтверджених страв",
+                    systemImage: "fork.knife",
+                    statusTone: mealsCount > 0 ? .optimal : .neutral
+                )
+            }
+        }
+        .lifecoreGlassCard()
+    }
+
+    private func latestWorkoutSection(_ snapshot: DailyDashboardSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: LifecoreLayout.spacing8) {
+            SectionHeader(
+                title: "Останнє тренування",
+                actionTitle: "Всі",
+                action: {
+                    viewModel.openWorkout(onNavigate: onNavigateToWorkouts)
+                }
+            )
+
+            if let workout = snapshot.latestWorkout {
+                Button {
+                    viewModel.openWorkout(onNavigate: onNavigateToWorkouts)
+                } label: {
+                    HStack(spacing: LifecoreLayout.spacing12) {
+                        Image(systemName: workout.isRunning ? "figure.run" : "figure.cross.training")
+                            .font(.title2)
+                            .foregroundStyle(LifecoreTheme.accentPrimary)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(workout.isRunning ? "Бігова сесія" : "Тренування")
+                                .font(.body.weight(.bold))
+                                .foregroundStyle(LifecoreTheme.inkPrimary)
+
+                            HStack(spacing: 8) {
+                                Text("\(Int(workout.durationSeconds / 60)) хв")
+                                if let trimp = workout.trimp {
+                                    Text("• TRIMP \(Int(round(trimp)))")
+                                }
+                                if let ef = workout.efficiencyFactor {
+                                    Text("• EF \(String(format: "%.2f", ef))")
+                                }
+                            }
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(LifecoreTheme.inkTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
                 HStack {
                     Text("Сьогодні ще немає зафіксованих тренувань.")
                         .font(.subheadline)
                         .foregroundStyle(LifecoreTheme.inkSecondary)
                     Spacer()
                 }
-                .padding(.vertical, 4)
-            } else {
-                ForEach(workouts, id: \.startedAt) { w in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(w.type.capitalized)
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundStyle(LifecoreTheme.inkPrimary)
-                            Text("\(Int(w.durationMin)) хв\(w.distanceKm != nil ? String(format: " • %.2f км", w.distanceKm!) : "")")
-                                .font(.caption)
-                                .monospacedDigit()
-                                .foregroundStyle(LifecoreTheme.inkSecondary)
-                        }
-                        Spacer()
-                        if let kcal = w.activeCalories {
-                            Text("\(Int(kcal)) ккал")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
-                                .foregroundStyle(LifecoreTheme.statusOptimal)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
+                .padding(.vertical, LifecoreLayout.spacing4)
             }
         }
         .lifecoreGlassCard()
     }
 
-    // MARK: - 6. Cloud Sync Action
+    private func evidenceDisclosureRow(_ snapshot: DailyDashboardSnapshot) -> some View {
+        Button {
+            viewModel.openEvidence()
+        } label: {
+            HStack(spacing: LifecoreLayout.spacing8) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
+                Text("Фізіологічна доказова база (деталі)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(LifecoreTheme.accentPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LifecoreTheme.inkTertiary)
+            }
+            .frame(maxWidth: .infinity, minHeight: LifecoreLayout.minTouchTarget)
+            .padding(.horizontal, LifecoreLayout.spacing16)
+            .padding(.vertical, LifecoreLayout.spacing12)
+            .background(LifecoreTheme.semanticCard)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("btn_open_evidence")
+    }
 
-    private var cloudSyncSection: some View {
-        VStack(spacing: 8) {
-            Button(action: {
-                Task { await syncWithCloud() }
-            }) {
-                HStack(spacing: 8) {
-                    if isSyncingWithCloud {
-                        ProgressView()
-                            .tint(.white)
+    // MARK: - Helpers
+
+    private func formattedDietaryDayUk(_ day: DietaryDay) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "uk_UA")
+        formatter.dateFormat = "EEEE, d MMMM"
+        return formatter.string(from: day.interval.start).capitalized
+    }
+
+    private func acwrStatusTone(_ zone: ACWRZone) -> MetricStatusTone {
+        switch zone {
+        case .undertraining: return .teal
+        case .sweetSpot: return .optimal
+        case .caution: return .warning
+        case .dangerSpike: return .danger
+        }
+    }
+}
+
+// MARK: - Physiological Evidence Sheet
+
+public struct PhysiologicalEvidenceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    public let snapshot: DailyDashboardSnapshot
+
+    public init(snapshot: DailyDashboardSnapshot) {
+        self.snapshot = snapshot
+    }
+
+    public var body: some View {
+        NavigationStack {
+            List {
+                Section(header: Text("Нічні вітальні біомаркери")) {
+                    if let eval = snapshot.vitalsEvaluation {
+                        evidenceRow(label: "Стан імунітету", value: eval.state.titleUk)
+                        evidenceRow(label: "Висновок", value: eval.headline)
+                        evidenceRow(label: "HRV (поточний)", value: "\(Int(round(eval.hrvPillar.currentValue))) мс")
+                        evidenceRow(label: "HRV (базовий)", value: "\(Int(round(eval.hrvPillar.baselineValue))) мс")
+                        if let z = eval.hrvPillar.zScore {
+                            evidenceRow(label: "HRV Z-Score", value: String(format: "%.2f", z))
+                        }
+                        evidenceRow(label: "RHR (поточний)", value: String(format: "%.1f уд/хв", eval.rhrPillar.currentValue))
+                        evidenceRow(label: "RHR (базовий)", value: String(format: "%.1f уд/хв", eval.rhrPillar.baselineValue))
+                        if let temp = eval.tempPillar {
+                            evidenceRow(label: "Δ Темп. зап’ястя", value: String(format: "%+.2f °C", temp.delta))
+                        }
+                        if let resp = eval.respPillar {
+                            evidenceRow(label: "Частота дихання", value: String(format: "%.1f дих/хв", resp.currentValue))
+                        }
+                        if let spo2 = eval.spo2Pillar {
+                            evidenceRow(label: "SpO₂", value: String(format: "%.1f%%", spo2.currentValue))
+                        }
                     } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Синхронізувати з хмарою")
-                            .fontWeight(.semibold)
+                        Text("Нічні біомаркери відсутні або ще не синхронізовані.")
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(LifecoreTheme.accentPrimary)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .disabled(isSyncingWithCloud)
 
-            if let message = cloudSyncMessage {
-                HStack(spacing: 4) {
-                    Image(systemName: message.contains("Помилка") ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                    Text(message)
+                Section(header: Text("Тренувальне навантаження (ACWR)")) {
+                    if let workload = snapshot.workloadEvaluation {
+                        evidenceRow(label: "ACWR Ratio", value: String(format: "%.2f", workload.ratio))
+                        evidenceRow(label: "Зона навантаження", value: workload.titleUk)
+                        evidenceRow(label: "Гостре навантаження (7d)", value: String(format: "%.1f", workload.acuteLoad))
+                        evidenceRow(label: "Хронічне навантаження (28d)", value: String(format: "%.1f", workload.chronicLoad))
+                        evidenceRow(label: "Статус вибірки", value: snapshot.isProvisionalWorkload ? "Попередній (мало даних)" : "Повний (28+ днів)")
+                    } else {
+                        Text("Історія навантаження ще формується.")
+                            .foregroundStyle(LifecoreTheme.inkSecondary)
+                    }
                 }
-                .font(.caption2)
-                .foregroundStyle(message.contains("Помилка") ? LifecoreTheme.statusDanger : LifecoreTheme.statusOptimal)
+
+                if let adaptive = snapshot.adaptiveSnapshot {
+                    Section(header: Text("Адаптивна фізіологія")) {
+                        evidenceRow(label: "Впевненість моделі", value: "\(adaptive.confidencePct)%")
+                        evidenceRow(label: "Днів спостережень", value: "\(adaptive.sampleDaysCount)")
+                        evidenceRow(label: "Адаптивний BMR", value: "\(Int(round(adaptive.dynamicTDEE.learnedBmrKcal))) ккал")
+                        evidenceRow(label: "Фактор розряду батареї", value: String(format: "%.2f", adaptive.sensitivities.trimpBatteryDrainFactor))
+                        evidenceRow(label: "Вуглеводний нахил дрейфу", value: String(format: "%.2f%%/100г", adaptive.sensitivities.carbCardiacDriftSlopePctPer100g))
+                    }
+                }
+
+                if !snapshot.unavailabilityReasons.isEmpty {
+                    Section(header: Text("Причини обмеження плану")) {
+                        ForEach(snapshot.unavailabilityReasons, id: \.self) { reason in
+                            Text(reason.titleUk)
+                                .font(.subheadline)
+                                .foregroundStyle(LifecoreTheme.statusWarning)
+                        }
+                    }
+                }
+
+                Section(header: Text("Метадані знімка")) {
+                    evidenceRow(label: "Дата дієтичного дня", value: snapshot.day.key)
+                    evidenceRow(label: "Ревізія", value: snapshot.revision.uuidString.prefix(8).description)
+                }
+            }
+            .navigationTitle("Фізіологічні докази")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Готово") { dismiss() }
+                        .foregroundStyle(LifecoreTheme.accentPrimary)
+                }
             }
         }
-        .padding(.top, 4)
     }
 
-    // MARK: - Reusable UI Helper Builders
-
-    private func metricCell(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(LifecoreTheme.inkTertiary)
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(LifecoreTheme.inkPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func sleepBar(label: String, hours: Double, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func evidenceRow(label: String, value: String) -> some View {
+        HStack {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(LifecoreTheme.inkTertiary)
-            Text(String(format: "%.1fг", hours))
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .monospacedDigit()
                 .foregroundStyle(LifecoreTheme.inkPrimary)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(LifecoreTheme.paperWell)
-                    .frame(height: 5)
-                Capsule()
-                    .fill(color)
-                    .frame(width: max(4, min(60, CGFloat(hours / 4.0) * 60)), height: 5)
-            }
+            Spacer()
+            Text(value)
+                .foregroundStyle(LifecoreTheme.inkSecondary)
+                .monospacedDigit()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Logic & Live Data Fetching
-
-    private func loadData(forceRefresh: Bool) async {
-        isLoading = true
-        errorMessage = nil
-
-        // 1. Build longitudinal records to evaluate on-device AdaptivePhysiologyEngine
-        let joinedRecords = await buildJoinedPhysiologyHistory(days: 28)
-        let evaluatedAdaptive = AdaptivePhysiologyEngine.evaluateAdaptiveSnapshot(
-            records: joinedRecords,
-            priorBmrKcal: athleteStore.profile.bmrKcalPerDay,
-            priorTargetKcal: athleteStore.profile.targetCaloriesKcal,
-            priorBaseline: NocturnalVitalsBaseline(
-                hrvMeanMs: athleteStore.profile.hrvBaselineMs,
-                rhrMeanBpm: athleteStore.profile.restingHeartRateBaselineBpm,
-                wristTempMeanCelsius: athleteStore.profile.wristTempBaselineCelsius,
-                respiratoryRateMeanBpm: athleteStore.profile.respiratoryRateBaselineBpm,
-                spo2MeanPct: athleteStore.profile.spo2BaselinePct
-            ),
-            currentWeights: athleteStore.profile.readinessWeights,
-            rpeCheckinsCount: athleteStore.profile.rpeCalibrationCount,
-            todayNeatKcal: 450.0,
-            todayWorkoutKcal: 200.0
-        )
-        self.adaptiveSnapshot = evaluatedAdaptive
-
-        if AppEnvironment.current.isFixtureMode {
-            loadFallbackSnapshot(adaptive: evaluatedAdaptive)
-            updatePrescriptionPlan()
-            isLoading = false
-            return
-        }
-
-        let manager = HealthKitManager.shared
-        if manager.isAvailable {
-            do {
-                try await manager.requestAuthorization()
-                let liveSnapshot = try await manager.fetchTodaySnapshot(
-                    readinessWeights: athleteStore.profile.readinessWeights,
-                    vitalsBaseline: evaluatedAdaptive.dynamicVitalsBaseline,
-                    trimpDrainFactor: evaluatedAdaptive.sensitivities.trimpBatteryDrainFactor
-                )
-                self.snapshot = liveSnapshot
-            } catch {
-                self.errorMessage = error.localizedDescription
-                loadFallbackSnapshot(adaptive: evaluatedAdaptive)
-            }
-        } else {
-            loadFallbackSnapshot(adaptive: evaluatedAdaptive)
-        }
-
-        updatePrescriptionPlan()
-        isLoading = false
-    }
-
-    private func updatePrescriptionPlan() {
-        let acute = snapshot?.acwr?.acuteLoad ?? 55.0
-        let chronic = snapshot?.acwr?.chronicLoad ?? 50.0
-        let vitals = snapshot?.vitalsEvaluation?.state ?? .optimal
-        let battery = snapshot?.energyBank?.wakeBattery ?? 85
-        let restHr = athleteStore.profile.restingHeartRateBaselineBpm > 0 ? athleteStore.profile.restingHeartRateBaselineBpm : 49.0
-        let maxHr = athleteStore.profile.maxHeartRateBpm > 0 ? athleteStore.profile.maxHeartRateBpm : 192.0
-
-        self.prescriptionPlan = TrainingPrescriptionEngine.prescribeTodayAndHorizon(
-            queueState: planStore.queueState,
-            config: planStore.goalConfig,
-            previousAcuteLoad: acute,
-            previousChronicLoad: chronic,
-            vitalsState: vitals,
-            morningBodyBattery: battery,
-            restingHr: restHr,
-            maxHr: maxHr
-        )
-    }
-
-    private func buildJoinedPhysiologyHistory(days: Int = 28) async -> [DailyJoinedPhysiologyRecord] {
-        let rawWeightSamples = await HealthKitManager.shared.fetchBodyWeightHistory(days: days)
-        let fetchedAutonomic = await HealthKitManager.shared.fetchAutonomicLongitudinalHistory(days: days)
-        let fetchedEf = await HealthKitManager.shared.fetchAerobicEfficiencyHistory(limit: max(10, days / 4))
-        let computedPoints = ReadinessCalculator.computeLongitudinalWeightTrend(samples: rawWeightSamples)
-
-        let calendar = Calendar.current
-        let today = Date()
-        var dailyJoined: [DailyJoinedPhysiologyRecord] = []
-        let allMeals = MealStorageService.shared.fetchAllMeals()
-
-        for d in 0..<days {
-            guard let recordDate = calendar.date(byAdding: .day, value: -d, to: today) else { continue }
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            let dateKey = formatter.string(from: recordDate)
-
-            let dayMeals = allMeals.filter { $0.dietaryDate == dateKey }
-            var daySodium = 0.0
-            var dayCarbs = 0.0
-            var dayProtein = 0.0
-            var dayFat = 0.0
-            var wholeCount = 0
-            var ultraCount = 0
-
-            for m in dayMeals {
-                if let s = m.micronutrients?.sodiumMg { daySodium += s }
-                dayCarbs += m.carbsG
-                dayProtein += m.proteinG
-                dayFat += m.fatG
-                if m.isWholeFood { wholeCount += 1 }
-                if m.isUltraProcessed { ultraCount += 1 }
-            }
-
-            let wholeRatio = dayMeals.isEmpty ? 0.85 : Double(wholeCount) / Double(dayMeals.count)
-            let ultraRatio = dayMeals.isEmpty ? 0.10 : Double(ultraCount) / Double(dayMeals.count)
-
-            let hasLateMeal = dayMeals.contains { meal in
-                let hour = calendar.component(.hour, from: meal.createdAt)
-                let minute = calendar.component(.minute, from: meal.createdAt)
-                return (hour > 21 || (hour == 21 && minute >= 30))
-            }
-            let hasHighSodium = daySodium >= 2800.0 || dayMeals.contains { $0.tags.contains("high_sodium") }
-
-            let weightPoint = computedPoints.first { calendar.isDate($0.date, inSameDayAs: recordDate) }
-            let autoSample = fetchedAutonomic.first { calendar.isDate($0.date, inSameDayAs: recordDate) }
-            let efSample = fetchedEf.first { calendar.isDate($0.date, inSameDayAs: recordDate) }
-
-            dailyJoined.append(DailyJoinedPhysiologyRecord(
-                dateString: dateKey,
-                date: recordDate,
-                weightKg: weightPoint?.rawWeightKg ?? (d == 0 ? athleteStore.profile.weightKg : nil),
-                rollingWeight7dKg: weightPoint?.rolling7dKg,
-                sodiumMg: daySodium > 0 ? daySodium : (hasHighSodium ? 3200.0 : 0.0),
-                carbsG: dayCarbs,
-                proteinG: dayProtein,
-                fatG: dayFat,
-                wholeFoodRatio: wholeRatio,
-                ultraProcessedRatio: ultraRatio,
-                hasLateMealAfter2130: hasLateMeal,
-                hasHighSodiumMeal: hasHighSodium,
-                overnightHrvMs: autoSample?.hrvMs ?? (d == 0 ? athleteStore.profile.hrvBaselineMs : nil),
-                overnightRhrBpm: autoSample?.rhrBpm ?? (d == 0 ? athleteStore.profile.restingHeartRateBaselineBpm : nil),
-                deepSleepHours: 1.3,
-                remSleepHours: 1.5,
-                workoutTrimp: efSample != nil ? 95.0 : 35.0,
-                runningCardiacDriftPct: efSample?.aerobicDecouplingPct,
-                runningEf: efSample?.efficiencyFactor
-            ))
-        }
-
-        return dailyJoined
-    }
-
-    private func loadFallbackSnapshot(adaptive: AdaptivePhysiologySnapshot) {
-        let baseline = ReadinessCalculator.Baseline(
-            avgHrvSDNN: adaptive.dynamicVitalsBaseline.hrvMeanMs,
-            stdDevHrv: adaptive.dynamicVitalsBaseline.hrvStdDevMs,
-            avgRHR: adaptive.dynamicVitalsBaseline.rhrMeanBpm,
-            targetSleepHours: athleteStore.profile.targetSleepHours,
-            targetDeepHours: 1.2,
-            targetRemHours: 1.5
-        )
-        let sleep = SleepLog(
-            sleepDate: todayDateKey,
-            totalHours: 7.8,
-            deepHours: 1.4,
-            remHours: 1.6,
-            coreHours: 4.3,
-            awakeHours: 0.5,
-            hrvAvgMs: adaptive.dynamicVitalsBaseline.hrvMeanMs + 2.0,
-            rhrBpm: adaptive.dynamicVitalsBaseline.rhrMeanBpm - 1.0
-        )
-        let activity = DailyActivity(
-            date: todayDateKey,
-            steps: 9240,
-            activeKcal: 865.0,
-            distanceKm: 6.8
-        )
-        let recovery = ReadinessCalculator.computeRecovery(
-            morningHrv: sleep.hrvAvgMs,
-            morningRhr: sleep.rhrBpm,
-            totalSleepHours: 7.8,
-            deepSleepHours: 1.4,
-            remSleepHours: 1.6,
-            baseline: baseline,
-            weights: athleteStore.profile.readinessWeights
-        )
-        let strain = ReadinessCalculator.computeStrain(
-            dailyActiveKcal: 865.0,
-            workouts: []
-        )
-        let neat = ReadinessCalculator.isolatePureNEAT(dailyActiveKcal: 865.0, workoutActiveKcals: [])
-
-        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(
-            input: NocturnalVitalsInput(
-                hrvMs: sleep.hrvAvgMs ?? adaptive.dynamicVitalsBaseline.hrvMeanMs,
-                rhrBpm: sleep.rhrBpm ?? adaptive.dynamicVitalsBaseline.rhrMeanBpm,
-                wristTempCelsius: athleteStore.profile.wristTempBaselineCelsius,
-                respiratoryRateBpm: athleteStore.profile.respiratoryRateBaselineBpm,
-                spo2Pct: athleteStore.profile.spo2BaselinePct
-            ),
-            baseline: adaptive.dynamicVitalsBaseline
-        )
-
-        let energyBank = TrainingLoadAndBatteryEngine.computeEnergyBankTimeline(
-            wakeRecoveryScore: recovery.score,
-            sleepHours: sleep.totalHours,
-            targetSleepHours: athleteStore.profile.targetSleepHours,
-            pureNeatKcal: neat,
-            workouts: [],
-            immuneState: vitalsEval.state,
-            currentHour: Calendar.current.component(.hour, from: Date()),
-            trimpDrainFactor: adaptive.sensitivities.trimpBatteryDrainFactor
-        )
-
-        let acwr = TrainingLoadAndBatteryEngine.computeEWMAWorkload(
-            dailyLoads: [(date: Date(), trimp: 45.0)]
-        )
-
-        self.snapshot = TodaySnapshot(
-            dailyActivity: activity,
-            sleepLog: sleep,
-            workouts: [],
-            baseline: baseline,
-            recovery: recovery,
-            strain: strain,
-            pureNEATKcal: neat,
-            vitalsEvaluation: vitalsEval,
-            energyBank: energyBank,
-            acwr: acwr
-        )
-    }
-
-    private func syncWithCloud() async {
-        guard !AppEnvironment.current.isFixtureMode else {
-            cloudSyncMessage = "Хмара оновлена (fixture mode)"
-            return
-        }
-        guard let snap = snapshot else { return }
-        isSyncingWithCloud = true
-        cloudSyncMessage = "Синхронізація..."
-
-        do {
-            try await SupabaseSyncService.shared.syncTelemetry(
-                dailyActivity: snap.dailyActivity,
-                sleep: snap.sleepLog,
-                workout: snap.workouts.first,
-                pureNEATKcal: snap.pureNEATKcal
-            )
-            let result = await SupabaseSyncService.shared.syncAll()
-            cloudSyncMessage = "Хмара оновлена (страв: \(result.mealsSynced), тренувань: \(result.analysesSynced))"
-        } catch {
-            cloudSyncMessage = "Помилка: \(error.localizedDescription)"
-        }
-
-        isSyncingWithCloud = false
     }
 }
 

@@ -154,7 +154,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
                 throw CloudSyncTransportError.badRequest(statusCode: 400, message: "Invalid meals PATCH URL")
             }
 
-            var request = makeAuthorizedRequest(url: url, method: "PATCH")
+            var request = try makeAuthorizedRequest(url: url, method: "PATCH")
             request.setValue("return=representation", forHTTPHeaderField: "Prefer")
             request.httpBody = bodyData
 
@@ -188,7 +188,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
             throw CloudSyncTransportError.conflict(remoteRevision: remote.revision, remotePayloadJson: remote.payloadJson)
         } else {
             let url = supabaseURL.appendingPathComponent("rest/v1/meals")
-            var request = makeAuthorizedRequest(url: url, method: "POST")
+            var request = try makeAuthorizedRequest(url: url, method: "POST")
             request.setValue("return=representation", forHTTPHeaderField: "Prefer")
             request.httpBody = bodyData
 
@@ -234,7 +234,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
                 throw CloudSyncTransportError.badRequest(statusCode: 400, message: "Invalid workout_analyses PATCH URL")
             }
 
-            var request = makeAuthorizedRequest(url: url, method: "PATCH")
+            var request = try makeAuthorizedRequest(url: url, method: "PATCH")
             request.setValue("return=representation", forHTTPHeaderField: "Prefer")
             request.httpBody = bodyData
 
@@ -263,7 +263,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
                 throw CloudSyncTransportError.badRequest(statusCode: 400, message: "Invalid workout_analyses POST URL")
             }
 
-            var request = makeAuthorizedRequest(url: url, method: "POST")
+            var request = try makeAuthorizedRequest(url: url, method: "POST")
             request.setValue("resolution=merge-duplicates,return=representation", forHTTPHeaderField: "Prefer")
             request.httpBody = bodyData
 
@@ -303,7 +303,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
             throw CloudSyncTransportError.badRequest(statusCode: 400, message: "Invalid meals GET URL")
         }
 
-        let request = makeAuthorizedRequest(url: url, method: "GET")
+        let request = try makeAuthorizedRequest(url: url, method: "GET")
         let (data, httpResponse) = try await performDataRequest(request)
         try validateStatusCode(httpResponse, data: data)
 
@@ -337,7 +337,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
             throw CloudSyncTransportError.badRequest(statusCode: 400, message: "Invalid workout_analyses GET URL")
         }
 
-        let request = makeAuthorizedRequest(url: url, method: "GET")
+        let request = try makeAuthorizedRequest(url: url, method: "GET")
         let (data, httpResponse) = try await performDataRequest(request)
         try validateStatusCode(httpResponse, data: data)
 
@@ -349,13 +349,18 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
 
     // MARK: - HTTP Helpers
 
-    private func makeAuthorizedRequest(url: URL, method: String) -> URLRequest {
+    private func makeAuthorizedRequest(url: URL, method: String) throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+
+        if let userToken = try AccountSessionManager.currentAccessTokenIfValid() {
+            request.setValue("Bearer \(userToken)", forHTTPHeaderField: "Authorization")
+        } else {
+            request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+        }
         return request
     }
 
@@ -415,7 +420,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
         components.queryItems = queryItems
         guard let url = components.url else { return nil }
 
-        let request = makeAuthorizedRequest(url: url, method: "GET")
+        guard let request = try? makeAuthorizedRequest(url: url, method: "GET") else { return nil }
         guard let (data, response) = try? await performDataRequest(request),
               (200...299).contains(response.statusCode),
               let items = try? CloudJSONCoding.makeDecoder().decode([MealCloudDTO].self, from: data) else {
@@ -442,7 +447,7 @@ public final class URLSessionCloudSyncTransport: CloudSyncTransport, @unchecked 
         ]
         guard let url = components.url else { return (nil, nil) }
 
-        let request = makeAuthorizedRequest(url: url, method: "GET")
+        guard let request = try? makeAuthorizedRequest(url: url, method: "GET") else { return (nil, nil) }
         guard let (data, response) = try? await performDataRequest(request),
               (200...299).contains(response.statusCode),
               let items = try? CloudJSONCoding.makeDecoder().decode([WorkoutAnalysisCloudDTO].self, from: data),
@@ -500,6 +505,23 @@ public final class SyncCoordinator {
         if let userId {
             self.userId = userId
         }
+    }
+
+    /// Isolates and purges pending and processing operations on account switch or signout.
+    public func isolateOutboxOnAccountChange() throws {
+        let ctx = context
+        let pending = SyncOperationStatus.pending.rawValue
+        let processing = SyncOperationStatus.processing.rawValue
+        let failed = SyncOperationStatus.failed.rawValue
+
+        let descriptor = FetchDescriptor<SyncOperationEntity>(
+            predicate: #Predicate { $0.status == pending || $0.status == processing || $0.status == failed }
+        )
+        let ops = try ctx.fetch(descriptor)
+        for op in ops {
+            ctx.delete(op)
+        }
+        try ctx.save()
     }
 
     // MARK: - Outbox Enqueue Helpers

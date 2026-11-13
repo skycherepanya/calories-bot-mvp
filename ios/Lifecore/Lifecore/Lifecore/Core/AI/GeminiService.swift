@@ -120,7 +120,7 @@ public struct GeminiResponse: Codable, Sendable {
     public let candidates: [Candidate]?
 }
 
-public enum GeminiError: Error, LocalizedError {
+public enum GeminiError: Error, LocalizedError, Equatable {
     case missingApiKey
     case invalidURL
     case httpError(statusCode: Int, message: String)
@@ -143,6 +143,17 @@ public enum GeminiError: Error, LocalizedError {
     }
 }
 
+public extension GeminiError {
+    static let missingAPIKey: GeminiError = .missingApiKey
+}
+
+public func ~= (pattern: GeminiError, value: any Error) -> Bool {
+    guard let geminiError = value as? GeminiError else { return false }
+    return geminiError == pattern
+}
+
+public typealias GeminiServiceError = GeminiError
+
 // MARK: - Gemini Service
 
 public final class GeminiService: @unchecked Sendable {
@@ -153,15 +164,8 @@ public final class GeminiService: @unchecked Sendable {
         return _shared
     }
 
-    /// Bundled default API key matching Lifecore environment
-    private static let encodedKey = "QVEuQWI4Uk42TGhKZnl6M21ObUpfZHE3d1BwZTBUMUV1Z2VhRnJWb2hXNWVGV1E5VlZfbGc="
-    public static var defaultApiKey: String {
-        guard let data = Data(base64Encoded: encodedKey),
-              let decoded = String(data: data, encoding: .utf8) else {
-            return ""
-        }
-        return decoded
-    }
+    /// Default API key is empty to avoid bundled secrets in binary.
+    public static let defaultApiKey: String = ""
 
     /// Model cascade prioritized by real-time latency and reliability
     public static let foodModelCascade = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.8-flash"]
@@ -174,14 +178,19 @@ public final class GeminiService: @unchecked Sendable {
     }
 
     public func setApiKey(_ key: String) {
-        self.customApiKey = key
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            self.customApiKey = nil
+            try? AppConfiguration.activeCredentialStore().deleteCredential(forKey: CredentialKeys.geminiAPIKey)
+        } else {
+            self.customApiKey = trimmed
+            try? AppConfiguration.activeCredentialStore().setCredential(trimmed, forKey: CredentialKeys.geminiAPIKey)
+        }
     }
 
     public var currentApiKey: String? {
-        if let key = customApiKey { return key }
-        if let envKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !envKey.isEmpty { return envKey }
-        if let stored = UserDefaults.standard.string(forKey: "GEMINI_API_KEY"), !stored.isEmpty { return stored }
-        return Self.defaultApiKey
+        if let key = customApiKey, !key.isEmpty { return key }
+        return AppConfiguration.resolveGeminiAPIKey()
     }
 
     // MARK: - Food Vision & Text Analysis
@@ -324,7 +333,10 @@ public final class GeminiService: @unchecked Sendable {
         modelCascade: [String]? = nil
     ) async throws -> StructuredWorkoutDebrief {
         guard let apiKey = currentApiKey, !apiKey.isEmpty else {
-            return generateStructuredWorkoutDebriefOffline(dossier: dossier)
+            if AppEnvironment.current.isFixtureMode {
+                return generateStructuredWorkoutDebriefOffline(dossier: dossier)
+            }
+            throw GeminiServiceError.missingAPIKey
         }
 
         let userPrompt = CoachPrompt.buildDossierPrompt(dossier: dossier)
@@ -408,7 +420,10 @@ public final class GeminiService: @unchecked Sendable {
         modelCascade: [String]? = nil
     ) async throws -> AnalystChatTurnResponse {
         guard let apiKey = currentApiKey, !apiKey.isEmpty else {
-            return generateOfflineAnalystChatResponse(userQuery: userQuery, dossier: dossier)
+            if AppEnvironment.current.isFixtureMode {
+                return generateOfflineAnalystChatResponse(userQuery: userQuery, dossier: dossier)
+            }
+            throw GeminiServiceError.missingAPIKey
         }
 
         let userPrompt = CoachPrompt.buildAnalystChatPrompt(userQuery: userQuery, history: history, dossier: dossier)

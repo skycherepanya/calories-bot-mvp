@@ -4,14 +4,20 @@ import Charts
 // MARK: - Time Range
 
 public enum TrendsTimeRange: Int, CaseIterable, Identifiable {
+    case days7 = 7
+    case days14 = 14
     case days30 = 30
     case days60 = 60
     case days90 = 90
+
+    public static let allCases: [TrendsTimeRange] = [.days7, .days14, .days30, .days90]
 
     public var id: Int { rawValue }
 
     public var titleUk: String {
         switch self {
+        case .days7: return "7 днів"
+        case .days14: return "14 днів"
         case .days30: return "30 днів"
         case .days60: return "60 днів"
         case .days90: return "90 днів"
@@ -59,6 +65,7 @@ public struct TrendsRangePickerView: View {
         .padding(4)
         .background(LifecoreTheme.paperWell)
         .clipShape(Capsule())
+        .accessibilityIdentifier("picker_trends_range")
     }
 }
 
@@ -287,8 +294,8 @@ public struct WeightTrendCard: View {
     }
 
     private var weightChart: some View {
-        let minWeight = max(40.0, (points.map(\.rawWeightKg).min() ?? 78.0) - 1.5)
-        let maxWeight = min(150.0, (points.map(\.rawWeightKg).max() ?? 80.0) + 1.5)
+        let allWeights = points.compactMap(\.rawWeightKg) + points.compactMap(\.rolling7dKg) + points.compactMap(\.rolling14dKg)
+        let domain = ChartDomain.weight(allWeights) ?? (40.0...100.0)
 
         return Chart {
             ForEach(points) { p in
@@ -337,7 +344,7 @@ public struct WeightTrendCard: View {
                 .symbolSize(60)
             }
         }
-        .chartYScale(domain: minWeight...maxWeight)
+        .chartYScale(domain: domain)
         .chartXSelection(value: $selectedDate)
         .chartXAxis {
             AxisMarks(values: .stride(by: .day, count: points.count > 45 ? 14 : 7)) { value in
@@ -541,17 +548,13 @@ public struct AutonomicTrendCard: View {
     private var autonomicChart: some View {
         let validSamples = samples.filter { selectedMetric == .hrv ? ($0.hrvMs != nil) : ($0.rhrBpm != nil) }
 
-        let minY: Double
-        let maxY: Double
-
+        let domain: ClosedRange<Double>
         if selectedMetric == .hrv {
-            let values = validSamples.compactMap(\.hrvMs) + validSamples.compactMap(\.hrvBaselineLower)
-            minY = max(30.0, (values.min() ?? 80.0) - 10.0)
-            maxY = min(200.0, (validSamples.compactMap(\.hrvMs).max() ?? 120.0) + 15.0)
+            let values = validSamples.compactMap(\.hrvMs) + validSamples.compactMap(\.hrvBaselineLower) + validSamples.compactMap(\.hrvBaselineUpper)
+            domain = ChartDomain.hrvDomain(values) ?? (30.0...150.0)
         } else {
             let values = validSamples.compactMap(\.rhrBpm)
-            minY = max(35.0, (values.min() ?? 45.0) - 5.0)
-            maxY = min(90.0, (values.max() ?? 60.0) + 5.0)
+            domain = ChartDomain.rhrDomain(values) ?? (40.0...80.0)
         }
 
         return Chart {
@@ -600,7 +603,7 @@ public struct AutonomicTrendCard: View {
                     if let rhr = s.rhrBpm {
                         AreaMark(
                             x: .value("Дата", s.date, unit: .day),
-                            yStart: .value("Базовий RHR", minY),
+                            yStart: .value("Базовий RHR", domain.lowerBound),
                             yEnd: .value("RHR", rhr)
                         )
                         .foregroundStyle(
@@ -652,7 +655,7 @@ public struct AutonomicTrendCard: View {
                 }
             }
         }
-        .chartYScale(domain: minY...maxY)
+        .chartYScale(domain: domain)
         .chartXSelection(value: $selectedDate)
         .chartXAxis {
             AxisMarks(values: .stride(by: .day, count: samples.count > 45 ? 14 : 7)) { value in
@@ -813,8 +816,8 @@ public struct AerobicEfficiencyTrendCard: View {
     }
 
     private var efChart: some View {
-        let minEf = max(0.5, (samples.map(\.efficiencyFactor).min() ?? 1.1) - 0.08)
-        let maxEf = min(3.0, (samples.map(\.efficiencyFactor).max() ?? 1.4) + 0.08)
+        let values = samples.map(\.efficiencyFactor)
+        let domain = ChartDomain.aerobicEfficiencyDomain(values) ?? (0.5...2.0)
 
         return Chart {
             ForEach(samples) { s in
@@ -847,7 +850,7 @@ public struct AerobicEfficiencyTrendCard: View {
                 .symbolSize(55)
             }
         }
-        .chartYScale(domain: minEf...maxEf)
+        .chartYScale(domain: domain)
         .chartXSelection(value: Binding(
             get: {
                 selectedSample?.date

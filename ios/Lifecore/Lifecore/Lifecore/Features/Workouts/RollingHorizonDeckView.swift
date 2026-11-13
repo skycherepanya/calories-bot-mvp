@@ -4,32 +4,38 @@ import HealthKit
 public struct RollingHorizonDeckView: View {
     @ObservedObject public var planStore = TrainingPlanStore.shared
     @ObservedObject public var athleteStore = AthleteProfileStore.shared
+    public var snapshotState: ScreenState<DailyDashboardSnapshot>
     public var pastWorkouts: [HKWorkout] = []
 
     @State private var selectedDayOffset: Int = 0
 
-    public init(pastWorkouts: [HKWorkout] = []) {
+    public init(
+        snapshotState: ScreenState<DailyDashboardSnapshot>? = nil,
+        pastWorkouts: [HKWorkout] = []
+    ) {
+        self.snapshotState = snapshotState ?? AppEnvironment.current.snapshotCoordinator.state
         self.pastWorkouts = pastWorkouts
     }
 
-    private var currentPlan: TrainingPrescriptionPlan {
-        TrainingPrescriptionEngine.prescribeTodayAndHorizon(
-            queueState: planStore.queueState,
-            config: planStore.goalConfig,
-            previousAcuteLoad: 64.0,
-            previousChronicLoad: 60.0,
-            vitalsState: .optimal,
-            restingHr: athleteStore.profile.restingHeartRateBaselineBpm,
-            maxHr: athleteStore.profile.maxHeartRateBpm
-        )
+    public init(pastWorkouts: [HKWorkout] = []) {
+        self.snapshotState = AppEnvironment.current.snapshotCoordinator.state
+        self.pastWorkouts = pastWorkouts
     }
 
-    private var todayPrescription: DailyWorkoutPrescription {
-        currentPlan.today
+    private var snapshot: DailyDashboardSnapshot? {
+        snapshotState.value
     }
 
-    private var bannerColor: Color {
-        switch todayPrescription.adaptationReason {
+    private var currentPlan: TrainingPrescriptionPlan? {
+        snapshot?.prescriptionPlan
+    }
+
+    private var unavailabilityReasons: [PrescriptionUnavailabilityReason] {
+        snapshot?.unavailabilityReasons ?? []
+    }
+
+    private func bannerColor(for prescription: DailyWorkoutPrescription) -> Color {
+        switch prescription.adaptationReason {
         case .blockedByIllnessProdrome:
             return LifecoreTheme.statusDanger
         case .downgradedByVitalsOrBattery, .modulatedByHRV, .cappedByCaloricDeficit, .downgradedByAcuteLoadSpike, .heldByCardiacDrift:
@@ -44,14 +50,24 @@ public struct RollingHorizonDeckView: View {
             // 1. Upgraded Interactive Bevel 7-Day Calendar Strip
             bevelCalendarStrip
 
-            // 2. AI Coach Recommendation Banner
-            bevelCoachRecommendationBanner
+            if let plan = currentPlan {
+                // 2. AI Coach Recommendation Banner
+                bevelCoachRecommendationBanner(for: plan.today)
 
-            // 3. Selected Day Activity Inspector (Today + Past/Future Inspection)
-            selectedDayActivitySection
+                // 3. Selected Day Activity Inspector (Today + Past/Future Inspection)
+                selectedDayActivitySection(plan: plan)
 
-            // 4. Upcoming Horizon Schedule
-            upcomingHorizonSection
+                // 4. Upcoming Horizon Schedule
+                upcomingHorizonSection(plan: plan)
+            } else {
+                // Unavailability Reasons Card
+                unavailabilityCard
+
+                // If a past day is selected, user can still inspect past workouts!
+                if selectedDayOffset < 0 {
+                    selectedDayPastActivitySection
+                }
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("deck_rolling_horizon")
@@ -170,19 +186,36 @@ public struct RollingHorizonDeckView: View {
     @ViewBuilder
     private func glyphForSlot(_ slot: DaySlot, isSelected: Bool) -> some View {
         if slot.isToday {
-            ZStack {
-                Circle()
-                    .strokeBorder(
-                        LifecoreTheme.accentPrimary,
-                        style: StrokeStyle(lineWidth: 1.5, dash: [3])
-                    )
-                    .frame(width: 34, height: 34)
-                Circle()
-                    .fill(LifecoreTheme.accentPrimary.opacity(isSelected ? 0.18 : 0.10))
-                    .frame(width: 34, height: 34)
-                Image(systemName: todayPrescription.archetype.iconName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(LifecoreTheme.accentPrimary)
+            if let todayPrescription = currentPlan?.today {
+                ZStack {
+                    Circle()
+                        .strokeBorder(
+                            LifecoreTheme.accentPrimary,
+                            style: StrokeStyle(lineWidth: 1.5, dash: [3])
+                        )
+                        .frame(width: 34, height: 34)
+                    Circle()
+                        .fill(LifecoreTheme.accentPrimary.opacity(isSelected ? 0.18 : 0.10))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: todayPrescription.archetype.iconName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.accentPrimary)
+                }
+            } else {
+                ZStack {
+                    Circle()
+                        .strokeBorder(
+                            LifecoreTheme.inkTertiary.opacity(0.4),
+                            style: StrokeStyle(lineWidth: 1.2, dash: [3])
+                        )
+                        .frame(width: 34, height: 34)
+                    Circle()
+                        .fill(LifecoreTheme.paperWell)
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "hourglass")
+                        .font(.system(size: 12))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                }
             }
         } else if slot.offset < 0 {
             if let w = workoutFor(date: slot.date) {
@@ -207,8 +240,8 @@ public struct RollingHorizonDeckView: View {
             }
         } else {
             let queueIdx = slot.offset - 1
-            if queueIdx < currentPlan.horizonQueue.count {
-                let upcoming = currentPlan.horizonQueue[queueIdx]
+            if let plan = currentPlan, queueIdx < plan.horizonQueue.count {
+                let upcoming = plan.horizonQueue[queueIdx]
                 if upcoming.archetype == .restDay {
                     ZStack {
                         Circle()
@@ -228,13 +261,25 @@ public struct RollingHorizonDeckView: View {
                             .foregroundStyle(LifecoreTheme.accentTeal)
                     }
                 }
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(LifecoreTheme.paperWell)
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 11))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                }
             }
         }
     }
 
     private func workoutFor(date: Date) -> HKWorkout? {
         let cal = Calendar.current
-        return pastWorkouts.first { cal.isDate($0.startDate, inSameDayAs: date) }
+        let targetDay = DietaryDay.containing(date, calendar: cal)
+        return pastWorkouts.first {
+            DietaryDay.containing($0.startDate, calendar: cal) == targetDay
+        }
     }
 
     private func glyphInfoForWorkout(_ w: HKWorkout) -> (icon: String, color: Color) {
@@ -254,12 +299,13 @@ public struct RollingHorizonDeckView: View {
 
     // MARK: - 2. AI Coach Recommendation Banner
 
-    private var bevelCoachRecommendationBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func bevelCoachRecommendationBanner(for todayPrescription: DailyWorkoutPrescription) -> some View {
+        let color = bannerColor(for: todayPrescription)
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: todayPrescription.adaptationReason == .blockedByIllnessProdrome ? "cross.case.fill" : "sparkles")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(bannerColor)
+                    .foregroundStyle(color)
 
                 Text(todayPrescription.adaptationReason.bevelHeadlineUk)
                     .font(.system(size: 15, weight: .bold))
@@ -290,22 +336,79 @@ public struct RollingHorizonDeckView: View {
         .lifecoreGlassCard(cornerRadius: 20)
     }
 
+    // MARK: - Unavailability Card
+
+    private var unavailabilityCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.shield")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(LifecoreTheme.statusWarning)
+                Text("Адаптивний план тренувань")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
+                Spacer()
+                if let generatedAt = snapshot?.generatedAt {
+                    Text(formattedTime(generatedAt))
+                        .font(.system(size: 11))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                }
+            }
+
+            if !unavailabilityReasons.isEmpty {
+                Text("План на сьогодні недоступний через брак фізіологічних спостережень:")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(unavailabilityReasons, id: \.rawValue) { reason in
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 5))
+                                .foregroundStyle(LifecoreTheme.statusWarning)
+                                .padding(.top, 5)
+                            Text(reason.titleUk)
+                                .font(.system(size: 12))
+                                .foregroundStyle(LifecoreTheme.inkSecondary)
+                        }
+                    }
+                }
+            } else if case .loading = snapshotState {
+                Text("Аналіз фізіологічних даних та розрахунок навантаження...")
+                    .font(.system(size: 12))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+            } else if case .failed(let msg, _) = snapshotState {
+                Text("Помилка синхронізації: \(msg)")
+                    .font(.system(size: 12))
+                    .foregroundStyle(LifecoreTheme.statusDanger)
+            } else {
+                Text("Недостатньо біометричних спостережень для формування адаптивного плану.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(LifecoreTheme.inkSecondary)
+            }
+        }
+        .lifecoreGlassCard(cornerRadius: 20)
+    }
+
     // MARK: - 3. Selected Day Activity Section
 
-    private var selectedDayActivitySection: some View {
+    private func selectedDayActivitySection(plan: TrainingPrescriptionPlan) -> some View {
         let activePrescription: DailyWorkoutPrescription = {
             if selectedDayOffset > 0 {
                 let idx = selectedDayOffset - 1
-                if idx < currentPlan.horizonQueue.count {
-                    return currentPlan.horizonQueue[idx]
+                if idx < plan.horizonQueue.count {
+                    return plan.horizonQueue[idx]
                 }
             }
-            return todayPrescription
+            return plan.today
         }()
 
         let sectionHeaderTitle: String = {
             if selectedDayOffset == 0 { return "Сьогоднішня активність" }
             if selectedDayOffset < 0 { return "Архів за обраний день" }
+            if let gen = snapshot?.generatedAt {
+                return "Запланована сесія · Прогноз (\(formattedTime(gen)))"
+            }
             return "Запланована сесія (\(slotLabel(offset: selectedDayOffset)))"
         }()
 
@@ -325,54 +428,7 @@ public struct RollingHorizonDeckView: View {
             }
 
             if selectedDayOffset < 0 {
-                if let slot = calendarDays.first(where: { $0.offset == selectedDayOffset }),
-                   let pastW = workoutFor(date: slot.date) {
-                    let distKm = (pastW.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
-                    let durMin = pastW.duration / 60.0
-                    HStack(spacing: 12) {
-                        let info = glyphInfoForWorkout(pastW)
-                        ZStack {
-                            Circle()
-                                .fill(info.color.opacity(0.14))
-                                .frame(width: 44, height: 44)
-                            Image(systemName: info.icon)
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(info.color)
-                        }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Виконане тренування")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(LifecoreTheme.inkSecondary)
-                            Text(String(format: "%.0f хв  ·  %.2f км", durMin, distKm))
-                                .font(.system(size: 15, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(LifecoreTheme.inkPrimary)
-                        }
-                        Spacer()
-                    }
-                    .lifecoreWell(cornerRadius: 14, padding: 12)
-                } else {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(LifecoreTheme.paperWell)
-                                .frame(width: 44, height: 44)
-                            Image(systemName: "moon.zzz.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(LifecoreTheme.inkTertiary)
-                        }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("День відпочинку")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(LifecoreTheme.inkSecondary)
-                            Text("Тренувань не зафіксовано")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(LifecoreTheme.inkPrimary)
-                        }
-                        Spacer()
-                    }
-                    .lifecoreWell(cornerRadius: 14, padding: 12)
-                }
+                selectedDayPastWorkoutView
             } else {
                 HStack(spacing: 14) {
                     ZStack {
@@ -444,7 +500,7 @@ public struct RollingHorizonDeckView: View {
             LifecoreHairlineDivider()
 
             if selectedDayOffset == 0 {
-                // 1-Tap Club / Custom Run Recalculation Button (Always accessible for E2E Flow 05)
+                // 1-Tap Club / Custom Run Recalculation Button
                 Button(action: {
                     withAnimation(.easeOut(duration: 0.2)) {
                         planStore.toggleClubOrCustomRunToday()
@@ -496,9 +552,95 @@ public struct RollingHorizonDeckView: View {
         .lifecoreGlassCard(cornerRadius: 20)
     }
 
+    private var selectedDayPastActivitySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Архів за обраний день")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(LifecoreTheme.inkPrimary)
+                Spacer()
+            }
+
+            selectedDayPastWorkoutView
+
+            LifecoreHairlineDivider()
+
+            Button(action: {
+                withAnimation(.easeOut(duration: 0.18)) {
+                    selectedDayOffset = 0
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.uturn.backward")
+                    Text("Повернутись до сьогодні")
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(LifecoreTheme.paperWell)
+                .foregroundStyle(LifecoreTheme.accentPrimary)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .lifecoreGlassCard(cornerRadius: 20)
+    }
+
+    @ViewBuilder
+    private var selectedDayPastWorkoutView: some View {
+        if let slot = calendarDays.first(where: { $0.offset == selectedDayOffset }),
+           let pastW = workoutFor(date: slot.date) {
+            let distKm = (pastW.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+            let durMin = pastW.duration / 60.0
+            HStack(spacing: 12) {
+                let info = glyphInfoForWorkout(pastW)
+                ZStack {
+                    Circle()
+                        .fill(info.color.opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: info.icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(info.color)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Виконане тренування")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                    Text(String(format: "%.0f хв  ·  %.2f км", durMin, distKm))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
+                }
+                Spacer()
+            }
+            .lifecoreWell(cornerRadius: 14, padding: 12)
+        } else {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(LifecoreTheme.paperWell)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("День відпочинку")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(LifecoreTheme.inkSecondary)
+                    Text("Тренувань не зафіксовано")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(LifecoreTheme.inkPrimary)
+                }
+                Spacer()
+            }
+            .lifecoreWell(cornerRadius: 14, padding: 12)
+        }
+    }
+
     // MARK: - 4. Upcoming Horizon Schedule
 
-    private var upcomingHorizonSection: some View {
+    private func upcomingHorizonSection(plan: TrainingPrescriptionPlan) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Найближчі тренування")
                 .font(.system(size: 16, weight: .bold))
@@ -506,16 +648,22 @@ public struct RollingHorizonDeckView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(currentPlan.horizonQueue) { item in
+                    ForEach(plan.horizonQueue) { item in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(slotLabel(offset: item.dayOffset))
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(LifecoreTheme.accentPrimary)
                                 Spacer()
-                                Text(item.archetype.loadLevelUk)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(LifecoreTheme.inkTertiary)
+                                if let generatedAt = snapshot?.generatedAt {
+                                    Text("Прогноз (\(formattedTime(generatedAt)))")
+                                        .font(.system(size: 9, weight: .medium))
+                                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                                } else {
+                                    Text(item.archetype.loadLevelUk)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(LifecoreTheme.inkTertiary)
+                                }
                             }
 
                             Text(item.cleanTitleUk)
@@ -549,5 +697,12 @@ public struct RollingHorizonDeckView: View {
         case 3: return "Через 3 дні"
         default: return "Слот +\(offset)"
         }
+    }
+
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "uk_UA")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
 }

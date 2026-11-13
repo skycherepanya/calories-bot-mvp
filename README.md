@@ -4,7 +4,7 @@ Native iOS athletic-performance application combining Apple Health telemetry, de
 
 ## Current status — 2026-11-13
 
-The application builds and passes its `LifecoreTests` suite (98 tests on iPhone 17 / **iOS 27.0**, Xcode 27.1, language mode **Swift 5.0**). Foundation reliability & convergence tasks **R1–R7** and native shell/design-system task **U1** are implemented and verified by unit/contract tests (`EnvironmentIsolationTests`, `DailySnapshotTests`, `SyncContractTests`, `NavigationTests`, `PhysiologyTests`, `WorkoutTelemetryTests`). Upcoming waves cover **R8–R9** (credential hardening, AppIntents) and **U2–U6 + D1** (screen vertical slices & end-to-end verification).
+The application builds and passes its `LifecoreTests` suite (**140 tests**, 0 failures on iPhone 17 / **iOS 27.0**, Xcode 27.1, language mode **Swift 5.0**). Reliability/data tasks **R1–R9** and calm native UI tasks **U1–U6** are implemented and verified by unit/contract/flow tests (`EnvironmentIsolationTests`, `DailySnapshotTests`, `SyncContractTests`, `ConfigurationTests`, `IntentOutcomeTests`, `NavigationTests`, `TodayViewModelTests`, `WorkoutsViewModelTests`, `NutritionFlowTests`, `TrendsViewModelTests`, `CoachFlowTests`, `PhysiologyTests`, `WorkoutTelemetryTests`). Upcoming release gate **D1** covers live Maestro E2E runs (`./scripts/run_e2e.sh`) and remote `supabase db push` / RLS contract execution.
 
 - [Design specification](docs/superpowers/specs/2026-11-12-native-redesign-design.md).
 - [Master execution plan and copyable subagent launch prompt](docs/superpowers/plans/2026-11-12-native-redesign.md).
@@ -55,9 +55,7 @@ xcodebuild -project ios/Lifecore/Lifecore/Lifecore.xcodeproj -scheme Lifecore -d
 
 ## Data and configuration
 
-Do not copy credentials from source into logs or documentation. Current configuration includes a bundled reversible AI credential and shared cloud identity; R8 replaces these with explicit credential setup/authenticated ownership. A Supabase publishable key is public application configuration, not a secret. Deployed RLS policies and actual credential validity were not checked.
-
-No database migration was created/applied in the documentation audit. Before future `supabase db push`, verify the target project, existing migration history, isolated replay/restore and ownership tests. See [database reference](docs/DATABASE.md).
+Do not copy credentials from source into logs or documentation. Bundled Gemini provider secrets have been removed (`GeminiService.defaultApiKey = ""`); Gemini BYOK credentials are stored in Keychain (`KeychainCredentialStore` via `AppConfiguration.resolveGeminiAPIKey()`, with transparent one-time UserDefaults migration), and no-key mode degrades gracefully without fabricating nutrition or debrief outputs. `AccountSessionManager` isolates user auth tokens from the public Supabase anon key and purges pending outbox mutations on sign-out/account switch. Checked-in RLS migration `20261113140000_r8_rls_and_ownership.sql` and `supabase/tests/rls_ownership_contract.sql` await remote `supabase db push` verification before production distribution. See [database reference](docs/DATABASE.md).
 
 ## Project references
 
