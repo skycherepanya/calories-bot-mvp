@@ -1,13 +1,27 @@
 import Foundation
 import SwiftData
 
+// MARK: - Meal Lifecycle States
+
+public enum MealLifecycleState: String, Codable, Sendable, CaseIterable {
+    case draft
+    case analyzing
+    case review
+    case confirmed
+    case failed
+    case cancelled
+}
+
 // MARK: - MealEntity (SwiftData Local Model)
 
 @Model
 public final class MealEntity {
     @Attribute(.unique) public var id: UUID
+    public var clientUUID: UUID
     public var name: String
     public var kcal: Double             // Stores final calories including +12.5% deficit buffer
+    public var kcalExact: Double?       // Unbuffered exact calories if known
+    public var bufferVersion: Int       // Default 1 for +12.5%
     public var proteinG: Double
     public var fatG: Double
     public var carbsG: Double
@@ -18,14 +32,32 @@ public final class MealEntity {
     public var aminoAcidsJson: String?
     public var dietaryDate: String      // YYYY-MM-DD adhering to 04:00 AM day shift
     public var createdAt: Date
+    public var updatedAt: Date
+    public var statusRaw: String        // "draft", "analyzing", "review", "confirmed", "failed", "cancelled"
+    public var revision: Int
+    public var provenance: String       // "camera", "text", "manual", "legacy_seed", "fixture"
+    public var isDeleted: Bool          // Soft delete for sync tombstones
     public var isOptimisticPending: Bool
     public var syncedToCloud: Bool
     public var remoteId: Int64?
 
+    public var legacyRemoteId: Int64? {
+        get { remoteId }
+        set { remoteId = newValue }
+    }
+
+    public var lifecycleState: MealLifecycleState {
+        get { MealLifecycleState(rawValue: statusRaw) ?? .confirmed }
+        set { statusRaw = newValue.rawValue }
+    }
+
     public init(
         id: UUID = UUID(),
+        clientUUID: UUID? = nil,
         name: String,
         kcal: Double,
+        kcalExact: Double? = nil,
+        bufferVersion: Int = 1,
         proteinG: Double,
         fatG: Double,
         carbsG: Double,
@@ -36,13 +68,21 @@ public final class MealEntity {
         aminoAcidsJson: String? = nil,
         dietaryDate: String,
         createdAt: Date = Date(),
+        updatedAt: Date? = nil,
+        status: MealLifecycleState? = nil,
+        revision: Int = 1,
+        provenance: String = "manual",
+        isDeleted: Bool = false,
         isOptimisticPending: Bool = false,
         syncedToCloud: Bool = false,
         remoteId: Int64? = nil
     ) {
         self.id = id
+        self.clientUUID = clientUUID ?? id
         self.name = name
         self.kcal = kcal
+        self.kcalExact = kcalExact
+        self.bufferVersion = bufferVersion
         self.proteinG = proteinG
         self.fatG = fatG
         self.carbsG = carbsG
@@ -53,12 +93,23 @@ public final class MealEntity {
         self.aminoAcidsJson = aminoAcidsJson
         self.dietaryDate = dietaryDate
         self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        let resolvedStatus: MealLifecycleState = status ?? (isOptimisticPending ? .analyzing : .confirmed)
+        self.statusRaw = resolvedStatus.rawValue
+        self.revision = revision
+        self.provenance = provenance
+        self.isDeleted = isDeleted
         self.isOptimisticPending = isOptimisticPending
         self.syncedToCloud = syncedToCloud
         self.remoteId = remoteId
     }
 
-    public convenience init(record: MealRecord, syncedToCloud: Bool = false, remoteId: Int64? = nil) {
+    public convenience init(
+        record: MealRecord,
+        syncedToCloud: Bool = false,
+        remoteId: Int64? = nil,
+        provenance: String = "manual"
+    ) {
         let microJson: String? = {
             guard let m = record.micronutrients, let data = try? JSONEncoder().encode(m) else { return nil }
             return String(data: data, encoding: .utf8)
@@ -70,8 +121,11 @@ public final class MealEntity {
 
         self.init(
             id: record.id,
+            clientUUID: record.id,
             name: record.name,
             kcal: record.kcal,
+            kcalExact: nil,
+            bufferVersion: 1,
             proteinG: record.proteinG,
             fatG: record.fatG,
             carbsG: record.carbsG,
@@ -82,6 +136,11 @@ public final class MealEntity {
             aminoAcidsJson: aminoJson,
             dietaryDate: record.dietaryDate,
             createdAt: record.createdAt,
+            updatedAt: record.createdAt,
+            status: record.isOptimisticPending ? .analyzing : .confirmed,
+            revision: 1,
+            provenance: provenance,
+            isDeleted: false,
             isOptimisticPending: record.isOptimisticPending,
             syncedToCloud: syncedToCloud,
             remoteId: remoteId
@@ -214,18 +273,26 @@ public final class WorkoutAnalysisEntity {
 public final class LifecoreDataStore {
     public static let shared = LifecoreDataStore()
 
+    public private(set) var isRecoveredFallback: Bool = false
+    public private(set) var containerInitializationError: Error? = nil
+
+    public static let sharedSchema = Schema([
+        MealEntity.self,
+        WorkoutAnalysisEntity.self,
+        AthleteTrainingPlanState.self,
+        AthleteMemoryEntity.self,
+        SyncOperationEntity.self
+    ])
+
     internal lazy var persistentContainer: ModelContainer = {
-        let schema = Schema([
-            MealEntity.self,
-            WorkoutAnalysisEntity.self,
-            AthleteTrainingPlanState.self,
-            AthleteMemoryEntity.self
-        ])
+        let schema = Self.sharedSchema
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
             print("⚠️ Failed to initialize persistent ModelContainer: \(error). Falling back to memory store.")
+            self.isRecoveredFallback = true
+            self.containerInitializationError = error
             let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             return try! ModelContainer(for: schema, configurations: [fallbackConfig])
         }

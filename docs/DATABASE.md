@@ -64,12 +64,13 @@ The timestamped schema also defines legacy `activities` (activity_date/type, dur
 
 ## SwiftData models
 
-- `MealEntity`: stable local UUID, nutrition/optional weight/confidence/JSON, dietary date, pending flag, `syncedToCloud`, optional remote ID. Local optional weight contradicts SQL NOT NULL.
+- `MealEntity`: stable local UUID (`id`), `clientUUID`, `name`, `kcal` (preserves buffered calories), optional `kcalExact`, `bufferVersion` (default 1 for +12.5%), `proteinG`, `fatG`, `carbsG`, optional `weightG`, optional `confidence`, `tags`, `micronutrientsJson`, `aminoAcidsJson`, `dietaryDate`, `createdAt`, `updatedAt`, `statusRaw` / `lifecycleState` (`draft`, `analyzing`, `review`, `confirmed`, `failed`, `cancelled`), `revision`, `provenance` ("camera", "text", "manual", "legacy_seed", "fixture"), `isDeleted` (soft delete for sync tombstones), `isOptimisticPending`, `syncedToCloud`, `remoteId` / `legacyRemoteId`.
+- `SyncOperationEntity`: durable queue operation (`operationID: UUID`, `entityID: UUID`, `entityType: String` ("meal", "workout"), `operationKind: String` ("upsert", "delete"), `revision: Int`, `payloadJson: String`, `attempts: Int`, `lastAttemptAt: Date?`, `status: String` ("pending", "processing", "completed", "failed"), `createdAt: Date`, `updatedAt: Date`). Atomic mutation commits survive app restarts.
 - `WorkoutAnalysisEntity`: workout UUID, local seconds/meters, split/lap JSON, metrics/report and sync metadata.
 - `AthleteTrainingPlanState`: queue index, frequency, duration cap, target ACWR, club override, date/timestamp.
 - `AthleteMemoryEntity`: stored athlete context and retrieval metadata.
 
-Models live in `Core/Storage/SwiftDataModels.swift` and `TrainingPlanModels.swift`. There is no durable revisioned outbox/tombstone protocol at baseline. Persistent-container fallback to memory and swallowed saves are open F11 defects.
+Models live in `Core/Storage/SwiftDataModels.swift`, `Core/Storage/SyncOutbox.swift`, and `TrainingPlanModels.swift`. Persistent container errors surface via `PersistenceRecovery` and `LifecoreDataStore.isRecoveredFallback` without silent unacknowledged data loss. Mutation APIs (`confirmMeal`, `deleteMeal`, `undoDeleteMeal`) are throwing operations with automatic context rollback on failure (resolving Audit F10/F11).
 
 ## Compatibility and migration gates
 

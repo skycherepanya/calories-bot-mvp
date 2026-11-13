@@ -118,11 +118,11 @@ XCTAssertEqual(split.paceMinPerKm, 6.0, accuracy: 0.001)
 
 Dependencies:R3a. Findings:F02/F04. Own `APP/Core/MathEngine/{TrainingLoadAndBatteryEngine,VitalsAndIllnessEngine}.swift`, `APP/Core/HealthKit/HealthKitManager.swift`, new `APP/Core/Domain/DailyLoadSeries.swift`, `TEST/PhysiologyTests.swift`.
 
-- [ ] Write regression using28 known days at50TRIMP, then a final spike250; assert ratio differs from stable-history ratio. Empty history must yield insufficient coverage, not1.0. Known rest is0; unknown days are excluded or cause declared coverage failure.
-- [ ] Assemble ordered daily history through R2 calendar rules; return coverage with ACWR. Use one evaluator for Today, sync and downstream advice. Require a documented minimum history (28 observed consecutive days for full-confidence workload; shorter history labeled provisional and excluded from progression advice).
-- [ ] Replace hour17 with timestamped workout events. Handle06:00/09:00/18:00 and multiple events before/after current time. Remove unsupported fixed circadian score or expose unavailable.
-- [ ] Select one HRV method with a matching baseline; never compare RMSSD to SDNN baseline. Test project confluence boundaries, including missing temperature and fewer than required observed pillars.
-- [ ] Run `PhysiologyTests`; document coverage and battery assumptions; commit `fix: calculate physiology from dated measured inputs`.
+- [x] Write regression using28 known days at50TRIMP, then a final spike250; assert ratio differs from stable-history ratio. Empty history must yield insufficient coverage, not1.0. Known rest is0; unknown days are excluded or cause declared coverage failure.
+- [x] Assemble ordered daily history through R2 calendar rules; return coverage with ACWR. Use one evaluator for Today, sync and downstream advice. Require a documented minimum history (28 observed consecutive days for full-confidence workload; shorter history labeled provisional and excluded from progression advice).
+- [x] Replace hour17 with timestamped workout events. Handle06:00/09:00/18:00 and multiple events before/after current time. Remove unsupported fixed circadian score or expose unavailable.
+- [x] Select one HRV method with a matching baseline; never compare RMSSD to SDNN baseline. Test project confluence boundaries, including missing temperature and fewer than required observed pillars.
+- [x] Run `PhysiologyTests`; document coverage and battery assumptions; commit `fix: calculate physiology from dated measured inputs`.
 
 ## R3d — Shared longitudinal joins and honest associations
 
@@ -187,11 +187,11 @@ Dependencies:R2. Findings:F10/F11/F25. Own `APP/Core/Storage/{SwiftDataModels,Me
 
 Produces persisted meal lifecycle `draft/analyzing/review/confirmed/failed/cancelled`, stable client UUID, legacy remote ID, revision, provenance, optional exact kcal/buffer version and retry metadata. Use throwing mutation APIs. `MealRepository.confirm(id: UUID) throws` durably saves and enqueues export intent atomically; `delete(id:)`/`undoDelete(id:)` preserve identity/revision. `SyncOutbox` stores operationID, entityID, revision, operation kind, attempt/retry metadata and payload.
 
-- [ ] Inject failing container/save; assert recoverable storage state, no silent in-memory production fallback and no successful UI acknowledgment.
-- [ ] Keep UserDefaults migration bytes until a successful transaction and reread verification; retry must dedupe by stable legacy identity. Test failure before/after save, relaunch and duplicate names.
-- [ ] Replace name-based seed deletion with proven fixture identifiers/provenance; preserve ambiguous real legacy records. Do not silently purge their HealthKit samples.
-- [ ] Introduce versioned SwiftData migration; export/restore fixtures containing meals, workouts, training queue and memories. Old buffered calories remain unchanged; unknown provenance remains legacy.
-- [ ] Test confirm/delete/undo/save failure/relaunch; outbox operation identity survives retry. Run `PersistenceTests`; update DATABASE and migration notes; commit `fix: make local mutations durable and recoverable`.
+- [x] Inject failing container/save; assert recoverable storage state, no silent in-memory production fallback and no successful UI acknowledgment.
+- [x] Keep UserDefaults migration bytes until a successful transaction and reread verification; retry must dedupe by stable legacy identity. Test failure before/after save, relaunch and duplicate names.
+- [x] Replace name-based seed deletion with proven fixture identifiers/provenance; preserve ambiguous real legacy records. Do not silently purge their HealthKit samples.
+- [x] Introduce versioned SwiftData migration; export/restore fixtures containing meals, workouts, training queue and memories. Old buffered calories remain unchanged; unknown provenance remains legacy.
+- [x] Test confirm/delete/undo/save failure/relaunch; outbox operation identity survives retry. Run `PersistenceTests`; update DATABASE and migration notes; commit `fix: make local mutations durable and recoverable`.
 
 ## R7 — Cloud and HealthKit export convergence
 

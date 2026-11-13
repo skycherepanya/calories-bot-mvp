@@ -227,12 +227,7 @@ public struct AppEnvironment: Sendable {
     }
 
     public static func makeIsolatedModelContainer() -> ModelContainer {
-        let schema = Schema([
-            MealEntity.self,
-            WorkoutAnalysisEntity.self,
-            AthleteTrainingPlanState.self,
-            AthleteMemoryEntity.self
-        ])
+        let schema = LifecoreDataStore.sharedSchema
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         do {
             return try ModelContainer(for: schema, configurations: [config])

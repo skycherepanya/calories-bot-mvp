@@ -258,9 +258,36 @@ public final class HealthKitManager: @unchecked Sendable {
 
         var immuneStateString: String? = nil
         if hrvValue != nil || rmssdValue != nil || rhrValue != nil || wristTempDelta != nil || respRateValue != nil || spo2Value != nil {
+            let selectedHrv: Double?
+            let selectedMethod: HRVMethod?
+            if profile.hrvMethod == .hybridRMSSD {
+                if let rmssd = rmssdValue {
+                    selectedHrv = rmssd
+                    selectedMethod = .rmssd
+                } else if let hrv = hrvValue {
+                    selectedHrv = hrv
+                    selectedMethod = .sdnn
+                } else {
+                    selectedHrv = nil
+                    selectedMethod = nil
+                }
+            } else {
+                if let hrv = hrvValue {
+                    selectedHrv = hrv
+                    selectedMethod = .sdnn
+                } else if let rmssd = rmssdValue {
+                    selectedHrv = rmssd
+                    selectedMethod = .rmssd
+                } else {
+                    selectedHrv = nil
+                    selectedMethod = nil
+                }
+            }
+
             let vitalsInput = NocturnalVitalsInput(
-                hrvMs: (rmssdValue ?? hrvValue) ?? profile.hrvBaselineMs,
-                rhrBpm: rhrValue ?? profile.restingHeartRateBaselineBpm,
+                hrvMs: selectedHrv,
+                hrvMethod: selectedMethod,
+                rhrBpm: rhrValue,
                 wristTempCelsius: wristTempDelta.map { profile.wristTempBaselineCelsius + $0 },
                 wristTempDeltaCelsius: wristTempDelta,
                 respiratoryRateBpm: respRateValue,
@@ -268,7 +295,10 @@ public final class HealthKitManager: @unchecked Sendable {
             )
             let vitalsBaseline = NocturnalVitalsBaseline(
                 hrvMeanMs: profile.hrvBaselineMs,
+                hrvStdDevMs: 15.0,
+                hrvMethod: selectedMethod,
                 rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+                rhrStdDevBpm: 2.5,
                 wristTempMeanCelsius: profile.wristTempBaselineCelsius,
                 respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
                 spo2MeanPct: profile.spo2BaselinePct
@@ -640,9 +670,36 @@ public final class HealthKitManager: @unchecked Sendable {
         let vitalsEval: OvernightVitalsEvaluation?
         let hasAnyVital = sleep.hrvRmssdMs != nil || sleep.hrvAvgMs != nil || sleep.rhrBpm != nil || sleep.wristTempDeltaC != nil || sleep.respiratoryRate != nil || sleep.spo2Pct != nil
         if hasAnyVital {
+            let selectedHrv: Double?
+            let selectedMethod: HRVMethod?
+            if profile.hrvMethod == .hybridRMSSD {
+                if let rmssd = sleep.hrvRmssdMs {
+                    selectedHrv = rmssd
+                    selectedMethod = .rmssd
+                } else if let hrv = sleep.hrvAvgMs {
+                    selectedHrv = hrv
+                    selectedMethod = .sdnn
+                } else {
+                    selectedHrv = nil
+                    selectedMethod = nil
+                }
+            } else {
+                if let hrv = sleep.hrvAvgMs {
+                    selectedHrv = hrv
+                    selectedMethod = .sdnn
+                } else if let rmssd = sleep.hrvRmssdMs {
+                    selectedHrv = rmssd
+                    selectedMethod = .rmssd
+                } else {
+                    selectedHrv = nil
+                    selectedMethod = nil
+                }
+            }
+
             let vitalsInput = NocturnalVitalsInput(
-                hrvMs: sleep.hrvRmssdMs ?? sleep.hrvAvgMs ?? profile.hrvBaselineMs,
-                rhrBpm: sleep.rhrBpm ?? profile.restingHeartRateBaselineBpm,
+                hrvMs: selectedHrv,
+                hrvMethod: selectedMethod,
+                rhrBpm: sleep.rhrBpm,
                 wristTempCelsius: sleep.wristTempDeltaC.map { profile.wristTempBaselineCelsius + $0 },
                 wristTempDeltaCelsius: sleep.wristTempDeltaC,
                 respiratoryRateBpm: sleep.respiratoryRate,
@@ -650,7 +707,10 @@ public final class HealthKitManager: @unchecked Sendable {
             )
             let resolvedBaseline = vitalsBaseline ?? NocturnalVitalsBaseline(
                 hrvMeanMs: profile.hrvBaselineMs,
+                hrvStdDevMs: 15.0,
+                hrvMethod: selectedMethod,
                 rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+                rhrStdDevBpm: 2.5,
                 wristTempMeanCelsius: profile.wristTempBaselineCelsius,
                 respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
                 spo2MeanPct: profile.spo2BaselinePct
@@ -661,9 +721,13 @@ public final class HealthKitManager: @unchecked Sendable {
         }
 
         // 2. Garmin Firstbeat TRIMP & EWMA ACWR
+        var workoutEvents: [WorkoutBatteryEvent] = []
         var workoutHours: [(hour: Int, trimp: Double)] = []
         var totalTodayTrimp = 0.0
         let calendar = Calendar.current
+        let isoFormatterFractional = ISO8601DateFormatter()
+        isoFormatterFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoFormatterStandard = ISO8601DateFormatter()
 
         for w in workouts {
             let trimp = TrainingLoadAndBatteryEngine.computeBanisterTRIMP(
@@ -673,13 +737,30 @@ public final class HealthKitManager: @unchecked Sendable {
                 maxHr: profile.maxHeartRateBpm
             )
             totalTodayTrimp += trimp
-            let hour = 17 // Default late afternoon workout hour if parse fails
-            workoutHours.append((hour: hour, trimp: trimp))
+
+            let parsedDate = isoFormatterFractional.date(from: w.startedAt) ?? isoFormatterStandard.date(from: w.startedAt)
+            if let startDate = parsedDate {
+                let endDate = calendar.date(byAdding: .minute, value: max(1, Int(w.durationMin)), to: startDate) ?? startDate
+                let hour = calendar.component(.hour, from: startDate)
+                workoutEvents.append(WorkoutBatteryEvent(startTime: startDate, endTime: endDate, trimp: trimp))
+                workoutHours.append((hour: hour, trimp: trimp))
+            } else {
+                let hour = 17
+                workoutEvents.append(WorkoutBatteryEvent(hour: hour, trimp: trimp, calendar: calendar))
+                workoutHours.append((hour: hour, trimp: trimp))
+            }
         }
 
-        let acwr = TrainingLoadAndBatteryEngine.computeEWMAWorkload(
-            dailyLoads: [(date: Date(), trimp: max(25.0, totalTodayTrimp))]
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+        let activityDate = dayFormatter.date(from: act.date) ?? Date()
+        let todayLoad = DailyLoadSeries(
+            date: activityDate,
+            trimpLoad: totalTodayTrimp,
+            isKnownRestDay: workouts.isEmpty && totalTodayTrimp == 0,
+            isObserved: true
         )
+        let acwr = TrainingLoadAndBatteryEngine.computeEWMAWorkload(series: [todayLoad], calendar: calendar)
 
         // 3. Continuous 24h Body Battery / Energy Bank
         let currentHour = calendar.component(.hour, from: Date())
@@ -688,10 +769,11 @@ public final class HealthKitManager: @unchecked Sendable {
             sleepHours: sleep.totalHours,
             targetSleepHours: profile.targetSleepHours,
             pureNeatKcal: neatKcal,
-            workouts: workoutHours,
+            events: workoutEvents,
             immuneState: vitalsEval?.state ?? .optimal,
             currentHour: currentHour,
-            trimpDrainFactor: trimpDrainFactor
+            trimpDrainFactor: trimpDrainFactor,
+            calendar: calendar
         )
 
         let enrichedAct = DailyActivity(
@@ -700,9 +782,9 @@ public final class HealthKitManager: @unchecked Sendable {
             activeKcal: act.activeKcal,
             distanceKm: act.distanceKm,
             trimpScore: totalTodayTrimp,
-            ewmaAcuteLoad: acwr.acuteLoad,
-            ewmaChronicLoad: acwr.chronicLoad,
-            acwrRatio: acwr.ratio,
+            ewmaAcuteLoad: acwr?.acuteLoad,
+            ewmaChronicLoad: acwr?.chronicLoad,
+            acwrRatio: acwr?.ratio,
             bodyBatteryWake: energyBank.wakeBattery,
             bodyBatteryMin: energyBank.minBattery
         )

@@ -235,6 +235,7 @@ public struct VitalsCorridorPill: View {
         case .inside: return LifecoreTheme.statusOptimal
         case .warning: return LifecoreTheme.statusWarning
         case .outlier: return LifecoreTheme.statusDanger
+        case .unmeasured: return LifecoreTheme.inkTertiary
         }
     }
 
@@ -246,6 +247,8 @@ public struct VitalsCorridorPill: View {
             return LifecoreGlowPill(text: "Увага", color: LifecoreTheme.statusWarning)
         case .outlier:
             return LifecoreGlowPill(text: "Відхилення", color: LifecoreTheme.statusDanger)
+        case .unmeasured:
+            return LifecoreGlowPill(text: "Немає даних", color: LifecoreTheme.inkTertiary)
         }
     }
 

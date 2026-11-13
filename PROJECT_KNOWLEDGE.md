@@ -111,14 +111,19 @@ $$
    $$
    \Delta\text{HR}_r = \frac{\text{HR}_{\text{avg}} - \text{HR}_{\text{rest}}}{\text{HR}_{\text{max}} - \text{HR}_{\text{rest}}}, \quad \text{TRIMP} = D_{\text{min}} \cdot \Delta\text{HR}_r \cdot 0.64 \cdot e^{1.92 \cdot \Delta\text{HR}_r}
    $$
-2. **Exponentially Weighted Moving Average (EWMA) ACWR:**
+2. **Exponentially Weighted Moving Average (EWMA) ACWR & Daily Load Series:**
+   - Evaluated over ordered `DailyLoadSeries` adhering to DietaryDay calendar rules (04:00 boundary).
    - Acute Load (7d fatigue, $\lambda_a = 2/8 = 0.25$): $L_{\text{acute}}(t) = 0.25 \cdot \text{TRIMP}_t + 0.75 \cdot L_{\text{acute}}(t-1)$
    - Chronic Load (28d fitness, $\lambda_c = 2/29 \approx 0.069$): $L_{\text{chronic}}(t) = \lambda_c \cdot \text{TRIMP}_t + (1 - \lambda_c) \cdot L_{\text{chronic}}(t-1)$
    - Workload Ratio: $\text{ACWR} = L_{\text{acute}} / \max(15.0, L_{\text{chronic}})$
      - **Sweet Spot:** $0.80 \le \text{ACWR} \le 1.30$ (optimal progressive overload without injury risk).
      - **Danger Zone:** $\text{ACWR} \ge 1.50$ (rapid load spike / soft-tissue injury risk).
+   - **Workload Coverage & Truthful Baselines:** Full confidence requires $\ge 28$ observed consecutive days. Histories $< 28$ days are labeled provisional and excluded from aggressive progression advice. Empty history returns `nil` (or declared insufficient coverage with ratio 0.0, never synthetic 1.0 / sweetSpot). Known rest days have $\text{TRIMP} = 0.0$.
 3. **Continuous 24h Body Battery / Energy Bank (0–100%):**
-   - Charges overnight via vagal tone ($Z_{\text{HRV}}$) and sleep architecture; drains hourly from 07:00 to 23:00 via basal circadian rhythm, Pure NEAT rate, workout TRIMP impulses, and immune strain multiplier.
+   - Charges overnight via vagal tone ($Z_{\text{HRV}}$) and sleep architecture; drains hourly via basal circadian rhythm, Pure NEAT rate, timestamped `WorkoutBatteryEvent` impulses (at actual start/end hours including 06:00, 09:00, 18:00, 19:00), and immune strain multiplier.
+4. **Nocturnal Vitals & Method Matching:**
+   - Evaluated using consistent HRV methods against matching baselines (never comparing RMSSD to SDNN baselines).
+   - Unmeasured pillars remain `nil` (and `.unmeasured`) and are never substituted with normal athlete profile baselines. Pre-symptomatic illness prodrome strictly requires $\ge 3$ deviating nocturnal vitals OR wrist temperature delta $\ge +0.40^\circ\text{C}$ with autonomic shift. Single-metric deviations without thermal shift remain classified as training fatigue.
 
 ---
 
@@ -177,14 +182,14 @@ Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifec
 - `App/`: lifecycle, Debug verification logging, four-tab shell, forced-light appearance.
 - `Core/HealthKit/`: queries, `HealthRepository` protocol, `SleepEpisodeReader`, and `WorkoutTelemetryExtractor`. Synthetic fallback branches removed; nocturnal vitals strictly bounded to sleep episodes; missingness truthfully preserved; 1km split timing anchored to $t_0$.
 - `Core/MathEngine/`: deterministic readiness, workouts, vitals, workload/battery, correlations, adaptive physiology and prescription.
-- `Core/Storage/`: SwiftData meals, workout analyses, training plan and athlete memories; UserDefaults profile; direct Supabase REST. Save failures can be hidden; no durable revisioned outbox exists.
+- `Core/Storage/`: SwiftData meals, workout analyses, training plan, athlete memories, and `SyncOperationEntity`; `SyncOutbox` for durable revisioned queue operations surviving restarts; `PersistenceRecovery` for safe UserDefaults migration with reread verification and provenance-based seed purging; UserDefaults profile; direct Supabase REST. Mutation APIs are throwing with transactional rollback on save failure.
 - `Core/AI/`: food/report/chat provider, `FoodPrompt`, and `NutritionNormalizer`. Deficit buffer (+12.5%) applied natively once in Swift; raw AI nutrition estimates strictly validated against non-finite/negative inputs; synthetic meal fallbacks removed.
 - `Core/UI/` and `Features/`: Daylight style and Today/Workouts/Nutrition/Trends. Views currently perform independent queries/history joins; prescriptions can disagree between tabs.
 - `Intents/`: food and sync entry points; failure dialogs/durable retry require repair.
 
 ### 3.2. Verification evidence
 
-Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 51 tests in `LifecoreTests` (including 9 in `WorkoutTelemetryTests` for R3b and 12 in `NutritionContractTests` for R5a) pass cleanly in ~0.26s without side effects.
+Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 57 tests in `LifecoreTests` (including 9 in `WorkoutTelemetryTests` for R3b, 12 in `NutritionContractTests` for R5a, and 6 in `PersistenceTests` for R6) pass cleanly without side effects.
 
 ### 3.3. Persistence and cloud limitations
 

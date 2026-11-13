@@ -57,6 +57,7 @@ public enum VitalsPillarStatus: String, Codable, Sendable {
     case inside = "inside"
     case warning = "warning"
     case outlier = "outlier"
+    case unmeasured = "unmeasured"
 }
 
 public struct VitalsPillarMetric: Codable, Sendable, Equatable {
@@ -88,13 +89,33 @@ public struct VitalsPillarMetric: Codable, Sendable, Equatable {
 }
 
 public struct NocturnalVitalsInput: Codable, Sendable {
-    public let hrvMs: Double
-    public let rhrBpm: Double
+    public let hrvMs: Double?
+    public let hrvMethod: HRVMethod?
+    public let rhrBpm: Double?
     public let wristTempCelsius: Double?
     public let wristTempDeltaCelsius: Double?
     public let respiratoryRateBpm: Double?
     public let spo2Pct: Double?
 
+    public init(
+        hrvMs: Double? = nil,
+        hrvMethod: HRVMethod? = nil,
+        rhrBpm: Double? = nil,
+        wristTempCelsius: Double? = nil,
+        wristTempDeltaCelsius: Double? = nil,
+        respiratoryRateBpm: Double? = nil,
+        spo2Pct: Double? = nil
+    ) {
+        self.hrvMs = hrvMs
+        self.hrvMethod = hrvMethod
+        self.rhrBpm = rhrBpm
+        self.wristTempCelsius = wristTempCelsius
+        self.wristTempDeltaCelsius = wristTempDeltaCelsius
+        self.respiratoryRateBpm = respiratoryRateBpm
+        self.spo2Pct = spo2Pct
+    }
+
+    /// Convenience backward-compatible initializer
     public init(
         hrvMs: Double,
         rhrBpm: Double,
@@ -104,6 +125,7 @@ public struct NocturnalVitalsInput: Codable, Sendable {
         spo2Pct: Double? = nil
     ) {
         self.hrvMs = hrvMs
+        self.hrvMethod = nil
         self.rhrBpm = rhrBpm
         self.wristTempCelsius = wristTempCelsius
         self.wristTempDeltaCelsius = wristTempDeltaCelsius
@@ -115,6 +137,7 @@ public struct NocturnalVitalsInput: Codable, Sendable {
 public struct NocturnalVitalsBaseline: Codable, Sendable {
     public let hrvMeanMs: Double
     public let hrvStdDevMs: Double
+    public let hrvMethod: HRVMethod?
     public let rhrMeanBpm: Double
     public let rhrStdDevBpm: Double
     public let wristTempMeanCelsius: Double
@@ -124,6 +147,7 @@ public struct NocturnalVitalsBaseline: Codable, Sendable {
     public init(
         hrvMeanMs: Double = 102.0,
         hrvStdDevMs: Double = 15.0,
+        hrvMethod: HRVMethod? = nil,
         rhrMeanBpm: Double = 49.0,
         rhrStdDevBpm: Double = 2.5,
         wristTempMeanCelsius: Double = 36.40,
@@ -132,6 +156,7 @@ public struct NocturnalVitalsBaseline: Codable, Sendable {
     ) {
         self.hrvMeanMs = hrvMeanMs
         self.hrvStdDevMs = hrvStdDevMs
+        self.hrvMethod = hrvMethod
         self.rhrMeanBpm = rhrMeanBpm
         self.rhrStdDevBpm = rhrStdDevBpm
         self.wristTempMeanCelsius = wristTempMeanCelsius
@@ -177,7 +202,9 @@ public struct OvernightVitalsEvaluation: Codable, Sendable, Equatable {
     }
 
     public var allPillars: [VitalsPillarMetric] {
-        var list = [hrvPillar, rhrPillar]
+        var list: [VitalsPillarMetric] = []
+        if hrvPillar.status != .unmeasured { list.append(hrvPillar) }
+        if rhrPillar.status != .unmeasured { list.append(rhrPillar) }
         if let temp = tempPillar { list.append(temp) }
         if let resp = respPillar { list.append(resp) }
         if let spo2 = spo2Pillar { list.append(spo2) }
@@ -257,7 +284,14 @@ public enum VitalsAndIllnessEngine {
         }
     }
 
-    /// Evaluates the 5-metric nocturnal corridor & classifies immune/fatigue state
+    /// Evaluates the 5-metric nocturnal corridor & classifies immune/fatigue state (Audit F04).
+    ///
+    /// Rules:
+    /// - Matching HRV method required: never compare RMSSD to SDNN baseline.
+    /// - Missing pillars remain `nil` and are never substituted with normal baselines.
+    /// - Pre-symptomatic illness prodrome strictly requires >= 3 of 5 nocturnal vitals deviating
+    ///   OR wrist temp delta >= +0.40°C with autonomic shift (HRV or RHR outlier).
+    /// - Single-metric normal variance without thermal shift is classified as training fatigue.
     public static func evaluateOvernightVitals(
         input: NocturnalVitalsInput,
         baseline: NocturnalVitalsBaseline = NocturnalVitalsBaseline()
@@ -265,52 +299,95 @@ public enum VitalsAndIllnessEngine {
         var outliersCount = 0
         var warningsCount = 0
 
-        // 1. HRV Pillar (Log-transformed Z-Score)
-        let zHrv = computeLogHRVZScore(currentHrvMs: input.hrvMs, fallbackMeanMs: baseline.hrvMeanMs)
+        // 1. HRV Pillar (Log-transformed Z-Score with method consistency)
+        let hrvPillar: VitalsPillarMetric
         let hrvStatus: VitalsPillarStatus
-        if zHrv <= -1.35 {
-            hrvStatus = .outlier
-            outliersCount += 1
-        } else if zHrv <= -0.85 {
-            hrvStatus = .warning
-            warningsCount += 1
+        if let hrv = input.hrvMs, hrv > 0 {
+            let methodsMismatch = (input.hrvMethod != nil && baseline.hrvMethod != nil && input.hrvMethod != baseline.hrvMethod)
+            if methodsMismatch {
+                // Incompatible method: do not compare RMSSD to SDNN baseline
+                hrvStatus = .unmeasured
+                hrvPillar = VitalsPillarMetric(
+                    name: "HRV (Варіабельність)",
+                    currentValue: hrv,
+                    baselineValue: baseline.hrvMeanMs,
+                    delta: 0.0,
+                    unit: "ms",
+                    status: .unmeasured,
+                    zScore: nil
+                )
+            } else {
+                let zHrv = computeLogHRVZScore(currentHrvMs: hrv, fallbackMeanMs: baseline.hrvMeanMs)
+                if zHrv <= -1.35 {
+                    hrvStatus = .outlier
+                    outliersCount += 1
+                } else if zHrv <= -0.85 {
+                    hrvStatus = .warning
+                    warningsCount += 1
+                } else {
+                    hrvStatus = .inside
+                }
+                hrvPillar = VitalsPillarMetric(
+                    name: "HRV (Варіабельність)",
+                    currentValue: hrv,
+                    baselineValue: baseline.hrvMeanMs,
+                    delta: hrv - baseline.hrvMeanMs,
+                    unit: "ms",
+                    status: hrvStatus,
+                    zScore: zHrv
+                )
+            }
         } else {
-            hrvStatus = .inside
+            hrvStatus = .unmeasured
+            hrvPillar = VitalsPillarMetric(
+                name: "HRV (Варіабельність)",
+                currentValue: 0.0,
+                baselineValue: baseline.hrvMeanMs,
+                delta: 0.0,
+                unit: "ms",
+                status: .unmeasured,
+                zScore: nil
+            )
         }
-        let hrvPillar = VitalsPillarMetric(
-            name: "HRV (Варіабельність)",
-            currentValue: input.hrvMs,
-            baselineValue: baseline.hrvMeanMs,
-            delta: input.hrvMs - baseline.hrvMeanMs,
-            unit: "ms",
-            status: hrvStatus,
-            zScore: zHrv
-        )
 
         // 2. Sleeping RHR Pillar
-        let rhrDelta = input.rhrBpm - baseline.rhrMeanBpm
-        let zRhr = baseline.rhrStdDevBpm > 0 ? (rhrDelta / baseline.rhrStdDevBpm) : (rhrDelta / 2.5)
+        let rhrPillar: VitalsPillarMetric
         let rhrStatus: VitalsPillarStatus
-        if rhrDelta >= 4.5 || zRhr >= 1.6 {
-            rhrStatus = .outlier
-            outliersCount += 1
-        } else if rhrDelta >= 2.8 {
-            rhrStatus = .warning
-            warningsCount += 1
+        if let rhr = input.rhrBpm, rhr > 0 {
+            let rhrDelta = rhr - baseline.rhrMeanBpm
+            let zRhr = baseline.rhrStdDevBpm > 0 ? (rhrDelta / baseline.rhrStdDevBpm) : (rhrDelta / 2.5)
+            if rhrDelta >= 4.5 || zRhr >= 1.6 {
+                rhrStatus = .outlier
+                outliersCount += 1
+            } else if rhrDelta >= 2.8 {
+                rhrStatus = .warning
+                warningsCount += 1
+            } else {
+                rhrStatus = .inside
+            }
+            rhrPillar = VitalsPillarMetric(
+                name: "Пульс уві сні (RHR)",
+                currentValue: rhr,
+                baselineValue: baseline.rhrMeanBpm,
+                delta: rhrDelta,
+                unit: "bpm",
+                status: rhrStatus,
+                zScore: zRhr
+            )
         } else {
-            rhrStatus = .inside
+            rhrStatus = .unmeasured
+            rhrPillar = VitalsPillarMetric(
+                name: "Пульс уві сні (RHR)",
+                currentValue: 0.0,
+                baselineValue: baseline.rhrMeanBpm,
+                delta: 0.0,
+                unit: "bpm",
+                status: .unmeasured,
+                zScore: nil
+            )
         }
-        let rhrPillar = VitalsPillarMetric(
-            name: "Пульс уві сні (RHR)",
-            currentValue: input.rhrBpm,
-            baselineValue: baseline.rhrMeanBpm,
-            delta: rhrDelta,
-            unit: "bpm",
-            status: rhrStatus,
-            zScore: zRhr
-        )
 
-        // 3. Wrist Temperature Pillar (Delta in Celsius)
+        // 3. Wrist Temperature Pillar (Delta in Celsius) - Remains nil if unmeasured
         var tempPillar: VitalsPillarMetric? = nil
         let tempDelta: Double? = input.wristTempDeltaCelsius ?? (input.wristTempCelsius.map { $0 - baseline.wristTempMeanCelsius })
         if let deltaT = tempDelta {
@@ -334,7 +411,7 @@ public enum VitalsAndIllnessEngine {
             )
         }
 
-        // 4. Respiratory Rate Pillar
+        // 4. Respiratory Rate Pillar - Remains nil if unmeasured
         var respPillar: VitalsPillarMetric? = nil
         if let rr = input.respiratoryRateBpm {
             let rrDelta = rr - baseline.respiratoryRateMeanBpm
@@ -358,7 +435,7 @@ public enum VitalsAndIllnessEngine {
             )
         }
 
-        // 5. Blood Oxygen (SpO2) Pillar
+        // 5. Blood Oxygen (SpO2) Pillar - Remains nil if unmeasured
         var spo2Pillar: VitalsPillarMetric? = nil
         if let spo2 = input.spo2Pct {
             let spo2Delta = spo2 - baseline.spo2MeanPct
@@ -383,16 +460,16 @@ public enum VitalsAndIllnessEngine {
         }
 
         // Confluence State Machine Evaluation
-        let isWristTempOutlier = (tempPillar?.status == .outlier) || ((tempDelta ?? 0.0) >= 0.40)
-        let isWristTempElevated = (tempPillar?.status == .warning) || ((tempDelta ?? 0.0) >= 0.30)
-        let hasAutonomicOutlier = (hrvStatus == .outlier) || (rhrStatus == .outlier) || (respPillar?.status == .outlier)
+        let isWristTempOutlier = (tempPillar?.status == .outlier) || ((tempDelta ?? 0.0) >= 0.40 && tempPillar != nil)
+        let isWristTempElevated = (tempPillar?.status == .warning) || ((tempDelta ?? 0.0) >= 0.25 && tempPillar != nil)
+        let hasAutonomicShift = (hrvStatus == .outlier) || (rhrStatus == .outlier)
 
         let state: ImmuneSystemState
-        if outliersCount >= 3 || (isWristTempOutlier && hasAutonomicOutlier) {
+        if outliersCount >= 3 || (isWristTempOutlier && hasAutonomicShift) {
             state = .illnessProdrome
         } else if outliersCount == 2 || (isWristTempElevated && (warningsCount >= 1 || outliersCount >= 1)) {
             state = .immuneWatch
-        } else if outliersCount == 1 && (tempDelta ?? 0.0) < 0.30 {
+        } else if outliersCount == 1 && (tempDelta ?? 0.0) < 0.25 {
             state = .trainingFatigue
         } else {
             state = .optimal

@@ -7,37 +7,22 @@ import SwiftData
 public final class MealStorageService: ObservableObject {
     public static let shared = MealStorageService()
 
-    private let legacyStorageKey = "LIFECORE_SAVED_MEALS_V1"
+    public let legacyStorageKey = "LIFECORE_SAVED_MEALS_V1"
     private let hasSeededKey = "LIFECORE_HAS_SEEDED_MEALS_V2"
 
     @Published public private(set) var allMeals: [MealRecord] = []
+
+    /// Fault injection hook for testing durable save error recovery (Audit F10/F11).
+    public var simulatedSaveError: Error? = nil
 
     private var context: ModelContext {
         LifecoreDataStore.shared.context
     }
 
-    private init() {
-        migrateFromUserDefaultsIfNeeded()
+    public init() {
+        try? migrateFromUserDefaultsIfNeeded()
         loadMealsFromSwiftData()
-        removeLegacySeedMealsIfNeeded()
-    }
-
-    private func removeLegacySeedMealsIfNeeded() {
-        guard !AppEnvironment.current.isFixtureMode else { return }
-        let cleanedKey = "lifecore_cleaned_seed_meals_v2"
-        if !UserDefaults.standard.bool(forKey: cleanedKey) {
-            let seedNames = [
-                "Вівсянка з бананом та протеїном",
-                "Куряче філе з гречкою та огірком",
-                "Лосось на пару з рисом басматі"
-            ]
-            let toRemove = allMeals.filter { seedNames.contains($0.name) }
-            for m in toRemove {
-                deleteMeal(id: m.id)
-            }
-            UserDefaults.standard.set(true, forKey: cleanedKey)
-            loadMealsFromSwiftData()
-        }
+        try? removeLegacySeedMealsIfNeeded()
     }
 
     // MARK: - Query
@@ -94,8 +79,9 @@ public final class MealStorageService: ObservableObject {
 
     // MARK: - SwiftData Load & Migration
 
-    private func loadMealsFromSwiftData() {
+    public func loadMealsFromSwiftData() {
         let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { !$0.isDeleted },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         do {
@@ -106,28 +92,47 @@ public final class MealStorageService: ObservableObject {
         }
     }
 
-    private func migrateFromUserDefaultsIfNeeded() {
-        guard !AppEnvironment.current.isFixtureMode else { return }
-        guard let data = UserDefaults.standard.data(forKey: legacyStorageKey),
-              let list = try? JSONDecoder().decode([MealRecord].self, from: data),
-              !list.isEmpty else {
-            return
+    @discardableResult
+    public func migrateFromUserDefaultsIfNeeded(userDefaults: UserDefaults = .standard) throws -> MigrationResult {
+        guard !AppEnvironment.current.isFixtureMode else {
+            return MigrationResult(migratedCount: 0, skippedDuplicateCount: 0, verifiedCount: 0, sourceBytesRetained: false)
         }
-
-        for record in list {
-            let entity = MealEntity(record: record)
-            context.insert(entity)
+        let result = try PersistenceRecovery.migrateUserDefaults(
+            key: legacyStorageKey,
+            in: context,
+            userDefaults: userDefaults,
+            testSaveOverride: simulatedSaveError != nil ? { throw self.simulatedSaveError! } : nil
+        )
+        if result.migratedCount > 0 {
+            loadMealsFromSwiftData()
+            print("✅ Successfully migrated \(result.migratedCount) meals from UserDefaults to SwiftData")
         }
-        try? context.save()
-        UserDefaults.standard.removeObject(forKey: legacyStorageKey)
-        print("✅ Successfully migrated \(list.count) meals from UserDefaults to SwiftData")
+        return result
     }
 
-    // MARK: - Mutations
+    @discardableResult
+    public func removeLegacySeedMealsIfNeeded(userDefaults: UserDefaults = .standard) throws -> Int {
+        guard !AppEnvironment.current.isFixtureMode else { return 0 }
+        let cleanedKey = "lifecore_cleaned_seed_meals_v2"
+        if !userDefaults.bool(forKey: cleanedKey) {
+            let purged = try PersistenceRecovery.purgeSeedMeals(
+                in: context,
+                userDefaults: userDefaults,
+                cleanedFlagKey: cleanedKey
+            )
+            if purged > 0 {
+                loadMealsFromSwiftData()
+            }
+            return purged
+        }
+        return 0
+    }
+
+    // MARK: - Durable Mutations (Audit F10, F11)
 
     /// Inserts an optimistic pending meal in <0.2s to deliver instant UI feedback.
     @discardableResult
-    public func insertOptimisticPending(name: String, dietaryDate: String) -> MealRecord {
+    public func insertOptimisticPending(name: String, dietaryDate: String, provenance: String = "manual") -> MealRecord {
         let entity = MealEntity(
             name: name,
             kcal: 0,
@@ -141,6 +146,11 @@ public final class MealStorageService: ObservableObject {
             aminoAcidsJson: nil,
             dietaryDate: dietaryDate,
             createdAt: Date(),
+            updatedAt: Date(),
+            status: .analyzing,
+            revision: 1,
+            provenance: provenance,
+            isDeleted: false,
             isOptimisticPending: true,
             syncedToCloud: false
         )
@@ -149,6 +159,155 @@ public final class MealStorageService: ObservableObject {
 
         let record = entity.toRecord()
         allMeals.insert(record, at: 0)
+        return record
+    }
+
+    /// Confirms a meal atomically saving state and enqueuing an outbox sync intent.
+    @discardableResult
+    public func confirmMeal(id: UUID) throws -> MealRecord {
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        guard let entity = try context.fetch(descriptor).first else {
+            throw PersistenceError.entityNotFound(id)
+        }
+
+        entity.lifecycleState = .confirmed
+        entity.isOptimisticPending = false
+        entity.isDeleted = false
+        entity.revision += 1
+        entity.updatedAt = Date()
+
+        // Atomically enqueue outbox mutation intent
+        try SyncOutbox.shared.enqueue(
+            entityID: entity.id,
+            entityType: "meal",
+            operationKind: "upsert",
+            revision: entity.revision,
+            payloadJson: MealSyncPayload(from: entity).toJsonString(),
+            in: context
+        )
+
+        // Injectable fault hook
+        if let error = simulatedSaveError {
+            context.rollback()
+            throw PersistenceError.saveFailed(error.localizedDescription)
+        }
+
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            throw PersistenceError.saveFailed(error.localizedDescription)
+        }
+
+        let record = entity.toRecord()
+        objectWillChange.send()
+        if let idx = allMeals.firstIndex(where: { $0.id == id }) {
+            allMeals[idx] = record
+        } else {
+            allMeals.insert(record, at: 0)
+            allMeals.sort(by: { $0.createdAt > $1.createdAt })
+        }
+        return record
+    }
+
+    /// Deletes a meal (soft delete tombstone), advancing revision and enqueuing an outbox delete operation.
+    public func deleteMeal(id: UUID) throws {
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        guard let entity = try context.fetch(descriptor).first else {
+            throw PersistenceError.entityNotFound(id)
+        }
+
+        entity.isDeleted = true
+        entity.lifecycleState = .cancelled
+        entity.revision += 1
+        entity.updatedAt = Date()
+
+        // Atomically enqueue outbox delete tombstone
+        try SyncOutbox.shared.enqueue(
+            entityID: entity.id,
+            entityType: "meal",
+            operationKind: "delete",
+            revision: entity.revision,
+            payloadJson: MealSyncPayload(from: entity).toJsonString(),
+            in: context
+        )
+
+        // Injectable fault hook
+        if let error = simulatedSaveError {
+            context.rollback()
+            throw PersistenceError.saveFailed(error.localizedDescription)
+        }
+
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            throw PersistenceError.saveFailed(error.localizedDescription)
+        }
+
+        // Only update UI state after durable save succeeded
+        objectWillChange.send()
+        allMeals.removeAll(where: { $0.id == id })
+
+        Task {
+            guard !AppEnvironment.current.isFixtureMode else { return }
+            try? await HealthKitManager.shared.deleteMealFromHealthKit(mealId: id)
+        }
+    }
+
+    /// Restores a soft-deleted meal atomically advancing revision and enqueuing outbox upsert.
+    @discardableResult
+    public func undoDeleteMeal(id: UUID) throws -> MealRecord {
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        guard let entity = try context.fetch(descriptor).first else {
+            throw PersistenceError.entityNotFound(id)
+        }
+
+        entity.isDeleted = false
+        entity.lifecycleState = .confirmed
+        entity.revision += 1
+        entity.updatedAt = Date()
+
+        // Atomically enqueue outbox upsert intent
+        try SyncOutbox.shared.enqueue(
+            entityID: entity.id,
+            entityType: "meal",
+            operationKind: "upsert",
+            revision: entity.revision,
+            payloadJson: MealSyncPayload(from: entity).toJsonString(),
+            in: context
+        )
+
+        // Injectable fault hook
+        if let error = simulatedSaveError {
+            context.rollback()
+            throw PersistenceError.saveFailed(error.localizedDescription)
+        }
+
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            throw PersistenceError.saveFailed(error.localizedDescription)
+        }
+
+        let record = entity.toRecord()
+        objectWillChange.send()
+        if !allMeals.contains(where: { $0.id == record.id }) {
+            allMeals.insert(record, at: 0)
+            allMeals.sort(by: { $0.createdAt > $1.createdAt })
+        }
+
+        Task {
+            guard !AppEnvironment.current.isFixtureMode else { return }
+            try? await HealthKitManager.shared.saveMealToHealthKit(meal: record)
+        }
         return record
     }
 
@@ -177,8 +336,20 @@ public final class MealStorageService: ObservableObject {
         if let amino = nutrition.aminoAcids, let data = try? JSONEncoder().encode(amino) {
             entity.aminoAcidsJson = String(data: data, encoding: .utf8)
         }
+        entity.lifecycleState = .confirmed
         entity.isOptimisticPending = false
         entity.syncedToCloud = false
+        entity.revision += 1
+        entity.updatedAt = Date()
+
+        try? SyncOutbox.shared.enqueue(
+            entityID: entity.id,
+            entityType: "meal",
+            operationKind: "upsert",
+            revision: entity.revision,
+            payloadJson: MealSyncPayload(from: entity).toJsonString(),
+            in: context
+        )
 
         try? context.save()
 
@@ -188,7 +359,11 @@ public final class MealStorageService: ObservableObject {
 
     /// Direct addition of a completed meal.
     @discardableResult
-    public func addMeal(nutrition: MealNutrition, dietaryDate: String) -> MealRecord {
+    public func addMeal(
+        nutrition: MealNutrition,
+        dietaryDate: String,
+        provenance: String = "manual"
+    ) -> MealRecord {
         let microJson: String? = {
             guard let m = nutrition.micronutrients, let data = try? JSONEncoder().encode(m) else { return nil }
             return String(data: data, encoding: .utf8)
@@ -211,38 +386,37 @@ public final class MealStorageService: ObservableObject {
             aminoAcidsJson: aminoJson,
             dietaryDate: dietaryDate,
             createdAt: Date(),
+            updatedAt: Date(),
+            status: .confirmed,
+            revision: 1,
+            provenance: provenance,
+            isDeleted: false,
             isOptimisticPending: false,
             syncedToCloud: false
         )
         context.insert(entity)
+
+        try? SyncOutbox.shared.enqueue(
+            entityID: entity.id,
+            entityType: "meal",
+            operationKind: "upsert",
+            revision: entity.revision,
+            payloadJson: MealSyncPayload(from: entity).toJsonString(),
+            in: context
+        )
+
         try? context.save()
 
         let record = entity.toRecord()
+        objectWillChange.send()
         allMeals.insert(record, at: 0)
         return record
     }
 
-    public func deleteMeal(id: UUID) {
-        objectWillChange.send()
-        allMeals.removeAll(where: { $0.id == id })
-
-        let descriptor = FetchDescriptor<MealEntity>(
-            predicate: #Predicate { $0.id == id }
-        )
-        if let entities = try? context.fetch(descriptor) {
-            for e in entities {
-                context.delete(e)
-            }
-            try? context.save()
-        }
-
-        Task {
-            guard !AppEnvironment.current.isFixtureMode else { return }
-            try? await HealthKitManager.shared.deleteMealFromHealthKit(mealId: id)
-        }
-    }
-
     public func restoreMeal(_ meal: MealRecord) {
+        if let _ = try? undoDeleteMeal(id: meal.id) {
+            return
+        }
         objectWillChange.send()
         if !allMeals.contains(where: { $0.id == meal.id }) {
             allMeals.insert(meal, at: 0)
@@ -277,7 +451,7 @@ public final class MealStorageService: ObservableObject {
 
     public func fetchUnsyncedMeals() -> [MealEntity] {
         let descriptor = FetchDescriptor<MealEntity>(
-            predicate: #Predicate { !$0.syncedToCloud && !$0.isOptimisticPending }
+            predicate: #Predicate { !$0.syncedToCloud && !$0.isOptimisticPending && !$0.isDeleted }
         )
         return (try? context.fetch(descriptor)) ?? []
     }
@@ -343,7 +517,7 @@ public final class MealStorageService: ObservableObject {
         )
 
         for m in [m1, m2, m3] {
-            context.insert(MealEntity(record: m))
+            context.insert(MealEntity(record: m, provenance: "legacy_seed"))
         }
         try? context.save()
     }

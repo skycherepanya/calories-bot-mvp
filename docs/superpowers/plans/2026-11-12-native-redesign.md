@@ -55,7 +55,7 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 - [ ] R4 — One daily snapshot and prescription with revisioned invalidation.
 - [x] R5a — Validated nutrition and honest AI failures.
 - [ ] R5b — Scoped evidence, factual offline explanation and controlled memory.
-- [ ] R6 — Durable mutations, migration preservation and meal lifecycle.
+- [x] R6 — Durable mutations, migration preservation and meal lifecycle.
 - [ ] R7 — Typed, idempotent, revisioned, paginated sync.
 - [ ] R8 — Configuration, credential migration and cloud authorization.
 - [ ] R9 — Durable and truthful AppIntents.

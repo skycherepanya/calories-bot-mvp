@@ -236,7 +236,7 @@ public struct NutritionView: View {
                         if meal.isOptimisticPending {
                             OptimisticAnalyzingCard(pendingName: meal.name) {
                                 withAnimation(.easeInOut(duration: 0.25)) {
-                                    storage.deleteMeal(id: meal.id)
+                                    try? storage.deleteMeal(id: meal.id)
                                 }
                             }
                         } else {
@@ -274,22 +274,23 @@ public struct NutritionView: View {
     // MARK: - Deletion & Undo Helpers
 
     private func deleteMealConfirmed(_ meal: MealRecord) {
-        let impact = UINotificationFeedbackGenerator()
-        impact.prepare()
-        impact.notificationOccurred(.success)
-        recentlyDeletedMeal = meal
+        do {
+            try storage.deleteMeal(id: meal.id)
+            let impact = UINotificationFeedbackGenerator()
+            impact.prepare()
+            impact.notificationOccurred(.success)
+            recentlyDeletedMeal = meal
 
-        withAnimation(.easeInOut(duration: 0.25)) {
-            storage.deleteMeal(id: meal.id)
-        }
-
-        Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
-            if recentlyDeletedMeal?.id == meal.id {
-                withAnimation {
-                    recentlyDeletedMeal = nil
+            Task {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                if recentlyDeletedMeal?.id == meal.id {
+                    withAnimation {
+                        recentlyDeletedMeal = nil
+                    }
                 }
             }
+        } catch {
+            print("⚠️ Failed to delete meal: \(error)")
         }
     }
 

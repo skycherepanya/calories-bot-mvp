@@ -166,7 +166,7 @@ final class EnvironmentIsolationTests: XCTestCase {
             tags: [],
             dietaryDate: "2026-11-12"
         )
-        MealStorageService.shared.deleteMeal(id: testMeal.id)
+        try? MealStorageService.shared.deleteMeal(id: testMeal.id)
         MealStorageService.shared.restoreMeal(testMeal)
 
         // 2. Direct calls to HealthKit in fixture mode must safe no-op

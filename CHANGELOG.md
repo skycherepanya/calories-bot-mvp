@@ -2,6 +2,47 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Task R3c: Workload, battery and vitals evaluation from measured inputs
+
+- Defined `DailyLoadSeries` in `DailyLoadSeries.swift` with `date`, `trimpLoad`, `isKnownRestDay`, and `isObserved` adhering to DietaryDay calendar rules (fixing Audit F02).
+- Upgraded `TrainingLoadAndBatteryEngine.swift`:
+  - Implemented EWMA ACWR over ordered daily history with declared `WorkloadCoverage`: requiring $\ge 28$ observed consecutive days for full confidence, labeling shorter histories provisional and strictly excluding them from aggressive progression advice. Empty series returns `nil` (or explicit insufficient coverage with ratio 0.0, eliminating synthetic 1.0 / sweetSpot defaults).
+  - Replaced hardcoded hour 17 in body battery timeline with timestamped `WorkoutBatteryEvent` intervals derived from actual workout start and duration, correctly draining battery in morning (06:00, 09:00), afternoon, and evening (18:00, 19:00) hour blocks.
+- Upgraded `VitalsAndIllnessEngine.swift`:
+  - Enforced consistent HRV method matching against baselines (rejecting cross-method comparisons of RMSSD against SDNN baselines to prevent false outlier flags, fixing Audit F04).
+  - Verified and strictly guarded confluence boundaries: pre-symptomatic illness prodrome strictly requires $\ge 3$ of 5 nocturnal vitals deviating OR wrist temperature delta $\ge +0.40^\circ\text{C}$ with autonomic shift.
+  - Preserved missing nocturnal pillars as `nil` (and `.unmeasured`), completely removing synthetic fallback to athlete profile baselines in `HealthKitManager.swift`.
+- Created `PhysiologyTests.swift` with 13 unit tests covering 28-day stable vs spike ACWR regression, empty history coverage, battery drain timing (07:00 vs 19:00, 06:00 early morning), missing vitals non-substitution, single-metric training fatigue, and illness prodrome confluence. Total passing unit test suite: 70 tests.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/Domain/DailyLoadSeries.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/TrainingLoadAndBatteryEngine.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/VitalsAndIllnessEngine.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/PhysiologyTests.swift`
+- `docs/superpowers/plans/2026-11-12-native-redesign/01-reliability.md`
+- `CHANGELOG.md`
+
+## [2026-11-13] - Task R6: Durable local state, recoverable migrations, and sync outbox
+
+- Added `MealLifecycleState` (`draft`, `analyzing`, `review`, `confirmed`, `failed`, `cancelled`) and expanded `MealEntity` schema in `SwiftDataModels.swift` with `clientUUID`, `legacyRemoteId`, `revision`, `provenance`, `kcalExact`, `bufferVersion`, `isDeleted` soft-delete tombstones, and `updatedAt`.
+- Implemented `SyncOutbox` and `SyncOperationEntity` in `SyncOutbox.swift` providing durable queue operations (`operationID`, `entityID`, `entityType`, `operationKind`, `revision`, `payloadJson`, `attempts`, `lastAttemptAt`, `status`) surviving app restarts with atomic mutation support.
+- Built `PersistenceRecovery.swift` with typed `PersistenceError`s and safe UserDefaults migration retaining original bytes on save failures until transactional reread verification succeeds, deduplicating on retry by stable legacy ID (fixing Audit F11).
+- Replaced name-based demo seed deletion with provenance-based purge (`provenance == "fixture" || provenance == "legacy_seed"`), preserving user meals with identical names (fixing Audit F25).
+- Upgraded `MealStorageService` mutation APIs to throwing operations (`confirmMeal(id:) throws`, `deleteMeal(id:) throws`, `undoDeleteMeal(id:) throws`), rolling back uncommitted changes on failure and eliminating false UI success acknowledgments (fixing Audit F10).
+- Created `PersistenceTests.swift` with 6 unit tests verifying fault injection, UserDefaults migration byte retention/deduplication, provenance-based seed purging, outbox persistence across restarts, and meal lifecycle transitions. Total passing unit test suite: 57 tests.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SyncOutbox.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/PersistenceRecovery.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/PersistenceTests.swift`
+- `ios/Lifecore/Lifecore/Lifecore/App/AppEnvironment.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/EnvironmentIsolationTests.swift`
+- `CHANGELOG.md`
+
 ## [2026-11-13] - Task R3b: Workout normalization and metadata
 
 - Corrected 1km split timing in `WorkoutMathEngine.swift` and `WorkoutTelemetryExtractor.swift` by anchoring workout start $t_0$, resolving split duration underestimation (10x 100m @ 36s yields 360s duration and 6.00 min/km pace, fixing Audit F13).
