@@ -2,6 +2,36 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Task R3b: Workout normalization and metadata
+
+- Corrected 1km split timing in `WorkoutMathEngine.swift` and `WorkoutTelemetryExtractor.swift` by anchoring workout start $t_0$, resolving split duration underestimation (10x 100m @ 36s yields 360s duration and 6.00 min/km pace, fixing Audit F13).
+- Implemented partial final kilometer pace interpolation for distances $\ge 10\text{m}$.
+- Bounded elevation calculation to realistic GPS accuracy filtering and preserved missing elevation gain as `nil` rather than `0.0m`; fixed flat outdoor runs retaining `isIndoorTreadmill = false` (fixing Audit F14).
+- Mapped interval laps from `workoutActivities` and `HKWorkoutEvent` without dropped laps, calculating recovery HR drop and classifying rest vs work intervals.
+- Added `WorkoutTelemetryTests.swift` with 9 passing tests verifying $t_0$ anchoring, partial split interpolation, elevation missingness, and interval lap extraction.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/WorkoutTelemetryExtractor.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/WorkoutMathEngine.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/WorkoutTelemetryTests.swift`
+- `CHANGELOG.md`
+
+## [2026-11-13] - Task R5a: AI nutrition trust boundary and single-buffer arithmetic
+
+- Defined `RawNutritionEstimate` and `NutritionNormalizer` with typed errors (`NutritionNormalizationError`) enforcing finite, non-negative nutritional values and rejecting `{}` or missing required keys (fixing Audit F08).
+- Applied the +12.5% caloric deficit safety buffer deterministically in Swift code within `NutritionNormalizer.normalize`: `round(raw.kcalExact * 1.125)`, while keeping protein, fat, and carbs exact (fixing Audit F07).
+- Updated `FoodPrompt.swift` so Gemini outputs unbuffered exact calories (`kcal_exact`), removing model-side buffer duplication.
+- Completely removed synthetic offline meal generator fallbacks (450 kcal / 28g protein) from `GeminiService.swift`, rethrowing typed network/decoding errors (fixing Audit F06).
+- Added `NutritionContractTests.swift` with 12 passing tests verifying single buffer application, strict schema validation, tag normalization, and error handling via URLProtocol mocks. Total passing test suite: 51 tests.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/FoodPrompt.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/NutritionNormalizer.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/NutritionContractTests.swift`
+- `ios/Lifecore/Lifecore/Lifecore.xcodeproj/project.pbxproj`
+- `CHANGELOG.md`
+
 ## [2026-11-13] - Task R3a: Real HealthKit observations and sleep episodes
 
 - Introduced `HealthRepository` protocol (`weightHistory(in:)`, `sleepEpisode(endingBefore:)`) and concrete `HealthKitRepository` and `FixtureHealthRepository` adapters.

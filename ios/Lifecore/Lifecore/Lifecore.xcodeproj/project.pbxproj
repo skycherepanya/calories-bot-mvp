@@ -15,6 +15,7 @@
 			remoteInfo = Lifecore;
 		};
 /* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		1934F2263084FB000060E688 /* Lifecore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lifecore.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1934F2403084FB000060E688 /* LifecoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifecoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -179,6 +180,7 @@
 			targetProxy = 1934F2463084FB000060E688 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		1934F22F3084FB010060E688 /* Debug configuration for PBXProject "Lifecore" */ = {
 			isa = XCBuildConfiguration;
@@ -375,7 +377,7 @@
 			};
 			name = Release;
 		};
-		1934F2493084FB000060E688 /* Debug */ = {
+		1934F2493084FB000060E688 /* Debug configuration for PBXNativeTarget "LifecoreTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -401,7 +403,7 @@
 			};
 			name = Debug;
 		};
-		1934F24A3084FB000060E688 /* Release */ = {
+		1934F24A3084FB000060E688 /* Release configuration for PBXNativeTarget "LifecoreTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -449,8 +451,8 @@
 		1934F2483084FB000060E688 /* Build configuration list for PBXNativeTarget "LifecoreTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				1934F2493084FB000060E688 /* Debug */,
-				1934F24A3084FB000060E688 /* Release */,
+				1934F2493084FB000060E688 /* Debug configuration for PBXNativeTarget "LifecoreTests" */,
+				1934F24A3084FB000060E688 /* Release configuration for PBXNativeTarget "LifecoreTests" */,
 			);
 			defaultConfigurationName = Release;
 		};

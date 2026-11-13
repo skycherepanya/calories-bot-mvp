@@ -175,16 +175,16 @@ $$
 Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifecore/Lifecore/`. Deployment floor: iOS 27.0. Language mode: Swift 5.0. Verified toolchain: Xcode 27.1. Swift 6 migration is a proposed explicit gate.
 
 - `App/`: lifecycle, Debug verification logging, four-tab shell, forced-light appearance.
-- `Core/HealthKit/`: queries, `HealthRepository` protocol, `SleepEpisodeReader`, and workout extraction. Synthetic fallback branches removed; nocturnal vitals strictly bounded to sleep episodes; missingness truthfully preserved.
-- `Core/MathEngine/`: deterministic readiness, workouts, vitals, workload/battery, correlations, adaptive physiology and prescription. Several production call sites supply fabricated or incomplete inputs.
+- `Core/HealthKit/`: queries, `HealthRepository` protocol, `SleepEpisodeReader`, and `WorkoutTelemetryExtractor`. Synthetic fallback branches removed; nocturnal vitals strictly bounded to sleep episodes; missingness truthfully preserved; 1km split timing anchored to $t_0$.
+- `Core/MathEngine/`: deterministic readiness, workouts, vitals, workload/battery, correlations, adaptive physiology and prescription.
 - `Core/Storage/`: SwiftData meals, workout analyses, training plan and athlete memories; UserDefaults profile; direct Supabase REST. Save failures can be hidden; no durable revisioned outbox exists.
-- `Core/AI/`: food/report/chat provider, prompts and RAG. Nutrition buffer/validation, fabricated fallback responses and mislabeled evidence windows are open defects.
+- `Core/AI/`: food/report/chat provider, `FoodPrompt`, and `NutritionNormalizer`. Deficit buffer (+12.5%) applied natively once in Swift; raw AI nutrition estimates strictly validated against non-finite/negative inputs; synthetic meal fallbacks removed.
 - `Core/UI/` and `Features/`: Daylight style and Today/Workouts/Nutrition/Trends. Views currently perform independent queries/history joins; prescriptions can disagree between tabs.
 - `Intents/`: food and sync entry points; failure dialogs/durable retry require repair.
 
 ### 3.2. Verification evidence
 
-Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 32 tests in `LifecoreTests` (including 9 in `HealthRepositoryTests` for Task R3a) pass cleanly in ~0.21s without side effects.
+Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 51 tests in `LifecoreTests` (including 9 in `WorkoutTelemetryTests` for R3b and 12 in `NutritionContractTests` for R5a) pass cleanly in ~0.26s without side effects.
 
 ### 3.3. Persistence and cloud limitations
 

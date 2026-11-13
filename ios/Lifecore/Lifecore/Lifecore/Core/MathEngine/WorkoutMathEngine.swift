@@ -11,6 +11,7 @@ public struct SplitMetric: Sendable, Codable, Identifiable {
     public let maxHeartRate: Double?
     public let elevationDiffMeters: Double
     public let avgCadence: Double?
+    public let startDate: Date?
 
     public init(
         km: Int,
@@ -19,7 +20,8 @@ public struct SplitMetric: Sendable, Codable, Identifiable {
         avgHeartRate: Double? = nil,
         maxHeartRate: Double? = nil,
         elevationDiffMeters: Double = 0.0,
-        avgCadence: Double? = nil
+        avgCadence: Double? = nil,
+        startDate: Date? = nil
     ) {
         self.km = km
         self.durationSeconds = durationSeconds
@@ -28,6 +30,7 @@ public struct SplitMetric: Sendable, Codable, Identifiable {
         self.maxHeartRate = maxHeartRate
         self.elevationDiffMeters = elevationDiffMeters
         self.avgCadence = avgCadence
+        self.startDate = startDate
     }
 
     enum CodingKeys: String, CodingKey {
@@ -38,6 +41,7 @@ public struct SplitMetric: Sendable, Codable, Identifiable {
         case maxHeartRate = "max_hr"
         case elevationDiffMeters = "elevation_diff_m"
         case avgCadence = "avg_cadence"
+        case startDate = "start_date"
     }
 
     /// Formatted pace string like "5:45/km"
@@ -144,7 +148,7 @@ public struct WorkoutAnalysisResult: Sendable, Codable {
     public let avgPaceMinKm: Double
     public let avgHeartRate: Double?
     public let maxHeartRate: Double?
-    public let elevationGainMeters: Double
+    public let elevationGainMeters: Double?
     public let efficiencyFactor: Double?
     public let aerobicDecouplingPct: Double?
     public let isIndoorTreadmill: Bool
@@ -169,7 +173,7 @@ public struct WorkoutAnalysisResult: Sendable, Codable {
         avgPaceMinKm: Double,
         avgHeartRate: Double?,
         maxHeartRate: Double?,
-        elevationGainMeters: Double,
+        elevationGainMeters: Double?,
         efficiencyFactor: Double?,
         aerobicDecouplingPct: Double?,
         isIndoorTreadmill: Bool,
@@ -194,12 +198,26 @@ public struct WorkoutAnalysisResult: Sendable, Codable {
     }
 }
 
+extension Optional: @retroactive CVarArg where Wrapped == Double {
+    public var _cVarArgEncoding: [Int] {
+        switch self {
+        case .some(let value):
+            return value._cVarArgEncoding
+        case .none:
+            return (0.0)._cVarArgEncoding
+        }
+    }
+}
+
 // MARK: - Workout Math Engine
 
 public enum WorkoutMathEngine {
 
     /// Slices raw telemetry stream into 1-kilometer incremental splits with linear boundary interpolation.
-    public static func computeKilometerSplits(from samples: [RawTelemetryPoint]) -> [SplitMetric] {
+    public static func computeKilometerSplits(
+        from samples: [RawTelemetryPoint],
+        workoutStartDate: Date? = nil
+    ) -> [SplitMetric] {
         guard samples.count >= 2 else { return [] }
         guard let firstSample = samples.first, let lastSample = samples.last else { return [] }
 
@@ -211,7 +229,30 @@ public enum WorkoutMathEngine {
 
         var splits: [SplitMetric] = []
         var previousTargetMeters = 0.0
-        var previousTargetDate = firstSample.timestamp
+
+        // Determine starting timestamp (t0):
+        // If the first sample is already at 0.0m, start from it (or workoutStartDate if earlier).
+        // If the stream only starts with a positive distance (e.g. 100m at +36s), anchor from
+        // workoutStartDate if provided, or infer t0 backwards via the initial interval's rate
+        // so the elapsed duration of the first increment is never dropped.
+        let previousTargetDate: Date
+        if firstSample.distanceMeters == 0.0 {
+            previousTargetDate = workoutStartDate ?? firstSample.timestamp
+        } else if let start = workoutStartDate, start <= firstSample.timestamp {
+            previousTargetDate = start
+        } else {
+            let distDiff = samples[1].distanceMeters - firstSample.distanceMeters
+            let timeDiff = samples[1].timestamp.timeIntervalSince(firstSample.timestamp)
+            if distDiff > 0 && timeDiff > 0 {
+                let secPerMeter = timeDiff / distDiff
+                let initialDuration = firstSample.distanceMeters * secPerMeter
+                previousTargetDate = firstSample.timestamp.addingTimeInterval(-initialDuration)
+            } else {
+                previousTargetDate = firstSample.timestamp
+            }
+        }
+
+        var currentTargetDate = previousTargetDate
         var currentKmIndex = 1
 
         let totalKmTargets = Int(floor(totalDistance / 1000.0))
@@ -244,22 +285,26 @@ public enum WorkoutMathEngine {
             }
 
             let splitEndDate = targetDate ?? samples[min(boundingIndex, samples.count - 1)].timestamp
-            let durationSeconds = max(1.0, splitEndDate.timeIntervalSince(previousTargetDate))
+            let durationSeconds = max(1.0, splitEndDate.timeIntervalSince(currentTargetDate))
             let distanceMeters = targetMeters - previousTargetMeters // exactly 1000m
 
             let paceMinPerKm = (durationSeconds / distanceMeters) * (1000.0 / 60.0)
 
             // Extract heart rate, altitude, cadence for this segment
             let segmentSamples = samples.filter {
-                $0.timestamp >= previousTargetDate && $0.timestamp <= splitEndDate
+                $0.timestamp >= currentTargetDate && $0.timestamp <= splitEndDate
             }
             let hrValues = segmentSamples.compactMap { $0.heartRateBpm }
             let avgHr = hrValues.isEmpty ? nil : (hrValues.reduce(0.0, +) / Double(hrValues.count))
             let maxHr = hrValues.max()
 
-            let startAlt = segmentSamples.first?.altitudeMeters ?? 0.0
-            let endAlt = segmentSamples.last?.altitudeMeters ?? 0.0
-            let elevationDiff = round((endAlt - startAlt) * 10) / 10
+            let altValues = segmentSamples.compactMap { $0.altitudeMeters }
+            let elevationDiff: Double
+            if let startAlt = altValues.first, let endAlt = altValues.last {
+                elevationDiff = round((endAlt - startAlt) * 10) / 10
+            } else {
+                elevationDiff = 0.0
+            }
 
             let cadenceValues = segmentSamples.compactMap { $0.cadenceRpm }
             let avgCadence = cadenceValues.isEmpty ? nil : (cadenceValues.reduce(0.0, +) / Double(cadenceValues.count))
@@ -272,30 +317,35 @@ public enum WorkoutMathEngine {
                     avgHeartRate: avgHr != nil ? round(avgHr! * 10) / 10 : nil,
                     maxHeartRate: maxHr != nil ? round(maxHr! * 10) / 10 : nil,
                     elevationDiffMeters: elevationDiff,
-                    avgCadence: avgCadence != nil ? round(avgCadence!) : nil
+                    avgCadence: avgCadence != nil ? round(avgCadence!) : nil,
+                    startDate: currentTargetDate
                 )
             )
 
             previousTargetMeters = targetMeters
-            previousTargetDate = splitEndDate
+            currentTargetDate = splitEndDate
             currentKmIndex += 1
         }
 
-        // 2. Partial final split if remaining distance >= 100m (e.g. 170m on a 4.17km run)
+        // 2. Partial final split if remaining distance >= 10m (e.g. 170m on a 4.17km run)
         let remainingDistance = totalDistance - previousTargetMeters
-        if remainingDistance >= 100.0 {
+        if remainingDistance >= 10.0 {
             let finalDate = lastSample.timestamp
-            let durationSeconds = max(1.0, finalDate.timeIntervalSince(previousTargetDate))
+            let durationSeconds = max(1.0, finalDate.timeIntervalSince(currentTargetDate))
             let paceMinPerKm = (durationSeconds / remainingDistance) * (1000.0 / 60.0)
 
-            let segmentSamples = samples.filter { $0.timestamp >= previousTargetDate }
+            let segmentSamples = samples.filter { $0.timestamp >= currentTargetDate && $0.timestamp <= finalDate }
             let hrValues = segmentSamples.compactMap { $0.heartRateBpm }
             let avgHr = hrValues.isEmpty ? nil : (hrValues.reduce(0.0, +) / Double(hrValues.count))
             let maxHr = hrValues.max()
 
-            let startAlt = segmentSamples.first?.altitudeMeters ?? 0.0
-            let endAlt = segmentSamples.last?.altitudeMeters ?? 0.0
-            let elevationDiff = round((endAlt - startAlt) * 10) / 10
+            let altValues = segmentSamples.compactMap { $0.altitudeMeters }
+            let elevationDiff: Double
+            if let startAlt = altValues.first, let endAlt = altValues.last {
+                elevationDiff = round((endAlt - startAlt) * 10) / 10
+            } else {
+                elevationDiff = 0.0
+            }
 
             let cadenceValues = segmentSamples.compactMap { $0.cadenceRpm }
             let avgCadence = cadenceValues.isEmpty ? nil : (cadenceValues.reduce(0.0, +) / Double(cadenceValues.count))
@@ -308,7 +358,8 @@ public enum WorkoutMathEngine {
                     avgHeartRate: avgHr != nil ? round(avgHr! * 10) / 10 : nil,
                     maxHeartRate: maxHr != nil ? round(maxHr! * 10) / 10 : nil,
                     elevationDiffMeters: elevationDiff,
-                    avgCadence: avgCadence != nil ? round(avgCadence!) : nil
+                    avgCadence: avgCadence != nil ? round(avgCadence!) : nil,
+                    startDate: currentTargetDate
                 )
             )
         }
@@ -373,30 +424,42 @@ public enum WorkoutMathEngine {
 
         for (i, lap) in rawLaps.enumerated() {
             let duration = lap.durationSeconds
-            let distance = lap.distanceMeters
+            var distance = lap.distanceMeters
+
+            // Find telemetry samples within lap window
+            let lapEnd = lap.endDate ?? lap.startDate.addingTimeInterval(duration)
+            let inLapSamples = samples.filter { $0.timestamp >= lap.startDate && $0.timestamp <= lapEnd }
+
+            // If lap distance is not explicitly recorded, infer it from continuous telemetry span
+            if distance == nil && inLapSamples.count >= 2 {
+                let inferredDist = inLapSamples.last!.distanceMeters - inLapSamples.first!.distanceMeters
+                if inferredDist > 0 {
+                    distance = inferredDist
+                }
+            }
 
             var pace: Double? = nil
             if let dist = distance, dist > 0, duration > 0 {
                 pace = (duration / dist) * (1000.0 / 60.0)
             }
 
-            // Find telemetry samples within lap window
-            let lapEnd = lap.endDate ?? lap.startDate.addingTimeInterval(duration)
-            let inLapSamples = samples.filter { $0.timestamp >= lap.startDate && $0.timestamp <= lapEnd }
             let hrList = inLapSamples.compactMap { $0.heartRateBpm }
             let avgHr = hrList.isEmpty ? nil : hrList.reduce(0.0, +) / Double(hrList.count)
             let maxHr = hrList.max()
 
-            // Determine if work or recovery
-            // Recovery lap heuristic: very low speed (< 6 km/h) or marked explicitly
-            let isRecovery = (pace != nil && pace! > 9.0) || (distance != nil && distance! < 150.0)
+            // Determine if work or recovery:
+            // Recovery lap heuristic: very low speed (< 6.6 km/h, pace > 9.0 min/km), short stationary rest, or low distance
+            let isRecovery = (distance == nil && (pace == nil || pace! > 9.0)) ||
+                             (pace != nil && pace! > 9.0) ||
+                             (distance != nil && distance! < 150.0)
             let lapType = isRecovery ? "recovery" : "work"
 
             // Compute HR recovery drop during rest interval (peak at start - trough at end)
             var hrDrop: Double? = nil
             if isRecovery && hrList.count >= 2 {
-                let initialHr = hrList.prefix(3).reduce(0.0, +) / Double(min(3, hrList.count))
-                let finalHr = hrList.suffix(3).reduce(0.0, +) / Double(min(3, hrList.count))
+                let sampleWindow = max(1, min(3, hrList.count / 2))
+                let initialHr = hrList.prefix(sampleWindow).reduce(0.0, +) / Double(sampleWindow)
+                let finalHr = hrList.suffix(sampleWindow).reduce(0.0, +) / Double(sampleWindow)
                 hrDrop = max(0.0, round((initialHr - finalHr) * 10) / 10)
             }
 
@@ -535,11 +598,28 @@ public enum WorkoutMathEngine {
         }
         let maxHr = allHrs.max()
 
-        // 1km splits
-        let splits = computeKilometerSplits(from: series.samples)
+        // 1km splits anchored at series.startDate
+        let splits = computeKilometerSplits(from: series.samples, workoutStartDate: series.startDate)
 
-        // Elevation gain from splits
-        let elevationGain = splits.map { max(0.0, $0.elevationDiffMeters) }.reduce(0.0, +)
+        // Elevation gain from GPS altitude samples:
+        // If GPS altitude samples are missing or unavailable, preserve elevationGain as nil (never default to 0.0m)
+        let validAltitudes = series.samples.compactMap { $0.altitudeMeters }
+        let elevationGain: Double?
+        if validAltitudes.isEmpty {
+            elevationGain = nil
+        } else {
+            var totalGain = 0.0
+            var previousAlt: Double?
+            for sample in series.samples {
+                if let alt = sample.altitudeMeters {
+                    if let prev = previousAlt, alt > prev {
+                        totalGain += (alt - prev)
+                    }
+                    previousAlt = alt
+                }
+            }
+            elevationGain = round(totalGain * 10) / 10
+        }
 
         // Efficiency Factor
         let ef: Double?
@@ -555,8 +635,10 @@ public enum WorkoutMathEngine {
         // Interval laps
         let laps = analyzeIntervalLaps(rawLaps: series.intervalActivities, samples: series.samples)
 
-        // Detect indoor treadmill
-        let isIndoor = series.isIndoor || (elevationGain == 0.0 && distanceKm > 1.0 && series.workoutType == "running")
+        // Detect indoor treadmill:
+        // Audit F14: Zero or missing elevation must NEVER override explicit outdoor metadata for runs.
+        // Indoor status is determined strictly by explicit series.isIndoor metadata.
+        let isIndoor = series.isIndoor
 
         // Benchmark comparison
         let benchmark = computeHistoricalBenchmark(
@@ -572,7 +654,7 @@ public enum WorkoutMathEngine {
             avgPaceMinKm: avgPaceMinKm,
             avgHeartRate: avgHr,
             maxHeartRate: maxHr,
-            elevationGainMeters: round(elevationGain * 10) / 10,
+            elevationGainMeters: elevationGain,
             efficiencyFactor: ef,
             aerobicDecouplingPct: decouplingPct,
             isIndoorTreadmill: isIndoor,

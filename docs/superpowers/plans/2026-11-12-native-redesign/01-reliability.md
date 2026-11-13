@@ -96,7 +96,7 @@ Produces `HealthRepository` protocol with async throwing `weightHistory(in: Date
 
 Dependencies:R3a. Findings:F13/F14. Own `APP/Core/HealthKit/WorkoutTelemetryExtractor.swift`, `APP/Core/MathEngine/WorkoutMathEngine.swift`, `TEST/WorkoutTelemetryTests.swift`.
 
-- [ ] Add a fixture with workout start `t0`, distance increments100m at36s intervals through1000m; expected first split duration360s. The current end-point-only stream demonstrates324s.
+- [x] Add a fixture with workout start `t0`, distance increments100m at36s intervals through1000m; expected first split duration360s. The current end-point-only stream demonstrates324s.
 
 ```swift
 let t0 = Date(timeIntervalSince1970: 1_700_000_000)
@@ -109,10 +109,10 @@ let split = WorkoutMathEngine.computeKilometerSplits(from: samples)[0]
 XCTAssertEqual(split.paceMinPerKm, 6.0, accuracy: 0.001)
 ```
 
-- [ ] Test the query-to-normalized-series boundary, not just hand-built zero-anchored samples. Add the zero-distance start anchor only when cumulative stream semantics support it; document elapsed vs moving-time treatment and pause handling.
-- [ ] Use explicit indoor metadata. Keep absent elevation absent in result contract and consumers; remove the zero-elevation treadmill heuristic. Do not invent constant-speed granular samples from summary distance.
-- [ ] Test flat outdoor, explicit treadmill, missing route/distance, sparse first point, partial final kilometer and pause events. Verify EF/drift only when required telemetry exists.
-- [ ] Run `WorkoutTelemetryTests` and legacy math tests; update telemetry documentation; commit `fix: anchor splits and preserve workout metadata`.
+- [x] Test the query-to-normalized-series boundary, not just hand-built zero-anchored samples. Add the zero-distance start anchor only when cumulative stream semantics support it; document elapsed vs moving-time treatment and pause handling.
+- [x] Use explicit indoor metadata. Keep absent elevation absent in result contract and consumers; remove the zero-elevation treadmill heuristic. Do not invent constant-speed granular samples from summary distance.
+- [x] Test flat outdoor, explicit treadmill, missing route/distance, sparse first point, partial final kilometer and pause events. Verify EF/drift only when required telemetry exists.
+- [x] Run `WorkoutTelemetryTests` and legacy math tests; update telemetry documentation; commit `fix: anchor splits and preserve workout metadata`.
 
 ## R3c — Workload, battery and one vitals evaluation
 
@@ -165,10 +165,10 @@ XCTAssertEqual(meal.carbs, 0)
 
 Provide defaults only for optional constructor fields, never required nutritional values.
 
-- [ ] Reject `{}`, missing required fields, negative/non-finite numbers and invalid confidence before Int conversion. Add 401/429/500/malformed JSON/timeout URLProtocol fixtures; assert typed failure and no external writes.
-- [ ] Change prompt schema to exact unbuffered kcal; preserve cooked-state and Ukrainian food-label rules. Validate tags semantically; plain meat must not have imposed carbs, mixed dishes remain distinct.
-- [ ] Normalize once in Swift; add raw/buffer version metadata via R6 owner. Existing `kcal` stays final when migrating; never recalculate unknown exact values as if measured.
-- [ ] Remove production offline fabrication branches, including caller-level fallbacks during U4/R9 integration. Run `NutritionContractTests`; update nutrition contract documentation; commit `fix: validate AI nutrition and normalize calories natively`.
+- [x] Reject `{}`, missing required fields, negative/non-finite numbers and invalid confidence before Int conversion. Add 401/429/500/malformed JSON/timeout URLProtocol fixtures; assert typed failure and no external writes.
+- [x] Change prompt schema to exact unbuffered kcal; preserve cooked-state and Ukrainian food-label rules. Validate tags semantically; plain meat must not have imposed carbs, mixed dishes remain distinct.
+- [x] Normalize once in Swift; add raw/buffer version metadata via R6 owner. Existing `kcal` stays final when migrating; never recalculate unknown exact values as if measured.
+- [x] Remove production offline fabrication branches, including caller-level fallbacks during U4/R9 integration. Run `NutritionContractTests`; update nutrition contract documentation; commit `fix: validate AI nutrition and normalize calories natively`.
 
 ## R5b — Scoped coach evidence and memory
 

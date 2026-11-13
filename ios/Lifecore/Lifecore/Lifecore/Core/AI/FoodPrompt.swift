@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Nutrition & Meal Models
 
-public struct Micronutrients: Codable, Sendable {
+public struct Micronutrients: Codable, Sendable, Equatable {
     public let fiberG: Double?
     public let sodiumMg: Double?
     public let potassiumMg: Double?
@@ -36,7 +36,7 @@ public struct Micronutrients: Codable, Sendable {
     }
 }
 
-public struct AminoAcids: Codable, Sendable {
+public struct AminoAcids: Codable, Sendable, Equatable {
     public let bcaaG: Double?
     public let leucineG: Double?
 
@@ -51,7 +51,7 @@ public struct AminoAcids: Codable, Sendable {
     }
 }
 
-public struct MealNutrition: Codable, Sendable {
+public struct MealNutrition: Codable, Sendable, Equatable {
     public let mealName: String
     public let kcal: Double
     public let protein: Double
@@ -226,7 +226,7 @@ public enum FoodPrompt {
          * Boiled/baked potatoes: ~17g carbs per 100g.
          * Cooked oatmeal porridge: ~12-15g carbs per 100g.
        - NEVER use raw/dry values (~70-80g/100g) for cooked grains!
-    4. Deficit Buffer: Calculate the exact Kcal, then MULTIPLY the total Kcal by 1.125 (add a 12.5% safety buffer: kcal_final = round(kcal_exact * 1.125)). Keep Protein, Fat, and Carbs exact.
+    4. Exact Calories (No Deficit Buffer): Calculate the exact, unbuffered energy in kcal (kcal_exact) strictly matching the macronutrients (4 kcal/g protein, 9 kcal/g fat, 4 kcal/g carbs) and realistic cooked portion weight. DO NOT multiply by any safety buffer; the application calculates the 12.5% deficit safety buffer deterministically in Swift code. Keep Protein, Fat, and Carbs exact.
     5. Quality Taxonomy (tags): Select 2 to 4 mandatory tags:
        - Choose 'whole_food' (natural, unprocessed/minimally processed) OR 'ultra_processed' (fast food, chips, candy, industrial sausages).
        - Choose 'solid' OR 'liquid' (shakes, smoothies, soups, drinks).
@@ -241,7 +241,7 @@ public enum FoodPrompt {
     Output ONLY a valid JSON object adhering to this schema:
     {
       "meal_name": "Short descriptive name in Ukrainian",
-      "kcal": 450,
+      "kcal_exact": 400,
       "protein": 35,
       "fat": 12,
       "carbs": 50,

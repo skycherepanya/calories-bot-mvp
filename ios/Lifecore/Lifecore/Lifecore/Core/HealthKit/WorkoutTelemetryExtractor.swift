@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import CoreLocation
 
 // MARK: - Telemetry Models
 
@@ -96,17 +97,63 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
 
     private init() {}
 
+    /// Filters GPS route locations according to realistic horizontal and vertical accuracy thresholds.
+    /// Rejects negative accuracy values (invalid signal) and excessive drift.
+    public static func filterLocations(
+        _ locations: [CLLocation],
+        maxHorizontalAccuracy: CLLocationAccuracy = 50.0,
+        maxVerticalAccuracy: CLLocationAccuracy = 35.0
+    ) -> [CLLocation] {
+        return locations.filter { loc in
+            loc.horizontalAccuracy >= 0 &&
+            loc.horizontalAccuracy <= maxHorizontalAccuracy &&
+            loc.verticalAccuracy >= 0 &&
+            loc.verticalAccuracy <= maxVerticalAccuracy
+        }
+    }
+
+    /// Finds the closest GPS altitude within a time tolerance window.
+    public static func findClosestAltitude(
+        at targetTime: Date,
+        in locations: [CLLocation],
+        windowSeconds: TimeInterval = 15.0
+    ) -> Double? {
+        guard !locations.isEmpty else { return nil }
+
+        var closestLoc: CLLocation?
+        var minDifference: TimeInterval = .infinity
+
+        for loc in locations {
+            let diff = abs(loc.timestamp.timeIntervalSince(targetTime))
+            if diff < minDifference {
+                minDifference = diff
+                closestLoc = loc
+            }
+            if loc.timestamp > targetTime && diff > minDifference {
+                break
+            }
+        }
+
+        if minDifference <= windowSeconds, let match = closestLoc {
+            return match.altitude
+        }
+        return nil
+    }
+
     /// Extracts granular telemetry series for a specific HealthKit workout.
     public func extractTelemetry(for workout: HKWorkout) async throws -> WorkoutTelemetrySeries {
         let isIndoor = workout.metadata?[HKMetadataKeyIndoorWorkout] as? Bool ?? false
         let timePredicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: .strictStartDate)
 
-        // 1. Concurrently fetch Heart Rate and Distance series samples scoped strictly to this workout and its recording device
+        // 1. Concurrently fetch Heart Rate, Distance series samples, and Route locations
         async let hrSamplesTask = fetchWorkoutQuantitySamples(for: HKQuantityType(.heartRate), workout: workout, timePredicate: timePredicate)
         async let distSamplesTask = fetchWorkoutQuantitySamples(for: HKQuantityType(.distanceWalkingRunning), workout: workout, timePredicate: timePredicate)
+        async let routeLocationsTask = (try? await fetchWorkoutRouteLocations(for: workout)) ?? []
 
         let heartRates = try await hrSamplesTask
         let distances = try await distSamplesTask
+        let rawLocations = await routeLocationsTask
+        let validLocations = WorkoutTelemetryExtractor.filterLocations(rawLocations)
 
         let hrUnit = HKUnit.count().unitDivided(by: .minute())
         let distanceUnit = HKUnit.meter()
@@ -138,6 +185,24 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
         var telemetryPoints: [RawTelemetryPoint] = []
         var runningCumulativeDistance: Double = 0.0
 
+        // Explicitly anchor at workout start (t0) with distance 0.0m so the first interval duration
+        // is never omitted from split calculations.
+        if let firstSample = sortedDist.first {
+            let startAnchorTime = min(workout.startDate, firstSample.startDate)
+            let initialHR = findClosestHeartRate(at: startAnchorTime, in: sortedHR, unit: hrUnit, windowSeconds: 10.0)
+            let initialAlt = WorkoutTelemetryExtractor.findClosestAltitude(at: startAnchorTime, in: validLocations, windowSeconds: 15.0)
+
+            telemetryPoints.append(
+                RawTelemetryPoint(
+                    timestamp: startAnchorTime,
+                    distanceMeters: 0.0,
+                    heartRateBpm: initialHR,
+                    altitudeMeters: initialAlt,
+                    cadenceRpm: nil
+                )
+            )
+        }
+
         for sample in sortedDist {
             let sampleDistance = sample.quantity.doubleValue(for: distanceUnit) * distanceScale
             runningCumulativeDistance += sampleDistance
@@ -145,13 +210,14 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
 
             // Find closest heart rate within 10 seconds window
             let hrBpm = findClosestHeartRate(at: sampleTime, in: sortedHR, unit: hrUnit, windowSeconds: 10.0)
+            let alt = WorkoutTelemetryExtractor.findClosestAltitude(at: sampleTime, in: validLocations, windowSeconds: 15.0)
 
             telemetryPoints.append(
                 RawTelemetryPoint(
                     timestamp: sampleTime,
                     distanceMeters: runningCumulativeDistance,
                     heartRateBpm: hrBpm,
-                    altitudeMeters: nil,
+                    altitudeMeters: alt,
                     cadenceRpm: nil
                 )
             )
@@ -174,10 +240,12 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
             }
         }
 
-        // 3. Extract structured interval laps (HKWorkoutActivity on iOS 16+)
+        // 5. Extract structured interval laps (HKWorkoutActivity on iOS 16+)
         var intervalLaps: [RawIntervalLap] = []
         for (index, activity) in workout.workoutActivities.enumerated() {
             let dist = activity.allStatistics[HKQuantityType(.distanceWalkingRunning)]?.sumQuantity()?.doubleValue(for: .meter())
+                ?? activity.allStatistics[HKQuantityType(.distanceCycling)]?.sumQuantity()?.doubleValue(for: .meter())
+                ?? activity.allStatistics[HKQuantityType(.distanceSwimming)]?.sumQuantity()?.doubleValue(for: .meter())
             let energy = activity.allStatistics[HKQuantityType(.activeEnergyBurned)]?.sumQuantity()?.doubleValue(for: .kilocalorie())
 
             intervalLaps.append(
@@ -190,6 +258,24 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
                     activeCalories: energy
                 )
             )
+        }
+
+        // Fallback: If workoutActivities is empty, extract from HKWorkoutEvent lap events without dropping laps
+        if intervalLaps.isEmpty, let events = workout.workoutEvents {
+            let lapEvents = events.filter { $0.type == .lap }
+            for (index, event) in lapEvents.enumerated() {
+                let duration = event.dateInterval.duration
+                intervalLaps.append(
+                    RawIntervalLap(
+                        lapIndex: index + 1,
+                        startDate: event.dateInterval.start,
+                        endDate: event.dateInterval.end,
+                        durationSeconds: duration > 0 ? duration : (workout.duration / Double(max(1, lapEvents.count))),
+                        distanceMeters: nil,
+                        activeCalories: nil
+                    )
+                )
+            }
         }
 
         let totalDist = workout.totalDistance?.doubleValue(for: .meter())
@@ -218,6 +304,55 @@ public final class WorkoutTelemetryExtractor: @unchecked Sendable {
             intervalActivities: intervalLaps,
             isIndoor: isIndoor
         )
+    }
+
+    // MARK: - Route Query Helpers
+
+    /// Fetches all GPS route locations associated with an HKWorkout.
+    public func fetchWorkoutRouteLocations(for workout: HKWorkout) async throws -> [CLLocation] {
+        let routePredicate = HKQuery.predicateForObjects(from: workout)
+        let routes = (try? await fetchWorkoutRoutes(predicate: routePredicate)) ?? []
+        guard let firstRoute = routes.first else { return [] }
+
+        return (try? await fetchRouteLocations(for: firstRoute)) ?? []
+    }
+
+    private func fetchWorkoutRoutes(predicate: NSPredicate) async throws -> [HKWorkoutRoute] {
+        try await withCheckedThrowingContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let query = HKSampleQuery(
+                sampleType: HKSeriesType.workoutRoute(),
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sortDescriptor]
+            ) { _, results, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: (results as? [HKWorkoutRoute]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func fetchRouteLocations(for route: HKWorkoutRoute) async throws -> [CLLocation] {
+        try await withCheckedThrowingContinuation { continuation in
+            var accumulatedLocations: [CLLocation] = []
+            let query = HKWorkoutRouteQuery(route: route) { _, locationsOrNil, done, errorOrNil in
+                if let error = errorOrNil {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                if let locs = locationsOrNil {
+                    accumulatedLocations.append(contentsOf: locs)
+                }
+                if done {
+                    continuation.resume(returning: accumulatedLocations)
+                }
+            }
+            healthStore.execute(query)
+        }
     }
 
     // MARK: - Private Query Helpers

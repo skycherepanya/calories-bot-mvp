@@ -178,7 +178,7 @@ public final class GeminiService: @unchecked Sendable {
     }
 
     public var currentApiKey: String? {
-        if let key = customApiKey, !key.isEmpty { return key }
+        if let key = customApiKey { return key }
         if let envKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !envKey.isEmpty { return envKey }
         if let stored = UserDefaults.standard.string(forKey: "GEMINI_API_KEY"), !stored.isEmpty { return stored }
         return Self.defaultApiKey
@@ -192,8 +192,7 @@ public final class GeminiService: @unchecked Sendable {
         textDescription: String? = nil
     ) async throws -> MealNutrition {
         guard let apiKey = currentApiKey, !apiKey.isEmpty else {
-            // Provide high-fidelity offline simulated recognition
-            return generateOfflineMeal(textDescription: textDescription)
+            throw GeminiError.missingApiKey
         }
 
         var parts: [GeminiRequest.Content.Part] = []
@@ -234,8 +233,8 @@ public final class GeminiService: @unchecked Sendable {
         }
 
         if let err = lastError {
-            print("[Gemini] All models in cascade failed with: \(err.localizedDescription). Falling back to offline estimation.")
-            return generateOfflineMeal(textDescription: textDescription)
+            print("[Gemini] All models in cascade failed with: \(err.localizedDescription).")
+            throw err
         }
 
         throw GeminiError.emptyResponse
@@ -305,9 +304,13 @@ public final class GeminiService: @unchecked Sendable {
         }
 
         do {
-            let meal = try JSONDecoder().decode(MealNutrition.self, from: jsonData)
+            let rawEstimate = try NutritionNormalizer.decode(from: jsonData)
+            let meal = try NutritionNormalizer.normalize(rawEstimate)
             print("[Gemini] Model \(model) successfully parsed: '\(meal.mealName)' (\(Int(meal.kcal)) kcal, P:\(Int(meal.protein)) F:\(Int(meal.fat)) C:\(Int(meal.carbs)))")
             return meal
+        } catch let normError as NutritionNormalizationError {
+            print("[Gemini] Normalization failed for model \(model): \(normError)")
+            throw normError
         } catch {
             print("[Gemini] Failed to decode MealNutrition from: \(jsonText). Error: \(error)")
             throw GeminiError.decodingFailed(error.localizedDescription)
@@ -479,6 +482,7 @@ public final class GeminiService: @unchecked Sendable {
 
     // MARK: - Offline Heuristic Fallbacks
 
+    @available(*, deprecated, message: "Use NutritionNormalizer and explicit user error handling instead of synthetic generation")
     public func generateOfflineMeal(textDescription: String?) -> MealNutrition {
         let trimmedDesc = textDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let desc = trimmedDesc.lowercased()
