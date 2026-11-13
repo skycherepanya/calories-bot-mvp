@@ -378,7 +378,18 @@ public final class GeminiService: @unchecked Sendable {
 
                 guard let jsonData = jsonText.data(using: .utf8) else { continue }
                 let debrief = try JSONDecoder().decode(StructuredWorkoutDebrief.self, from: jsonData)
-                return debrief
+                let validatedPills = CoachEvidenceBuilder.validateCitations(debrief.evidencePills, against: dossier)
+                return StructuredWorkoutDebrief(
+                    headlineUk: debrief.headlineUk,
+                    regimeBadgeUk: debrief.regimeBadgeUk,
+                    regimeTone: debrief.regimeTone,
+                    executionAnalysisUk: debrief.executionAnalysisUk,
+                    benchmarkComparisonUk: debrief.benchmarkComparisonUk,
+                    rootCauseAndDirectiveUk: debrief.rootCauseAndDirectiveUk,
+                    evidencePills: validatedPills,
+                    followUpQuestionsUk: debrief.followUpQuestionsUk,
+                    isOfflineFallback: debrief.isOfflineFallback
+                )
             } catch {
                 lastError = error
             }
@@ -451,7 +462,17 @@ public final class GeminiService: @unchecked Sendable {
 
                 guard let jsonData = jsonText.data(using: .utf8) else { continue }
                 let turn = try JSONDecoder().decode(AnalystChatTurnResponse.self, from: jsonData)
-                return turn
+                let validatedMetrics = CoachEvidenceBuilder.validateCitations(turn.citedMetrics, against: dossier)
+                return AnalystChatTurnResponse(
+                    answerHeadlineUk: turn.answerHeadlineUk,
+                    answerBodyUk: turn.answerBodyUk,
+                    citedMetrics: validatedMetrics,
+                    actionableTakeawayUk: turn.actionableTakeawayUk,
+                    suggestedFollowUpsUk: turn.suggestedFollowUpsUk,
+                    extractedMemoryFactUk: turn.extractedMemoryFactUk,
+                    extractedMemoryCategory: turn.extractedMemoryCategory,
+                    isOfflineFallback: turn.isOfflineFallback
+                )
             } catch {
                 lastError = error
             }
@@ -728,21 +749,23 @@ public final class GeminiService: @unchecked Sendable {
                 benchmarkComparisonUk: "Недостатньо попередніх даних для побудови моделі форми.",
                 rootCauseAndDirectiveUk: "Підтримуй водний баланс і заплануй наступне заняття за розкладом.",
                 evidencePills: [],
-                followUpQuestionsUk: ["Яке навантаження запланувати далі?", "Як закрити відновлення?"]
+                followUpQuestionsUk: ["Яке навантаження запланувати далі?", "Як закрити відновлення?"],
+                isOfflineFallback: true
             )
         }
 
         let regime = analysis.benchmarkDelta?.regime ?? .steadyBaseline
         let dist = String(format: "%.2f км", analysis.distanceKm)
         let pace = analysis.formattedAvgPace
-        let hr = analysis.avgHeartRate != nil ? "\(Int(round(analysis.avgHeartRate!))) bpm" : "N/A"
 
-        // Evidence pills
+        // Evidence pills strictly from measured workout telemetry
         var pills: [MetricEvidencePill] = [
             .init(labelUk: "Дистанція", valueUk: dist, tone: "neutral"),
-            .init(labelUk: "Темп", valueUk: "\(pace) /км", tone: "optimal"),
-            .init(labelUk: "Пульс", valueUk: hr, tone: "teal")
+            .init(labelUk: "Темп", valueUk: "\(pace) /км", tone: "optimal")
         ]
+        if let avgHr = analysis.avgHeartRate {
+            pills.append(.init(labelUk: "Пульс", valueUk: "\(Int(round(avgHr))) bpm", tone: "teal"))
+        }
         if let ef = analysis.efficiencyFactor {
             pills.append(.init(labelUk: "Ефективність", valueUk: String(format: "%.3f", ef), tone: "optimal"))
         }
@@ -773,7 +796,12 @@ public final class GeminiService: @unchecked Sendable {
         }
 
         // 70% Execution
-        var execution = "Ти подолав \(dist) із середнім темпом \(pace) (середній пульс \(hr)). "
+        var execution: String
+        if let avgHr = analysis.avgHeartRate {
+            execution = "Ти подолав \(dist) із середнім темпом \(pace) (середній пульс \(Int(round(avgHr))) bpm). "
+        } else {
+            execution = "Ти подолав \(dist) із середнім темпом \(pace) (дані пульсу для цієї сесії відсутні). "
+        }
         if analysis.splits.count >= 2 {
             let first = analysis.splits.first!
             let last = analysis.splits.last!
@@ -789,7 +817,7 @@ public final class GeminiService: @unchecked Sendable {
             if drift < 5.0 {
                 execution += "Серцевий дрейф залишився мінімальним (\(String(format: "%.1f", drift))%) — аеробна база відпрацювала монолітно."
             } else {
-                execution += "У другій половині забігу пульс зріс на \(String(format: "%.1f", drift))% щодо швидкості, що свідчить про поступове виснаження глікогену або зневоднення."
+                execution += "У другій половині забігу пульс зріс на \(String(format: "%.1f", drift))% щодо швидкості, що вказує на накопичення кардіонавантаження або втому."
             }
         }
 
@@ -806,7 +834,7 @@ public final class GeminiService: @unchecked Sendable {
         let nut = dossier.acuteNutrition
         if nut.loggedMealsCount > 0 {
             if nut.last24hCarbsG >= 180 {
-                rootCause += "Попередня доступність вуглеводів (\(Int(nut.last24hCarbsG))г за добу) підтримала енергетичний резерв м'язів. "
+                rootCause += "Попередня доступність вуглеводів (\(Int(nut.last24hCarbsG))г за вікно «\(nut.windowLabelUk)») підтримала енергетичний резерв м'язів. "
             } else if nut.last24hCarbsG > 0 && nut.last24hCarbsG < 140 {
                 rootCause += "Знижене споживання вуглеводів (\(Int(nut.last24hCarbsG))г) могло прискорити настання втоми під кінець дистанції. "
             }
@@ -823,6 +851,8 @@ public final class GeminiService: @unchecked Sendable {
             rootCause += "Директива на 24г: повноцінний сон та збалансоване харчування, завтра — легке відновлення або день відпочинку."
         }
 
+        let validatedPills = CoachEvidenceBuilder.validateCitations(pills, against: dossier)
+
         return StructuredWorkoutDebrief(
             headlineUk: headline,
             regimeBadgeUk: regime.badgeTitleUk,
@@ -830,12 +860,13 @@ public final class GeminiService: @unchecked Sendable {
             executionAnalysisUk: execution,
             benchmarkComparisonUk: benchmarkSummary,
             rootCauseAndDirectiveUk: rootCause,
-            evidencePills: pills,
+            evidencePills: validatedPills,
             followUpQuestionsUk: [
                 "Чому зріс пульс на останніх відрізках?",
                 "Як це тренування вплинуло на мій EWMA ACWR?",
                 "Що найкраще з'їсти сьогодні для відновлення?"
-            ]
+            ],
+            isOfflineFallback: true
         )
     }
 
@@ -851,78 +882,149 @@ public final class GeminiService: @unchecked Sendable {
         let candidateFact = LifecoreContextRAG.extractCandidateMemoryFact(fromUserMessage: userQuery)
 
         if lowered.contains("пульс") || lowered.contains("чсс") || lowered.contains("серц") {
-            let avgHr = analysis?.avgHeartRate != nil ? "\(Int(round(analysis!.avgHeartRate!))) bpm" : "150 bpm"
-            let drift = analysis?.aerobicDecouplingPct != nil ? String(format: "%+.1f%%", analysis!.aerobicDecouplingPct!) : "норма"
+            var cited: [MetricEvidencePill] = []
+            var bodyParts: [String] = []
+
+            if let avgHr = analysis?.avgHeartRate {
+                let hrText = "\(Int(round(avgHr))) bpm"
+                cited.append(.init(labelUk: "Сер. ЧСС", valueUk: hrText, tone: "teal"))
+                bodyParts.append("Твій середній пульс під час тренування склав \(hrText).")
+            } else {
+                bodyParts.append("Дані пульсу під час цього тренування не зафіксовані в телеметрії.")
+            }
+
+            if let drift = analysis?.aerobicDecouplingPct {
+                let driftText = String(format: "%+.1f%%", drift)
+                let driftTone = drift < 5.0 ? "optimal" : (drift < 10.0 ? "warning" : "danger")
+                cited.append(.init(labelUk: "Дрейф ЧСС", valueUk: driftText, tone: driftTone))
+                bodyParts.append("Серцевий дрейф у другій половині сесії склав \(driftText).")
+            }
+
+            if let rhr = rec?.morningRhrBpm {
+                let rhrText = "\(Int(round(rhr))) bpm"
+                cited.append(.init(labelUk: "Нічний RHR", valueUk: rhrText, tone: "teal"))
+                bodyParts.append("Ранковий пульс спокою: \(rhrText).")
+            }
+
+            if let sleep = rec?.lastNightSleepHours {
+                let sleepText = "\(String(format: "%.1f", sleep))г"
+                cited.append(.init(labelUk: "Сон", valueUk: sleepText, tone: "optimal"))
+                bodyParts.append("Тривалість попереднього сну: \(sleepText).")
+            }
+
+            let validated = CoachEvidenceBuilder.validateCitations(cited, against: dossier)
+            let takeaway = analysis?.avgHeartRate != nil
+                ? "Для утримання пульсу в аеробній зоні контролюй темп на старті та підтримуй регулярну гідратацію."
+                : "Перевір синхронізацію датчика пульсу або Apple Watch, щоб отримувати кардіоаналітику на наступних пробіжках."
+
             return AnalystChatTurnResponse(
-                answerHeadlineUk: "Аналіз динаміки пульсу",
-                answerBodyUk: "Твій середній пульс склав \(avgHr). Серцевий дрейф у другій половині забігу склав \(drift). Причина зростання пульсу на фінішних кілометрах — терморегуляція тіла та поступове вичерпання легкодоступного глікогену в робочих м'язових волокнах.",
-                citedMetrics: [
-                    .init(labelUk: "Сер. ЧСС", valueUk: avgHr, tone: "teal"),
-                    .init(labelUk: "Дрейф ЧСС", valueUk: drift, tone: "warning"),
-                    .init(labelUk: "Сон", valueUk: "\(String(format: "%.1f", rec?.lastNightSleepHours ?? 7.5))г", tone: "optimal")
-                ],
-                actionableTakeawayUk: "Для утримання пульсу в зоні 2 на наступних довгих забігах поповнюй гідратацію кожні 20 хв і витримуй рівномірний темп.",
+                answerHeadlineUk: analysis?.avgHeartRate != nil ? "Аналіз динаміки пульсу" : "Дані пульсу відсутні",
+                answerBodyUk: bodyParts.joined(separator: " "),
+                citedMetrics: validated,
+                actionableTakeawayUk: takeaway,
                 suggestedFollowUpsUk: [
                     "Яким має бути мій цільовий пульс на завтра?",
                     "Як тренувати аеробну базу без росту пульсу?"
                 ],
                 extractedMemoryFactUk: candidateFact?.factUk,
-                extractedMemoryCategory: candidateFact?.category
+                extractedMemoryCategory: candidateFact?.category,
+                isOfflineFallback: true
             )
         } else if lowered.contains("їж") || lowered.contains("вуглевод") || lowered.contains("харчуван") || lowered.contains("поїст") {
-            if nut.loggedMealsCount > 0 && nut.last24hCarbsG > 0 {
+            if nut.loggedMealsCount > 0 {
+                let cited: [MetricEvidencePill] = [
+                    .init(labelUk: "Вуглеводи", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal"),
+                    .init(labelUk: "Білок", valueUk: "\(Int(nut.last24hProteinG))г", tone: "optimal"),
+                    .init(labelUk: "Ккал", valueUk: "\(Int(nut.last24hKcal)) ккал", tone: "neutral"),
+                    .init(labelUk: "Якість їжі", valueUk: "\(nut.wholeFoodRatioPct)%", tone: "teal")
+                ]
+                let validated = CoachEvidenceBuilder.validateCitations(cited, against: dossier)
                 return AnalystChatTurnResponse(
-                    answerHeadlineUk: "Рекомендація з відновлювального харчування",
-                    answerBodyUk: "За останні 24 години ти спожив \(Int(nut.last24hKcal)) ккал (\(Int(nut.last24hCarbsG))г вуглеводів та \(Int(nut.last24hProteinG))г білка). Щоб відновити запаси глікогену та ініціювати синтез міофібрилярного білка, після забігу потрібна комбінація складних вуглеводів та лейцину.",
-                    citedMetrics: [
-                        .init(labelUk: "Вуглеводи 24г", valueUk: "\(Int(nut.last24hCarbsG))г", tone: "optimal"),
-                        .init(labelUk: "Білок 24г", valueUk: "\(Int(nut.last24hProteinG))г", tone: "optimal"),
-                        .init(labelUk: "Якість їжі", valueUk: "\(nut.wholeFoodRatioPct)%", tone: "teal")
-                    ],
-                    actionableTakeawayUk: "Найкращий вибір просто зараз: порція рису, пасти або вівсянки з нежирним білком (курка, яйця, сир) та 400 мл води з електролітами.",
+                    answerHeadlineUk: "Аналіз раціону (\(nut.windowLabelUk))",
+                    answerBodyUk: "За період «\(nut.windowLabelUk)» зафіксовано \(nut.loggedMealsCount) прийом(ів) їжі: \(Int(nut.last24hKcal)) ккал (\(Int(nut.last24hCarbsG))г вуглеводів, \(Int(nut.last24hProteinG))г білка, \(Int(nut.last24hFatG))г жирів). Частка цільних продуктів — \(nut.wholeFoodRatioPct)%.",
+                    citedMetrics: validated,
+                    actionableTakeawayUk: "Для якісного відновлення поєднуй складні вуглеводи з повноцінним білком та достатньою кількістю води.",
                     suggestedFollowUpsUk: [
                         "Чи потрібен мені електролітний напій сьогодні?",
                         "Як натрій вплине на мою вагу завтра?"
                     ],
                     extractedMemoryFactUk: candidateFact?.factUk,
-                    extractedMemoryCategory: candidateFact?.category
+                    extractedMemoryCategory: candidateFact?.category,
+                    isOfflineFallback: true
                 )
             } else {
+                var cited: [MetricEvidencePill] = []
+                if let sleep = rec?.lastNightSleepHours {
+                    cited.append(.init(labelUk: "Сон", valueUk: "\(String(format: "%.1f", sleep))г", tone: "optimal"))
+                }
+                if let avgHr = analysis?.avgHeartRate {
+                    cited.append(.init(labelUk: "Сер. ЧСС", valueUk: "\(Int(round(avgHr))) bpm", tone: "teal"))
+                }
+                let validated = CoachEvidenceBuilder.validateCitations(cited, against: dossier)
                 return AnalystChatTurnResponse(
-                    answerHeadlineUk: "Дані про раціон ще не записані",
-                    answerBodyUk: "У додатку Lifecore за останні 24 години ще немає збережених прийомів їжі. Щоб бачити точне надходження вуглеводів та оцінювати глікогеновий резерв, записуй страви через фото або текст у вкладці «Харчування».",
-                    citedMetrics: [
-                        .init(labelUk: "Записів їжі", valueUk: "0", tone: "neutral"),
-                        .init(labelUk: "Сон", valueUk: "\(String(format: "%.1f", rec?.lastNightSleepHours ?? 7.5))г", tone: "optimal")
-                    ],
-                    actionableTakeawayUk: "Для якісного відновлення після навантаження спожий порцію складних вуглеводів (вівсянка, рис, гречка) та 25-30г білка.",
+                    answerHeadlineUk: "Дані про раціон не записані",
+                    answerBodyUk: "У додатку Lifecore за період «\(nut.windowLabelUk)» ще немає збережених прийомів їжі, тому я не можу оцінити твоє реальне споживання калорій чи вуглеводів. Запиши страви через фото або текст у вкладці «Харчування».",
+                    citedMetrics: validated,
+                    actionableTakeawayUk: "Після запису прийомів їжі у вкладці «Харчування» я проаналізую баланс макронутрієнтів і глікогеновий резерв.",
                     suggestedFollowUpsUk: [
                         "Як правильно закрити вуглеводне вікно після бігу?",
                         "Скільки білка потрібно після тренування?"
                     ],
                     extractedMemoryFactUk: candidateFact?.factUk,
-                    extractedMemoryCategory: candidateFact?.category
+                    extractedMemoryCategory: candidateFact?.category,
+                    isOfflineFallback: true
                 )
             }
         } else {
-            // General athletic analysis turn
-            let acwr = rec?.acwrRatio != nil ? String(format: "%.2f", rec!.acwrRatio!) : "1.08"
-            let recovery = rec?.recoveryScore != nil ? "\(rec!.recoveryScore!)%" : "82%"
+            // General athletic analysis turn — strictly grounded in non-nil dossier metrics
+            var cited: [MetricEvidencePill] = []
+            var bodyParts: [String] = []
+
+            if let analysis = analysis {
+                let dist = String(format: "%.2f км", analysis.distanceKm)
+                cited.append(.init(labelUk: "Дистанція", valueUk: dist, tone: "neutral"))
+                bodyParts.append("Зафіксовано тренування на \(dist) із темпом \(analysis.formattedAvgPace).")
+            }
+            if let acwr = rec?.acwrRatio {
+                let acwrText = String(format: "%.2f", acwr)
+                cited.append(.init(labelUk: "EWMA ACWR", valueUk: acwrText, tone: "optimal"))
+                bodyParts.append("Коефіцієнт навантаження EWMA ACWR становить \(acwrText).")
+            }
+            if let score = rec?.recoveryScore {
+                let scoreText = "\(score)%"
+                cited.append(.init(labelUk: "Готовність", valueUk: scoreText, tone: "optimal"))
+                bodyParts.append("Ранкова готовність: \(scoreText).")
+            }
+            if let rhr = rec?.morningRhrBpm {
+                let rhrText = "\(Int(round(rhr))) bpm"
+                cited.append(.init(labelUk: "Нічний RHR", valueUk: rhrText, tone: "teal"))
+                bodyParts.append("Нічний пульс спокою: \(rhrText).")
+            }
+            if let sleep = rec?.lastNightSleepHours {
+                let sleepText = "\(String(format: "%.1f", sleep))г"
+                cited.append(.init(labelUk: "Сон", valueUk: sleepText, tone: "optimal"))
+                bodyParts.append("Тривалість сну: \(sleepText).")
+            }
+
+            if bodyParts.isEmpty {
+                bodyParts.append("У поточному досьє недостатньо виміряних метрик (сну, RHR, готовності або ACWR) для оцінки стану. Синхронізуй Apple Health, щоб отримати розбір на основі фактичних даних.")
+            }
+
+            let validated = CoachEvidenceBuilder.validateCitations(cited, against: dossier)
             return AnalystChatTurnResponse(
-                answerHeadlineUk: "Оцінка форми та адаптації",
-                answerBodyUk: "Твоє поточне навантаження збалансоване: коефіцієнт гострого до хронічного навантаження EWMA ACWR становить \(acwr) (оптимальна зона), а ранковий показник готовності склав \(recovery). Організм ефективно переварює стимул без ризику перетренованості.",
-                citedMetrics: [
-                    .init(labelUk: "EWMA ACWR", valueUk: acwr, tone: "optimal"),
-                    .init(labelUk: "Готовність", valueUk: recovery, tone: "optimal"),
-                    .init(labelUk: "Нічний RHR", valueUk: rec?.morningRhrBpm != nil ? "\(Int(rec!.morningRhrBpm!)) bpm" : "49 bpm", tone: "teal")
-                ],
-                actionableTakeawayUk: "Дотримуйся поточного мікроциклу: планове навантаження на наступну добу допоможе закріпити отриманий аеробний стимул.",
+                answerHeadlineUk: validated.isEmpty ? "Недостатньо виміряних даних" : "Оцінка форми за наявними даними",
+                answerBodyUk: bodyParts.joined(separator: " "),
+                citedMetrics: validated,
+                actionableTakeawayUk: dossier.next24hPrescriptionSummaryUk.isEmpty
+                    ? "Синхронізуй показники сну, пульсу та прийомів їжі, щоб отримати точну рекомендацію на завтра."
+                    : dossier.next24hPrescriptionSummaryUk,
                 suggestedFollowUpsUk: [
                     "Яке тренування заплановане на завтра?",
                     "Поясни вплив мого сну на відновлення"
                 ],
                 extractedMemoryFactUk: candidateFact?.factUk,
-                extractedMemoryCategory: candidateFact?.category
+                extractedMemoryCategory: candidateFact?.category,
+                isOfflineFallback: true
             )
         }
     }

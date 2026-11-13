@@ -41,6 +41,22 @@ public struct AcuteNutritionSlice: Codable, Sendable, Equatable {
     public let wholeFoodRatioPct: Int
     public let hadLateMealAfter2130: Bool
     public let recentMealNames: [String]
+    public let windowHours: Int
+    public let windowLabelUk: String
+
+    enum CodingKeys: String, CodingKey {
+        case loggedMealsCount
+        case last24hKcal
+        case last24hCarbsG
+        case last24hProteinG
+        case last24hFatG
+        case last24hSodiumMg
+        case wholeFoodRatioPct
+        case hadLateMealAfter2130
+        case recentMealNames
+        case windowHours
+        case windowLabelUk
+    }
 
     public init(
         loggedMealsCount: Int = 0,
@@ -49,9 +65,11 @@ public struct AcuteNutritionSlice: Codable, Sendable, Equatable {
         last24hProteinG: Double = 0,
         last24hFatG: Double = 0,
         last24hSodiumMg: Double = 0,
-        wholeFoodRatioPct: Int = 85,
+        wholeFoodRatioPct: Int = 0,
         hadLateMealAfter2130: Bool = false,
-        recentMealNames: [String] = []
+        recentMealNames: [String] = [],
+        windowHours: Int = 24,
+        windowLabelUk: String = "Останні 24 год"
     ) {
         self.loggedMealsCount = loggedMealsCount
         self.last24hKcal = last24hKcal
@@ -62,6 +80,23 @@ public struct AcuteNutritionSlice: Codable, Sendable, Equatable {
         self.wholeFoodRatioPct = wholeFoodRatioPct
         self.hadLateMealAfter2130 = hadLateMealAfter2130
         self.recentMealNames = recentMealNames
+        self.windowHours = windowHours
+        self.windowLabelUk = windowLabelUk
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.loggedMealsCount = try container.decodeIfPresent(Int.self, forKey: .loggedMealsCount) ?? 0
+        self.last24hKcal = try container.decodeIfPresent(Double.self, forKey: .last24hKcal) ?? 0
+        self.last24hCarbsG = try container.decodeIfPresent(Double.self, forKey: .last24hCarbsG) ?? 0
+        self.last24hProteinG = try container.decodeIfPresent(Double.self, forKey: .last24hProteinG) ?? 0
+        self.last24hFatG = try container.decodeIfPresent(Double.self, forKey: .last24hFatG) ?? 0
+        self.last24hSodiumMg = try container.decodeIfPresent(Double.self, forKey: .last24hSodiumMg) ?? 0
+        self.wholeFoodRatioPct = try container.decodeIfPresent(Int.self, forKey: .wholeFoodRatioPct) ?? 0
+        self.hadLateMealAfter2130 = try container.decodeIfPresent(Bool.self, forKey: .hadLateMealAfter2130) ?? false
+        self.recentMealNames = try container.decodeIfPresent([String].self, forKey: .recentMealNames) ?? []
+        self.windowHours = try container.decodeIfPresent(Int.self, forKey: .windowHours) ?? 24
+        self.windowLabelUk = try container.decodeIfPresent(String.self, forKey: .windowLabelUk) ?? "Останні 24 год"
     }
 }
 
@@ -179,7 +214,7 @@ public enum LifecoreContextRAG {
         contextTags: [String] = [],
         limit: Int = 4
     ) -> [RetrievedMemoryNode] {
-        let stored = AthleteMemoryStorageService.fetchAllFacts()
+        let stored = AthleteMemoryStorageService.fetchConfirmedFacts()
         let queryTokens = tokenize(query)
         let now = Date()
 
@@ -232,52 +267,21 @@ public enum LifecoreContextRAG {
         meals: [MealRecord] = [],
         adaptiveSummaryUk: String? = nil,
         prescriptionSummaryUk: String? = nil,
-        userQuery: String = ""
+        userQuery: String = "",
+        anchorDate: Date? = nil,
+        nutritionWindowHours: Int = 24,
+        calendar: Calendar = .current
     ) -> AssembledHealthDossier {
-        // 1. Tier L1: Compute Acute 24h/48h Nutrition Slice
-        var totalKcal: Double = 0
-        var totalCarbs: Double = 0
-        var totalProtein: Double = 0
-        var totalFat: Double = 0
-        var totalSodium: Double = 0
-        var wholeFoodCount = 0
-        var totalMeals = 0
-        var hadLateMeal = false
-        var mealNames: [String] = []
-
-        let calendar = Calendar.current
-        for m in meals {
-            totalKcal += m.kcal
-            totalCarbs += m.carbsG
-            totalProtein += m.proteinG
-            totalFat += m.fatG
-            if let micro = m.micronutrients, let sodium = micro.sodiumMg {
-                totalSodium += sodium
-            }
-            totalMeals += 1
-            if m.tags.contains("whole_food") {
-                wholeFoodCount += 1
-            }
-            mealNames.append(m.name)
-
-            let hour = calendar.component(.hour, from: m.createdAt)
-            let minute = calendar.component(.minute, from: m.createdAt)
-            if (hour > 21 || (hour == 21 && minute >= 30)) && hour < 24 {
-                hadLateMeal = true
-            }
-        }
-
-        let wholeRatioPct = totalMeals > 0 ? Int(round((Double(wholeFoodCount) / Double(totalMeals)) * 100)) : 85
-        let nutritionSlice = AcuteNutritionSlice(
-            loggedMealsCount: totalMeals,
-            last24hKcal: round(totalKcal),
-            last24hCarbsG: round(totalCarbs),
-            last24hProteinG: round(totalProtein),
-            last24hFatG: round(totalFat),
-            last24hSodiumMg: round(totalSodium),
-            wholeFoodRatioPct: wholeRatioPct,
-            hadLateMealAfter2130: hadLateMeal,
-            recentMealNames: Array(mealNames.prefix(5))
+        // 1. Tier L1: Compute Scoped Acute Nutrition Slice
+        let resolvedAnchor = anchorDate ?? Date()
+        let nutritionWindow = CoachNutritionWindow(
+            endingAt: resolvedAnchor,
+            windowHours: nutritionWindowHours
+        )
+        let nutritionSlice = CoachEvidenceBuilder.buildNutritionSlice(
+            meals: meals,
+            window: nutritionWindow,
+            calendar: calendar
         )
 
         // 2. Build context tags for memory retrieval
@@ -285,7 +289,7 @@ public enum LifecoreContextRAG {
         if let analysis = workoutAnalysis {
             if (analysis.aerobicDecouplingPct ?? 0) > 5.0 {
                 contextTags.append("hr_drift")
-                if totalMeals > 0 && totalCarbs > 0 {
+                if nutritionSlice.loggedMealsCount > 0 && nutritionSlice.last24hCarbsG > 0 {
                     contextTags.append("carbs")
                 }
             }
@@ -294,7 +298,7 @@ public enum LifecoreContextRAG {
                 contextTags.append("pace")
             }
         }
-        if hadLateMeal {
+        if nutritionSlice.hadLateMealAfter2130 {
             contextTags.append("late_meal")
             contextTags.append("rhr")
         }

@@ -26,11 +26,13 @@ public struct CoachReportView: View {
 
     private var activeDossier: AssembledHealthDossier {
         if let d = assembledDossier { return d }
-        let meals = MealStorageService.fetchAcuteNutritionMeals(for: workoutDate)
+        let meals = MealStorageService.fetchAcuteNutritionMeals(for: workoutDate, hoursBefore: 36.0)
         return LifecoreContextRAG.assembleDossier(
             workoutAnalysis: analysis,
             recoveryContext: recoveryContext,
-            meals: meals
+            meals: meals,
+            anchorDate: workoutDate,
+            nutritionWindowHours: 36
         )
     }
 

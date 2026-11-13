@@ -50,11 +50,11 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 - [x] R2 — Observation, dietary-day, interval and screen-state contracts. (commit `18bc227`)
 - [x] R3a — Real HealthKit histories, episode normalization and missingness.
 - [x] R3b — Workout timing and metadata correctness.
-- [ ] R3c — Longitudinal load, timed battery and HRV-method consistency.
-- [ ] R3d — Calendar-based joins, signed correlations and adaptive date math.
+- [x] R3c — Longitudinal load, timed battery and HRV-method consistency.
+- [x] R3d — Calendar-based joins, signed correlations and adaptive date math.
 - [ ] R4 — One daily snapshot and prescription with revisioned invalidation.
 - [x] R5a — Validated nutrition and honest AI failures.
-- [ ] R5b — Scoped evidence, factual offline explanation and controlled memory.
+- [x] R5b — Scoped evidence, factual offline explanation and controlled memory.
 - [x] R6 — Durable mutations, migration preservation and meal lifecycle.
 - [ ] R7 — Typed, idempotent, revisioned, paginated sync.
 - [ ] R8 — Configuration, credential migration and cloud authorization.

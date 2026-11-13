@@ -208,12 +208,30 @@ public struct LifecoreIntelligenceChatView: View {
                             Text(fact.factTextUk)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(LifecoreTheme.inkPrimary)
-                            Text(fact.category)
-                                .font(.system(size: 9))
-                                .foregroundStyle(LifecoreTheme.inkTertiary)
+                            HStack(spacing: 4) {
+                                Text(fact.category)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(LifecoreTheme.inkTertiary)
+                                if fact.confirmationStatus == "candidate" {
+                                    Text("• очікує підтвердження")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(LifecoreTheme.statusWarning)
+                                }
+                            }
                         }
 
                         Spacer()
+
+                        if fact.confirmationStatus == "candidate" {
+                            Button(action: {
+                                _ = AthleteMemoryStorageService.confirmCandidateFact(id: fact.id)
+                                refreshMemoryBank()
+                            }) {
+                                Image(systemName: "checkmark.circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(LifecoreTheme.statusOptimal)
+                            }
+                        }
 
                         Button(action: {
                             AthleteMemoryStorageService.deleteFact(id: fact.id)
@@ -450,7 +468,7 @@ public struct LifecoreIntelligenceChatView: View {
     // MARK: - Actions
 
     private func refreshMemoryBank() {
-        storedFacts = AthleteMemoryStorageService.fetchAllFacts()
+        storedFacts = AthleteMemoryStorageService.fetchAllFacts(includeCandidates: true)
     }
 
     private func sendMessage(_ text: String) async {
@@ -479,9 +497,9 @@ public struct LifecoreIntelligenceChatView: View {
             )
             messages.append(assistantMsg)
 
-            // Save extracted memory fact if detected
+            // Save AI-extracted memory as unconfirmed candidate requiring user review
             if let fact = response.extractedMemoryFactUk, !fact.isEmpty {
-                AthleteMemoryStorageService.saveFact(
+                AthleteMemoryStorageService.saveCandidateFact(
                     factTextUk: fact,
                     category: response.extractedMemoryCategory ?? "workout_feel",
                     tags: ["chat", "insight"]
@@ -502,7 +520,7 @@ public struct LifecoreIntelligenceChatView: View {
             messages.append(assistantMsg)
 
             if let fact = fallback.extractedMemoryFactUk, !fact.isEmpty {
-                AthleteMemoryStorageService.saveFact(
+                AthleteMemoryStorageService.saveCandidateFact(
                     factTextUk: fact,
                     category: fallback.extractedMemoryCategory ?? "workout_feel",
                     tags: ["chat", "insight"]

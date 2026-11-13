@@ -492,6 +492,9 @@ public final class AthleteMemoryEntity {
     public var tags: [String]
     public var isPinnedGoal: Bool
     public var createdAt: Date
+    public var confirmationStatus: String = "confirmed" // "candidate" | "confirmed" | "rejected"
+    public var provenance: String = "user_confirmed"    // "ai_extracted" | "user_confirmed" | "legacy_seed"
+    public var isDeleted: Bool = false
 
     public init(
         id: UUID = UUID(),
@@ -499,7 +502,10 @@ public final class AthleteMemoryEntity {
         category: String,
         tags: [String] = [],
         isPinnedGoal: Bool = false,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        confirmationStatus: String = "confirmed",
+        provenance: String = "user_confirmed",
+        isDeleted: Bool = false
     ) {
         self.id = id
         self.factTextUk = factTextUk
@@ -507,6 +513,9 @@ public final class AthleteMemoryEntity {
         self.tags = tags
         self.isPinnedGoal = isPinnedGoal
         self.createdAt = createdAt
+        self.confirmationStatus = confirmationStatus
+        self.provenance = provenance
+        self.isDeleted = isDeleted
     }
 }
 
@@ -514,12 +523,31 @@ public final class AthleteMemoryEntity {
 
 @MainActor
 public enum AthleteMemoryStorageService {
-    public static func fetchAllFacts() -> [AthleteMemoryEntity] {
+    public static func fetchAllFacts(includeCandidates: Bool = false) -> [AthleteMemoryEntity] {
         let context = LifecoreDataStore.shared.context
         let descriptor = FetchDescriptor<AthleteMemoryEntity>(
+            predicate: #Predicate { !$0.isDeleted },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
-        return (try? context.fetch(descriptor)) ?? []
+        let results = (try? context.fetch(descriptor)) ?? []
+        if includeCandidates {
+            return results.filter { $0.confirmationStatus == "confirmed" || $0.confirmationStatus == "candidate" }
+        }
+        return results.filter { $0.confirmationStatus == "confirmed" }
+    }
+
+    public static func fetchConfirmedFacts() -> [AthleteMemoryEntity] {
+        fetchAllFacts(includeCandidates: false)
+    }
+
+    public static func fetchCandidateFacts() -> [AthleteMemoryEntity] {
+        let context = LifecoreDataStore.shared.context
+        let descriptor = FetchDescriptor<AthleteMemoryEntity>(
+            predicate: #Predicate { !$0.isDeleted },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let results = (try? context.fetch(descriptor)) ?? []
+        return results.filter { $0.confirmationStatus == "candidate" }
     }
 
     @discardableResult
@@ -530,10 +558,12 @@ public enum AthleteMemoryStorageService {
         isPinnedGoal: Bool = false
     ) -> AthleteMemoryEntity {
         let context = LifecoreDataStore.shared.context
-        let existing = fetchAllFacts()
-        // Deduplicate very similar facts
+        let existing = fetchAllFacts(includeCandidates: true)
+        // Deduplicate very similar facts and promote candidate to confirmed on explicit save
         if let match = existing.first(where: { $0.factTextUk.lowercased() == factTextUk.lowercased() }) {
             match.isPinnedGoal = isPinnedGoal || match.isPinnedGoal
+            match.confirmationStatus = "confirmed"
+            match.provenance = "user_confirmed"
             try? context.save()
             return match
         }
@@ -543,9 +573,54 @@ public enum AthleteMemoryStorageService {
             category: category,
             tags: tags,
             isPinnedGoal: isPinnedGoal,
-            createdAt: Date()
+            createdAt: Date(),
+            confirmationStatus: "confirmed",
+            provenance: "user_confirmed",
+            isDeleted: false
         )
         context.insert(entity)
+        try? context.save()
+        return entity
+    }
+
+    @discardableResult
+    public static func saveCandidateFact(
+        factTextUk: String,
+        category: String,
+        tags: [String] = []
+    ) -> AthleteMemoryEntity {
+        let context = LifecoreDataStore.shared.context
+        let existing = fetchAllFacts(includeCandidates: true)
+        if let match = existing.first(where: { $0.factTextUk.lowercased() == factTextUk.lowercased() }) {
+            return match
+        }
+
+        let entity = AthleteMemoryEntity(
+            factTextUk: factTextUk,
+            category: category,
+            tags: tags,
+            isPinnedGoal: false,
+            createdAt: Date(),
+            confirmationStatus: "candidate",
+            provenance: "ai_extracted",
+            isDeleted: false
+        )
+        context.insert(entity)
+        try? context.save()
+        return entity
+    }
+
+    @discardableResult
+    public static func confirmCandidateFact(id: UUID) -> AthleteMemoryEntity? {
+        let context = LifecoreDataStore.shared.context
+        let descriptor = FetchDescriptor<AthleteMemoryEntity>(
+            predicate: #Predicate { $0.id == id && !$0.isDeleted }
+        )
+        guard let entity = (try? context.fetch(descriptor))?.first else {
+            return nil
+        }
+        entity.confirmationStatus = "confirmed"
+        entity.provenance = "user_confirmed"
         try? context.save()
         return entity
     }
@@ -564,8 +639,9 @@ public enum AthleteMemoryStorageService {
     }
 
     public static func seedDefaultMemoriesIfNeeded() {
+        guard !AppEnvironment.current.isFixtureMode else { return }
         let context = LifecoreDataStore.shared.context
-        let existing = fetchAllFacts()
+        let existing = fetchAllFacts(includeCandidates: true)
         guard existing.isEmpty else { return }
 
         let defaults: [(text: String, cat: String, tags: [String], pinned: Bool)] = [
@@ -580,7 +656,10 @@ public enum AthleteMemoryStorageService {
                 category: item.cat,
                 tags: item.tags,
                 isPinnedGoal: item.pinned,
-                createdAt: Date()
+                createdAt: Date(),
+                confirmationStatus: "confirmed",
+                provenance: "legacy_seed",
+                isDeleted: false
             )
             context.insert(entity)
         }

@@ -21,9 +21,22 @@ public struct StructuredWorkoutDebrief: Codable, Sendable, Equatable {
     public let regimeTone: String
     public let executionAnalysisUk: String      // 70% Pacing execution, split details, drift
     public let benchmarkComparisonUk: String    // 15% Effort-normalized delta analysis
-    public let rootCauseAndDirectiveUk: String  // 15% 48h nutrition & sleep causality + 24h directive
+    public let rootCauseAndDirectiveUk: String  // 15% Scoped nutrition & sleep causality + 24h directive
     public let evidencePills: [MetricEvidencePill]
     public let followUpQuestionsUk: [String]
+    public let isOfflineFallback: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case headlineUk
+        case regimeBadgeUk
+        case regimeTone
+        case executionAnalysisUk
+        case benchmarkComparisonUk
+        case rootCauseAndDirectiveUk
+        case evidencePills
+        case followUpQuestionsUk
+        case isOfflineFallback
+    }
 
     public init(
         headlineUk: String,
@@ -33,7 +46,8 @@ public struct StructuredWorkoutDebrief: Codable, Sendable, Equatable {
         benchmarkComparisonUk: String,
         rootCauseAndDirectiveUk: String,
         evidencePills: [MetricEvidencePill] = [],
-        followUpQuestionsUk: [String] = []
+        followUpQuestionsUk: [String] = [],
+        isOfflineFallback: Bool = false
     ) {
         self.headlineUk = headlineUk
         self.regimeBadgeUk = regimeBadgeUk
@@ -43,6 +57,20 @@ public struct StructuredWorkoutDebrief: Codable, Sendable, Equatable {
         self.rootCauseAndDirectiveUk = rootCauseAndDirectiveUk
         self.evidencePills = evidencePills
         self.followUpQuestionsUk = followUpQuestionsUk
+        self.isOfflineFallback = isOfflineFallback
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.headlineUk = try container.decode(String.self, forKey: .headlineUk)
+        self.regimeBadgeUk = try container.decode(String.self, forKey: .regimeBadgeUk)
+        self.regimeTone = try container.decodeIfPresent(String.self, forKey: .regimeTone) ?? "teal"
+        self.executionAnalysisUk = try container.decode(String.self, forKey: .executionAnalysisUk)
+        self.benchmarkComparisonUk = try container.decode(String.self, forKey: .benchmarkComparisonUk)
+        self.rootCauseAndDirectiveUk = try container.decode(String.self, forKey: .rootCauseAndDirectiveUk)
+        self.evidencePills = try container.decodeIfPresent([MetricEvidencePill].self, forKey: .evidencePills) ?? []
+        self.followUpQuestionsUk = try container.decodeIfPresent([String].self, forKey: .followUpQuestionsUk) ?? []
+        self.isOfflineFallback = try container.decodeIfPresent(Bool.self, forKey: .isOfflineFallback) ?? false
     }
 }
 
@@ -54,6 +82,18 @@ public struct AnalystChatTurnResponse: Codable, Sendable, Equatable {
     public let suggestedFollowUpsUk: [String]
     public let extractedMemoryFactUk: String?
     public let extractedMemoryCategory: String?
+    public let isOfflineFallback: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case answerHeadlineUk
+        case answerBodyUk
+        case citedMetrics
+        case actionableTakeawayUk
+        case suggestedFollowUpsUk
+        case extractedMemoryFactUk
+        case extractedMemoryCategory
+        case isOfflineFallback
+    }
 
     public init(
         answerHeadlineUk: String,
@@ -62,7 +102,8 @@ public struct AnalystChatTurnResponse: Codable, Sendable, Equatable {
         actionableTakeawayUk: String? = nil,
         suggestedFollowUpsUk: [String] = [],
         extractedMemoryFactUk: String? = nil,
-        extractedMemoryCategory: String? = nil
+        extractedMemoryCategory: String? = nil,
+        isOfflineFallback: Bool = false
     ) {
         self.answerHeadlineUk = answerHeadlineUk
         self.answerBodyUk = answerBodyUk
@@ -71,6 +112,19 @@ public struct AnalystChatTurnResponse: Codable, Sendable, Equatable {
         self.suggestedFollowUpsUk = suggestedFollowUpsUk
         self.extractedMemoryFactUk = extractedMemoryFactUk
         self.extractedMemoryCategory = extractedMemoryCategory
+        self.isOfflineFallback = isOfflineFallback
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.answerHeadlineUk = try container.decode(String.self, forKey: .answerHeadlineUk)
+        self.answerBodyUk = try container.decode(String.self, forKey: .answerBodyUk)
+        self.citedMetrics = try container.decodeIfPresent([MetricEvidencePill].self, forKey: .citedMetrics) ?? []
+        self.actionableTakeawayUk = try container.decodeIfPresent(String.self, forKey: .actionableTakeawayUk)
+        self.suggestedFollowUpsUk = try container.decodeIfPresent([String].self, forKey: .suggestedFollowUpsUk) ?? []
+        self.extractedMemoryFactUk = try container.decodeIfPresent(String.self, forKey: .extractedMemoryFactUk)
+        self.extractedMemoryCategory = try container.decodeIfPresent(String.self, forKey: .extractedMemoryCategory)
+        self.isOfflineFallback = try container.decodeIfPresent(Bool.self, forKey: .isOfflineFallback) ?? false
     }
 }
 
@@ -245,8 +299,9 @@ public enum CoachPrompt {
 
         // Tier L1: Acute Nutrition
         let nut = dossier.acuteNutrition
-        lines.append("\n=== TIER L1: ACUTE 24H/48H NUTRITION ===")
+        lines.append("\n=== TIER L1: ACUTE NUTRITION (\(nut.windowHours)H — \(nut.windowLabelUk)) ===")
         if nut.loggedMealsCount > 0 {
+            lines.append("- Window: \(nut.windowLabelUk) (\(nut.windowHours)h)")
             lines.append("- Athlete Logged Meals: \(nut.loggedMealsCount) meal(s)")
             lines.append("- Logged Energy: \(Int(nut.last24hKcal)) kcal")
             lines.append("- Carbohydrates: \(Int(nut.last24hCarbsG)) g")
@@ -258,6 +313,7 @@ public enum CoachPrompt {
                 lines.append("- Recent Meals: \(nut.recentMealNames.joined(separator: ", "))")
             }
         } else {
+            lines.append("- Window: \(nut.windowLabelUk) (\(nut.windowHours)h)")
             lines.append("- Status: 0 meals logged. The athlete has NOT logged nutrition for this window.")
             lines.append("- RULE: DO NOT assume low carbs, fasting, or glycogen depletion. DO NOT invent carbohydrate figures. Focus on sleep and splits.")
         }
@@ -266,7 +322,15 @@ public enum CoachPrompt {
         if let rec = dossier.recoveryContext {
             lines.append("\n=== TIER L1: OVERNIGHT VITALS & READINESS ===")
             if let sleep = rec.lastNightSleepHours {
-                lines.append("- Sleep Duration: \(String(format: "%.1f", sleep))h (Deep: \(String(format: "%.1f", rec.lastNightDeepHours ?? 0))h, REM: \(String(format: "%.1f", rec.lastNightRemHours ?? 0))h)")
+                var stageParts: [String] = []
+                if let deep = rec.lastNightDeepHours {
+                    stageParts.append("Deep: \(String(format: "%.1f", deep))h")
+                }
+                if let rem = rec.lastNightRemHours {
+                    stageParts.append("REM: \(String(format: "%.1f", rem))h")
+                }
+                let stageSuffix = stageParts.isEmpty ? "" : " (\(stageParts.joined(separator: ", ")))"
+                lines.append("- Sleep Duration: \(String(format: "%.1f", sleep))h\(stageSuffix)")
             }
             if let hrv = rec.morningHrvMs, let base = rec.baselineHrvMs {
                 lines.append("- Morning HRV: \(Int(round(hrv))) ms (Baseline: \(Int(round(base))) ms, Δ: \(String(format: "%+.0f", hrv - base)) ms)")

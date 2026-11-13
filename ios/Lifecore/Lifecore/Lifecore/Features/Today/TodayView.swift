@@ -30,7 +30,8 @@ public struct TodayView: View {
     }
 
     private var assembledTodayDossier: AssembledHealthDossier {
-        let meals = MealStorageService.fetchTodayMeals()
+        let now = Date()
+        let meals = MealStorageService.fetchAcuteNutritionMeals(for: now, hoursBefore: 24.0)
         let recovery = RecentRecoveryContext(
             lastNightSleepHours: snapshot?.sleepLog.totalHours,
             lastNightDeepHours: snapshot?.sleepLog.deepHours,
@@ -53,7 +54,9 @@ public struct TodayView: View {
             recoveryContext: recovery,
             meals: meals,
             adaptiveSummaryUk: adaptiveSnapshot?.statusSummaryUk,
-            prescriptionSummaryUk: prescriptionPlan?.today.archetype.titleUk
+            prescriptionSummaryUk: prescriptionPlan?.today.archetype.titleUk,
+            anchorDate: now,
+            nutritionWindowHours: 24
         )
     }
 

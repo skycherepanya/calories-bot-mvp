@@ -130,11 +130,11 @@ Dependencies:R3a/R3c/R6. Findings:F05/F15/F26. Own `APP/Core/MathEngine/{Correla
 
 Produces `PhysiologyHistoryBuilder.build(in: DateInterval) async throws -> [DailyJoinedPhysiologyRecord]`, extending that record to carry optional nutrition/sleep/load plus completeness. Meals come only from confirmed records in the interval. Use optional evidence rather than fabricated quality ratios/sleep/TRIMP.
 
-- [ ] Test no logged food vs confirmed zero and real sleep stages. Sparse input dates must join T+1/T+2 by calendar key, never row adjacency.
-- [ ] Feed rising whole-food ratio with falling next-day sleep; assert negative association wording and no canned15–25min effect. Positive/negative/zero/group-missing cases must preserve sign and sample count.
-- [ ] Derive effect magnitudes from matched comparison groups only if a defined estimator and coverage permit them; otherwise omit. Label correlation as observational; replace statistical-significance claims unsupported by a specified method.
-- [ ] Compute adaptive weight slopes from actual valid endpoint dates; test7 records spanning14days, absent endpoint weights and partial meal logs. Incomplete intake must not train TDEE as if complete.
-- [ ] Run `LongitudinalTests`; document formulas/windows/eligibility; commit `fix: build longitudinal evidence without invented covariates`.
+- [x] Test no logged food vs confirmed zero and real sleep stages. Sparse input dates must join T+1/T+2 by calendar key, never row adjacency.
+- [x] Feed rising whole-food ratio with falling next-day sleep; assert negative association wording and no canned15–25min effect. Positive/negative/zero/group-missing cases must preserve sign and sample count.
+- [x] Derive effect magnitudes from matched comparison groups only if a defined estimator and coverage permit them; otherwise omit. Label correlation as observational; replace statistical-significance claims unsupported by a specified method.
+- [x] Compute adaptive weight slopes from actual valid endpoint dates; test7 records spanning14days, absent endpoint weights and partial meal logs. Incomplete intake must not train TDEE as if complete.
+- [x] Run `LongitudinalTests`; document formulas/windows/eligibility; commit `fix: build longitudinal evidence without invented covariates`.
 
 ## R4 — Shared daily snapshot and prescription
 
@@ -176,10 +176,10 @@ Dependencies:R5a/R6. Findings:F06/F21. Own `APP/Core/AI/{LifecoreContextRAG,Coac
 
 Produces `CoachEvidence` with `anchor: Date`, `nutritionInterval: DateInterval`, observed metrics with source IDs and coverage, plus confirmed memories. `CoachEvidenceBuilder.build(anchor: Date, nutritionInterval: DateInterval, meals: [MealRecord])` excludes nonconfirmed/out-of-window/future entries. Current context uses trailing24h; workout context explicitly uses pre-workout36h and labels that interval. Future meals are not evidence for a past workout.
 
-- [ ] Test anchors with meals−37h/−25h/−23h/+30m and pending entries; verify exact totals/count/window labels. Replace misleading `fetchTodayMeals` use with scoped query contracts.
-- [ ] Offline explanation formats only supplied facts and marks itself offline; an empty dossier cannot report sleep/HR/ACWR. Validate returned evidence IDs against the dossier, rejecting unsupported references.
-- [ ] Separate AI-extracted memory candidates from confirmed memories. User review is required before promotion; retained legacy memory has explicit origin. Removal invalidates retrieval and is durable through R6 repository.
-- [ ] Run `CoachEvidenceTests`; document what is sent to the provider and what stays local; commit `fix: scope coach context to attributable evidence`.
+- [x] Test anchors with meals−37h/−25h/−23h/+30m and pending entries; verify exact totals/count/window labels. Replace misleading `fetchTodayMeals` use with scoped query contracts.
+- [x] Offline explanation formats only supplied facts and marks itself offline; an empty dossier cannot report sleep/HR/ACWR. Validate returned evidence IDs against the dossier, rejecting unsupported references.
+- [x] Separate AI-extracted memory candidates from confirmed memories. User review is required before promotion; retained legacy memory has explicit origin. Removal invalidates retrieval and is durable through R6 repository.
+- [x] Run `CoachEvidenceTests`; document what is sent to the provider and what stays local; commit `fix: scope coach context to attributable evidence`.
 
 ## R6 — Durable local state and recoverable migrations
 

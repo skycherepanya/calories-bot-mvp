@@ -2,6 +2,41 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Tasks R3d & R5b: Shared longitudinal joins, honest associations, and scoped coach evidence
+
+- **Task R3d (Shared Longitudinal Joins & Honest Associations):**
+  - Created `PhysiologyHistoryBuilder.swift` joining confirmed meals, HealthKit weight observations, sleep episodes (preserving `nil` stages), and workouts strictly by `DietaryDay` (04:00 AM rollover, mapping post-midnight `00:00..<04:00` meals to the prior dietary day and late-meal window).
+  - Extended `DailyJoinedPhysiologyRecord` in `CorrelationEngine.swift` with `loggedMealsCount`, `hasConfirmedNutrition`, `confirmedKcal`, `isKnownRestDay`, and `hasCompleteNutrition`, keeping unlogged days distinct from confirmed zero-intake days (fixing Audit F05).
+  - Replaced array-adjacency indexing (`sorted[i + 1]`) with Gregorian calendar key lookups (`T -> T+1`), removed canned `"15–25 хвилин"` / `"2.5–4 bpm"` claims, aligned `effectDescriptionUk` sign parity with `pearsonR`, reported exact `r`, `n`, and `dateRangeLabel` as observational associations, and derived magnitudes only from populated comparison groups (fixing Audit F15).
+  - Fixed `AdaptivePhysiologyEngine.swift` (`computeDynamicTDEE` and `computeLearnedSensitivities`) to deduplicate daily records by `dateString`, compute actual calendar day spans between first/last valid weight endpoints ($\ge 3$ days), and skip unlogged days instead of substituting `priorTargetKcal` (fixing Audit F26).
+  - Created `LongitudinalTests.swift` verifying sparse date gaps, negative association copy integrity, unlogged exclusion vs confirmed zero intake, calendar span TDEE math, and post-midnight `DietaryDay` joins.
+- **Task R5b (Scoped Coach Evidence & Controlled Memory):**
+  - Created `CoachEvidence.swift` (`CoachNutritionWindow` and `CoachEvidenceBuilder`) enforcing strict `[window.start, window.end]` meal scoping (excluding optimistic/pending and post-anchor future meals), post-midnight (`21:30...03:59`) late-meal detection, honest `wholeFoodRatioPct = 0` on 0 logged meals, and `validateCitations` stripping unsupported nutrition, HRV, workout HR/EF/drift/pace, sleep stage, ACWR, and readiness pills.
+  - Updated `LifecoreContextRAG.swift`, `CoachPrompt.swift`, `CoachReportView.swift`, and `TodayView.swift` to anchor trailing 24h (`TodayView`) and pre-workout 36h (`CoachReportView`) nutrition windows accurately and omit unmeasured sleep stages rather than emitting `Deep: 0.0h` / `REM: 0.0h` (fixing Audit F21).
+  - Updated `GeminiService.swift` to validate AI-returned evidence pills/citations, mark offline debrief/chat turns with `isOfflineFallback = true`, and eliminate all fabricated offline numbers (`150 bpm`, `7.5г`, `1.08`, `82%`, `49 bpm`, fixing Audit F06).
+  - Extended `AthleteMemoryEntity` and `AthleteMemoryStorageService` in `SwiftDataModels.swift` with `confirmationStatus` (`candidate`/`confirmed`/`rejected`), `provenance`, and `isDeleted`; updated `LifecoreIntelligenceChatView.swift` to persist AI-extracted facts as candidates requiring confirmation in the Memory Bank before RAG retrieval (`fetchConfirmedFacts()`), with durable deletion.
+  - Created `CoachEvidenceTests.swift` verifying 24h/36h window scoping, midnight crossover late-meal detection, citation validation, unmeasured sleep stage omission, unfabricated offline fallbacks, and candidate-to-confirmed/delete memory lifecycle. Total passing unit test suite: 82 tests.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/Repositories/PhysiologyHistoryBuilder.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/CorrelationEngine.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/MathEngine/AdaptivePhysiologyEngine.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/LongitudinalTests.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachEvidence.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/LifecoreContextRAG.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/CoachPrompt.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/CoachReportView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Workouts/LifecoreIntelligenceChatView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/CoachEvidenceTests.swift`
+- `docs/superpowers/plans/2026-11-12-native-redesign.md`
+- `docs/superpowers/plans/2026-11-12-native-redesign/01-reliability.md`
+- `PROJECT_KNOWLEDGE.md`
+- `CHANGELOG.md`
+
 ## [2026-11-13] - Task R3c: Workload, battery and vitals evaluation from measured inputs
 
 - Defined `DailyLoadSeries` in `DailyLoadSeries.swift` with `date`, `trimpLoad`, `isKnownRestDay`, and `isObserved` adhering to DietaryDay calendar rules (fixing Audit F02).

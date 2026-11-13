@@ -23,6 +23,14 @@ public struct DailyJoinedPhysiologyRecord: Codable, Sendable {
     public let workoutTrimp: Double
     public let runningCardiacDriftPct: Double?
     public let runningEf: Double?
+    public let loggedMealsCount: Int
+    public let hasConfirmedNutrition: Bool
+    public let confirmedKcal: Double?
+    public let isKnownRestDay: Bool
+
+    public var hasCompleteNutrition: Bool {
+        hasConfirmedNutrition && (loggedMealsCount > 0 || confirmedKcal == 0.0)
+    }
 
     public init(
         dateString: String,
@@ -44,7 +52,11 @@ public struct DailyJoinedPhysiologyRecord: Codable, Sendable {
         remSleepHours: Double? = nil,
         workoutTrimp: Double = 0.0,
         runningCardiacDriftPct: Double? = nil,
-        runningEf: Double? = nil
+        runningEf: Double? = nil,
+        loggedMealsCount: Int? = nil,
+        hasConfirmedNutrition: Bool? = nil,
+        confirmedKcal: Double? = nil,
+        isKnownRestDay: Bool = false
     ) {
         self.dateString = dateString
         self.date = date
@@ -66,6 +78,13 @@ public struct DailyJoinedPhysiologyRecord: Codable, Sendable {
         self.workoutTrimp = workoutTrimp
         self.runningCardiacDriftPct = runningCardiacDriftPct
         self.runningEf = runningEf
+
+        let inferredMealsCount = (carbsG > 0 || proteinG > 0 || fatG > 0 || sodiumMg > 0 || hasLateMealAfter2130 || hasHighSodiumMeal) ? 1 : 0
+        let resolvedLoggedCount = loggedMealsCount ?? inferredMealsCount
+        self.loggedMealsCount = resolvedLoggedCount
+        self.confirmedKcal = confirmedKcal
+        self.hasConfirmedNutrition = hasConfirmedNutrition ?? (resolvedLoggedCount > 0 || confirmedKcal != nil)
+        self.isKnownRestDay = isKnownRestDay
     }
 }
 
@@ -105,6 +124,8 @@ public struct CorrelationInsight: Codable, Sendable, Identifiable, Equatable {
     public let effectDescriptionUk: String
     public let actionDirectiveUk: String
     public let isStatisticallyMeaningful: Bool
+    public let dateRangeLabel: String
+    public let associationLabelUk: String
 
     public init(
         category: CorrelationInsightCategory,
@@ -115,7 +136,9 @@ public struct CorrelationInsight: Codable, Sendable, Identifiable, Equatable {
         titleUk: String,
         effectDescriptionUk: String,
         actionDirectiveUk: String,
-        isStatisticallyMeaningful: Bool
+        isStatisticallyMeaningful: Bool,
+        dateRangeLabel: String = "",
+        associationLabelUk: String = "Спостережуваний зв'язок"
     ) {
         self.category = category
         self.lagDays = lagDays
@@ -126,12 +149,104 @@ public struct CorrelationInsight: Codable, Sendable, Identifiable, Equatable {
         self.effectDescriptionUk = effectDescriptionUk
         self.actionDirectiveUk = actionDirectiveUk
         self.isStatisticallyMeaningful = isStatisticallyMeaningful
+        self.dateRangeLabel = dateRangeLabel
+        self.associationLabelUk = associationLabelUk
     }
 }
 
 // MARK: - Correlation Engine
 
 public enum CorrelationEngine {
+
+    private static let gregorianUTC: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        return cal
+    }()
+
+    /// Parses a strict Gregorian `yyyy-MM-dd` key into a UTC noon `Date` (DST-safe).
+    internal static func parseDateKey(_ dateString: String) -> Date? {
+        let parts = dateString.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]),
+              let day = Int(parts[2]),
+              (1...12).contains(month),
+              (1...31).contains(day) else {
+            return nil
+        }
+
+        var comps = DateComponents()
+        comps.calendar = gregorianUTC
+        comps.timeZone = gregorianUTC.timeZone
+        comps.year = year
+        comps.month = month
+        comps.day = day
+        comps.hour = 12
+        comps.minute = 0
+        comps.second = 0
+
+        guard let date = gregorianUTC.date(from: comps) else { return nil }
+        let roundTrip = gregorianUTC.dateComponents([.year, .month, .day], from: date)
+        guard roundTrip.year == year, roundTrip.month == month, roundTrip.day == day else {
+            return nil
+        }
+        return date
+    }
+
+    /// Formats a UTC date into a Gregorian `yyyy-MM-dd` key.
+    internal static func formatDateKey(_ date: Date) -> String {
+        let comps = gregorianUTC.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", comps.year ?? 0, comps.month ?? 0, comps.day ?? 0)
+    }
+
+    /// Returns the exact next Gregorian calendar day key (`T+1`) for a `yyyy-MM-dd` key.
+    public static func nextDayKey(from dateString: String) -> String? {
+        guard let date = parseDateKey(dateString),
+              let nextDate = gregorianUTC.date(byAdding: .day, value: 1, to: date) else {
+            return nil
+        }
+        return formatDateKey(nextDate)
+    }
+
+    /// Indexes records by `yyyy-MM-dd` `dateString` (keeping the latest record per key) and returns sorted keys.
+    internal static func indexRecordsByDay(_ records: [DailyJoinedPhysiologyRecord]) -> (byKey: [String: DailyJoinedPhysiologyRecord], sortedKeys: [String]) {
+        var byKey: [String: DailyJoinedPhysiologyRecord] = [:]
+        for record in records {
+            if let existing = byKey[record.dateString] {
+                if record.date >= existing.date {
+                    byKey[record.dateString] = record
+                }
+            } else {
+                byKey[record.dateString] = record
+            }
+        }
+        let sortedKeys = byKey.keys.sorted()
+        return (byKey, sortedKeys)
+    }
+
+    private static func formatDateRangeLabel(_ matchedDates: [String]) -> String {
+        guard let first = matchedDates.first, let last = matchedDates.last else { return "" }
+        return "\(first)…\(last)"
+    }
+
+    private static func groupDifference(flags: [Bool], values: [Double]) -> Double? {
+        guard flags.count == values.count else { return nil }
+        var trueValues: [Double] = []
+        var falseValues: [Double] = []
+        for i in 0..<flags.count {
+            if flags[i] {
+                trueValues.append(values[i])
+            } else {
+                falseValues.append(values[i])
+            }
+        }
+        guard !trueValues.isEmpty && !falseValues.isEmpty else { return nil }
+        let trueMean = trueValues.reduce(0.0, +) / Double(trueValues.count)
+        let falseMean = falseValues.reduce(0.0, +) / Double(falseValues.count)
+        return trueMean - falseMean
+    }
 
     /// Computes Pearson correlation coefficient between two arrays of equal length
     public static func pearsonR(_ x: [Double], _ y: [Double]) -> Double? {
@@ -169,35 +284,57 @@ public enum CorrelationEngine {
         return pearsonR(numX, continuousY)
     }
 
-    /// Computes multi-day time-lagged physiological insights across daily joined records
+    /// Computes multi-day time-lagged physiological insights across daily joined records using exact Gregorian T -> T+1 joins.
     public static func computeInsights(records: [DailyJoinedPhysiologyRecord]) -> [CorrelationInsight] {
-        guard records.count >= 6 else { return [] }
-        let sorted = records.sorted { $0.date < $1.date }
+        let (byKey, sortedKeys) = indexRecordsByDay(records)
+        guard sortedKeys.count >= 6 else { return [] }
 
         var insights: [CorrelationInsight] = []
+        let associationLabel = "Спостережуваний зв'язок"
 
-        // 1. Sodium (Day T) -> Morning Water Weight Spike deltaW (Day T+1, T+2)
+        // 1. Sodium (Day T) -> Morning Water Weight Spike deltaW (Day T+1)
         // deltaW = weightKg - rollingWeight7dKg
         var sodiumT: [Double] = []
         var deltaW_T1: [Double] = []
         var highSodiumFlags: [Bool] = []
+        var sodiumMatchedDates: [String] = []
 
-        for i in 0..<(sorted.count - 1) {
-            let current = sorted[i]
-            let next = sorted[i + 1]
-
-            guard let nextWeight = next.weightKg, let next7d = next.rollingWeight7dKg else { continue }
-            let waterDelta = nextWeight - next7d
+        for key in sortedKeys {
+            guard let current = byKey[key],
+                  current.hasCompleteNutrition,
+                  let nextKey = nextDayKey(from: key),
+                  let next = byKey[nextKey],
+                  let nextWeight = next.weightKg,
+                  let next7d = next.rollingWeight7dKg else {
+                continue
+            }
 
             sodiumT.append(current.sodiumMg)
-            deltaW_T1.append(waterDelta)
+            deltaW_T1.append(nextWeight - next7d)
             highSodiumFlags.append(current.hasHighSodiumMeal || current.sodiumMg >= 3000.0)
+            sodiumMatchedDates.append(current.dateString)
         }
 
         if let rSodium = pearsonR(sodiumT, deltaW_T1), sodiumT.count >= 6 {
             let isSignificant = abs(rSodium) >= 0.35
-            let avgWaterGainKg = deltaW_T1.isEmpty ? 0.0 : (deltaW_T1.reduce(0.0, +) / Double(deltaW_T1.count))
-            let formattedWater = String(format: "%+.2f", avgWaterGainKg)
+            let dateRangeLabel = formatDateRangeLabel(sodiumMatchedDates)
+            let rFormatted = String(format: "%+.2f", rSodium)
+
+            let directionPhrase: String
+            if rSodium > 0 {
+                directionPhrase = "вище споживання натрію супроводжувалося вищим ранковим відхиленням ваги від 7-денного тренду"
+            } else if rSodium < 0 {
+                directionPhrase = "вище споживання натрію у цих даних супроводжувалося нижчим ранковим відхиленням ваги від 7-денного тренду"
+            } else {
+                directionPhrase = "лінійного зв'язку між натрієм та ранковим відхиленням ваги у цих даних не виявлено"
+            }
+
+            let groupPhrase: String
+            if let diffKg = groupDifference(flags: highSodiumFlags, values: deltaW_T1) {
+                groupPhrase = String(format: " Різниця після днів із високим натрієм: %+.2f кг.", diffKg)
+            } else {
+                groupPhrase = ""
+            }
 
             insights.append(CorrelationInsight(
                 category: .hydrationWater,
@@ -206,33 +343,56 @@ public enum CorrelationEngine {
                 pearsonR: rSodium,
                 sampleCount: sodiumT.count,
                 titleUk: "Вплив натрію на затримку води",
-                effectDescriptionUk: "Кореляція r = \(rSodium). Після страв із високим натрієм ранкова вага затримує в середньому \(formattedWater) кг позаклітинної рідини.",
-                actionDirectiveUk: "Не коригуйте калорії через ранкові стрибки ваги — це тимчасова затримка рідини, яка минає за 48 годин.",
-                isStatisticallyMeaningful: isSignificant
+                effectDescriptionUk: "\(associationLabel) (r = \(rFormatted), n = \(sodiumT.count), \(dateRangeLabel)): \(directionPhrase).\(groupPhrase)",
+                actionDirectiveUk: "Не коригуйте калорії через разові ранкові стрибки ваги — оцінюйте 7-денний тренд і водний баланс.",
+                isStatisticallyMeaningful: isSignificant,
+                dateRangeLabel: dateRangeLabel,
+                associationLabelUk: associationLabel
             ))
         }
 
-        // 2. Late Meal after 21:30 / Ultra-Processed (Day T) -> Overnight HRV & RHR (Day T+1)
-        // FILTER: Non-heavy training days only (TRIMP <= 130) to eliminate high-workout confounder!
+        // 2. Late Meal after 21:30 / Ultra-Processed (Day T) -> Overnight RHR (Day T+1)
+        // FILTER: Non-heavy training days only (TRIMP <= 130) to eliminate high-workout confounder.
         var lateMealDays: [Bool] = []
         var nextMorningRhr: [Double] = []
-        var nextMorningHrv: [Double] = []
+        var lateMealMatchedDates: [String] = []
 
-        for i in 0..<(sorted.count - 1) {
-            let current = sorted[i]
-            let next = sorted[i + 1]
-
-            // Confounder filter: ignore days with intense workout strain
-            guard current.workoutTrimp <= 130.0 else { continue }
-            guard let nextRhr = next.overnightRhrBpm, let nextHrv = next.overnightHrvMs else { continue }
+        for key in sortedKeys {
+            guard let current = byKey[key],
+                  current.hasCompleteNutrition,
+                  current.workoutTrimp <= 130.0,
+                  let nextKey = nextDayKey(from: key),
+                  let next = byKey[nextKey],
+                  let nextRhr = next.overnightRhrBpm,
+                  next.overnightHrvMs != nil else {
+                continue
+            }
 
             lateMealDays.append(current.hasLateMealAfter2130 || current.ultraProcessedRatio >= 0.35)
             nextMorningRhr.append(nextRhr)
-            nextMorningHrv.append(nextHrv)
+            lateMealMatchedDates.append(current.dateString)
         }
 
         if let rLateRhr = pointBiserialR(binaryX: lateMealDays, continuousY: nextMorningRhr), lateMealDays.count >= 6 {
             let isSignificant = abs(rLateRhr) >= 0.30
+            let dateRangeLabel = formatDateRangeLabel(lateMealMatchedDates)
+            let rFormatted = String(format: "%+.2f", rLateRhr)
+            let diffSuffix = groupDifference(flags: lateMealDays, values: nextMorningRhr)
+                .map { String(format: " (різниця %+.1f уд/хв)", $0) } ?? ""
+
+            let directionPhrase: String
+            if rLateRhr > 0 {
+                directionPhrase = "пізній прийом їжі або висока частка ультраоброблених продуктів супроводжувалися вищим нічним пульсом спокою\(diffSuffix)"
+            } else if rLateRhr < 0 {
+                directionPhrase = "пізній прийом їжі або висока частка ультраоброблених продуктів у цих даних супроводжувалися нижчим нічним пульсом спокою\(diffSuffix)"
+            } else {
+                directionPhrase = "різниці нічного пульсу спокою між днями з пізньою вечерею та без неї не виявлено\(diffSuffix)"
+            }
+
+            let directive = rLateRhr > 0
+                ? "Завершуйте останній прийом їжі за 2.5–3 години до сну та відстежуйте реакцію нічного пульсу."
+                : "У поточній вибірці пізня вечеря не супроводжувалася вищим нічним пульсом — продовжуйте фіксувати час прийомів їжі."
+
             insights.append(CorrelationInsight(
                 category: .lateMealAutonomic,
                 lagDays: 1,
@@ -240,27 +400,55 @@ public enum CorrelationEngine {
                 pearsonR: rLateRhr,
                 sampleCount: lateMealDays.count,
                 titleUk: "Пізня вечеря та нічний пульс спокою",
-                effectDescriptionUk: "Кореляція r = \(rLateRhr) (з поправкою на виключення важких тренувань). Їжа після 21:30 підвищує нічний пульс спокою на 2.5–4 bpm.",
-                actionDirectiveUk: "Завершуйте останній прийом їжі мінімум за 2.5 години до сну для стабілізації вегетативної системи.",
-                isStatisticallyMeaningful: isSignificant
+                effectDescriptionUk: "\(associationLabel) (r = \(rFormatted), n = \(lateMealDays.count), \(dateRangeLabel), TRIMP ≤ 130): \(directionPhrase).",
+                actionDirectiveUk: directive,
+                isStatisticallyMeaningful: isSignificant,
+                dateRangeLabel: dateRangeLabel,
+                associationLabelUk: associationLabel
             ))
         }
 
         // 3. Pre-workout Carbs Availability (Day T-1) -> Cardiac Drift % (Day T)
         var carbsT_minus_1: [Double] = []
         var driftT: [Double] = []
+        var carbMatchedDates: [String] = []
 
-        for i in 1..<sorted.count {
-            let previous = sorted[i - 1]
-            let today = sorted[i]
+        for key in sortedKeys {
+            guard let previous = byKey[key],
+                  previous.hasCompleteNutrition,
+                  let nextKey = nextDayKey(from: key),
+                  let today = byKey[nextKey],
+                  let drift = today.runningCardiacDriftPct else {
+                continue
+            }
 
-            guard let drift = today.runningCardiacDriftPct else { continue }
             carbsT_minus_1.append(previous.carbsG)
             driftT.append(drift)
+            carbMatchedDates.append(previous.dateString)
         }
 
         if let rCarbDrift = pearsonR(carbsT_minus_1, driftT), carbsT_minus_1.count >= 6 {
             let isSignificant = abs(rCarbDrift) >= 0.30
+            let dateRangeLabel = formatDateRangeLabel(carbMatchedDates)
+            let rFormatted = String(format: "%+.2f", rCarbDrift)
+
+            let directionPhrase: String
+            if rCarbDrift < 0 {
+                directionPhrase = "вище споживання вуглеводів напередодні асоціювалося з нижчим кардіодрейфом під час пробіжки"
+            } else if rCarbDrift > 0 {
+                directionPhrase = "вище споживання вуглеводів напередодні у цих даних асоціювалося з вищим кардіодрейфом під час пробіжки"
+            } else {
+                directionPhrase = "лінійного зв'язку між вуглеводами напередодні та кардіодрейфом не виявлено"
+            }
+
+            let highCarbFlags = carbsT_minus_1.map { $0 >= 200.0 }
+            let groupPhrase: String
+            if let diffDrift = groupDifference(flags: highCarbFlags, values: driftT) {
+                groupPhrase = String(format: " Різниця кардіодрейфу (≥200 г vs <200 г): %+.1f%%.", diffDrift)
+            } else {
+                groupPhrase = ""
+            }
+
             insights.append(CorrelationInsight(
                 category: .carbEndurance,
                 lagDays: 1,
@@ -268,27 +456,60 @@ public enum CorrelationEngine {
                 pearsonR: rCarbDrift,
                 sampleCount: carbsT_minus_1.count,
                 titleUk: "Вуглеводи та стабільність пульсу (Кардіодрейф)",
-                effectDescriptionUk: "Кореляція r = \(rCarbDrift). Достатній запас глікогену напередодні стримує аеробне розщеплення та кардіодрейф у другій половині пробіжки.",
-                actionDirectiveUk: "Перед тривалими тренуваннями (>60 хв) підтримуйте норму складних вуглеводів за 24 години до старту.",
-                isStatisticallyMeaningful: isSignificant
+                effectDescriptionUk: "\(associationLabel) (r = \(rFormatted), n = \(carbsT_minus_1.count), \(dateRangeLabel)): \(directionPhrase).\(groupPhrase)",
+                actionDirectiveUk: "Перед тривалими тренуваннями (>60 хв) фіксуйте споживання вуглеводів напередодні та оцінюйте кардіодрейф за подібного темпу.",
+                isStatisticallyMeaningful: isSignificant,
+                dateRangeLabel: dateRangeLabel,
+                associationLabelUk: associationLabel
             ))
         }
 
-        // 4. Whole Food Ratio & Leucine (Day T) -> Deep Sleep & HRV Recovery (Day T+1)
+        // 4. Whole Food Ratio (Day T) -> Deep Sleep Hours (Day T+1)
         var wholeFoodT: [Double] = []
         var deepSleepT1: [Double] = []
+        var wholeFoodMatchedDates: [String] = []
 
-        for i in 0..<(sorted.count - 1) {
-            let current = sorted[i]
-            let next = sorted[i + 1]
+        for key in sortedKeys {
+            guard let current = byKey[key],
+                  current.hasCompleteNutrition,
+                  let nextKey = nextDayKey(from: key),
+                  let next = byKey[nextKey],
+                  let nextDeep = next.deepSleepHours else {
+                continue
+            }
 
-            guard let nextDeep = next.deepSleepHours else { continue }
             wholeFoodT.append(current.wholeFoodRatio)
             deepSleepT1.append(nextDeep)
+            wholeFoodMatchedDates.append(current.dateString)
         }
 
         if let rWholeDeep = pearsonR(wholeFoodT, deepSleepT1), wholeFoodT.count >= 6 {
             let isSignificant = abs(rWholeDeep) >= 0.30
+            let dateRangeLabel = formatDateRangeLabel(wholeFoodMatchedDates)
+            let rFormatted = String(format: "%+.2f", rWholeDeep)
+
+            let directionPhrase: String
+            if rWholeDeep > 0 {
+                directionPhrase = "вища частка цільних продуктів асоціювалася з більшою тривалістю глибокого сну"
+            } else if rWholeDeep < 0 {
+                directionPhrase = "вища частка цільних продуктів у цих даних асоціювалася з меншою тривалістю глибокого сну"
+            } else {
+                directionPhrase = "лінійного зв'язку між часткою цільних продуктів і глибоким сном не виявлено"
+            }
+
+            let highWholeFlags = wholeFoodT.map { $0 >= 0.80 }
+            let groupPhrase: String
+            if let diffHours = groupDifference(flags: highWholeFlags, values: deepSleepT1) {
+                let diffMinutes = diffHours * 60.0
+                groupPhrase = String(format: " Спостережувана різниця (≥80%% vs <80%%): %+.0f хв.", diffMinutes)
+            } else {
+                groupPhrase = ""
+            }
+
+            let directive = rWholeDeep >= 0
+                ? "Надавайте перевагу цільним джерелам білка та клітковини й відстежуйте якість нічного відновлення."
+                : "У поточній вибірці зв'язок зворотний — оцініть можливі супутні чинники (час вечері, об'єм їжі, вечірнє навантаження)."
+
             insights.append(CorrelationInsight(
                 category: .nutritionRecovery,
                 lagDays: 1,
@@ -296,9 +517,11 @@ public enum CorrelationEngine {
                 pearsonR: rWholeDeep,
                 sampleCount: wholeFoodT.count,
                 titleUk: "Цільні продукти та глибина відновлення",
-                effectDescriptionUk: "Кореляція r = \(rWholeDeep). Переважання цільних продуктів (≥80%) корелює зі збільшенням фази глибокого сну на 15–25 хвилин.",
-                actionDirectiveUk: "Дотримуйтесь правила цільних джерел білка та клітковини для максимізації нічного відновлення.",
-                isStatisticallyMeaningful: isSignificant
+                effectDescriptionUk: "\(associationLabel) (r = \(rFormatted), n = \(wholeFoodT.count), \(dateRangeLabel)): \(directionPhrase).\(groupPhrase)",
+                actionDirectiveUk: directive,
+                isStatisticallyMeaningful: isSignificant,
+                dateRangeLabel: dateRangeLabel,
+                associationLabelUk: associationLabel
             ))
         }
 

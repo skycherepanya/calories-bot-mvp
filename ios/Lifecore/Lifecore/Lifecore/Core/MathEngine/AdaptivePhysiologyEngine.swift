@@ -148,43 +148,55 @@ public enum AdaptivePhysiologyEngine {
         todayNeatKcal: Double = 450.0,
         todayWorkoutKcal: Double = 200.0
     ) -> DynamicTDEEResult {
-        let sorted = records.sorted { $0.date < $1.date }
+        let indexed = CorrelationEngine.indexRecordsByDay(records)
+        let sorted = indexed.sortedKeys.compactMap { indexed.byKey[$0] }
         let recent = Array(sorted.suffix(14))
 
-        let validWeightDays = recent.compactMap { $0.rollingWeight7dKg ?? $0.weightKg }
-        guard recent.count >= 4 && validWeightDays.count >= 2 else {
-            let fallbackTdee = priorBmrKcal + todayNeatKcal + todayWorkoutKcal
-            return DynamicTDEEResult(
-                learnedBmrKcal: round(priorBmrKcal),
-                learnedDailyTdeeKcal: round(fallbackTdee),
-                metabolicAdaptationKcal: 0.0,
-                adaptiveTargetIntakeKcal: round(priorTargetKcal),
-                trendWeightDelta14dKg: 0.0,
-                validDaysCount: recent.count
-            )
+        let weightedRecords = recent.filter { ($0.rollingWeight7dKg ?? $0.weightKg) != nil }
+        let completeNutritionRecords = recent.filter { $0.hasCompleteNutrition }
+
+        let fallbackResult = DynamicTDEEResult(
+            learnedBmrKcal: round(priorBmrKcal),
+            learnedDailyTdeeKcal: round(priorBmrKcal + todayNeatKcal + todayWorkoutKcal),
+            metabolicAdaptationKcal: 0.0,
+            adaptiveTargetIntakeKcal: round(priorTargetKcal),
+            trendWeightDelta14dKg: 0.0,
+            validDaysCount: completeNutritionRecords.count
+        )
+
+        guard weightedRecords.count >= 2 && completeNutritionRecords.count >= 4 else {
+            return fallbackResult
         }
 
-        let firstW = validWeightDays.first!
-        let lastW = validWeightDays.last!
-        let spanDays = Double(max(1, recent.count - 1))
-        let deltaWeight14d = (lastW - firstW) * (14.0 / spanDays)
+        guard let firstWeightRecord = weightedRecords.first,
+              let lastWeightRecord = weightedRecords.last,
+              let firstW = firstWeightRecord.rollingWeight7dKg ?? firstWeightRecord.weightKg,
+              let lastW = lastWeightRecord.rollingWeight7dKg ?? lastWeightRecord.weightKg else {
+            return fallbackResult
+        }
 
-        // Average daily kcal intake from macros (with +12.5% buffer alignment)
-        let dailyIntakes: [Double] = recent.map { rec in
-            let rawKcal = (rec.proteinG * 4.0) + (rec.carbsG * 4.0) + (rec.fatG * 9.0)
-            return rawKcal > 400.0 ? (rawKcal * 1.125) : priorTargetKcal
+        let actualSpanDays = calendarDaySpan(from: firstWeightRecord, to: lastWeightRecord)
+        guard actualSpanDays >= 3.0 else {
+            return fallbackResult
+        }
+
+        let deltaWeight14d = (lastW - firstW) * (14.0 / actualSpanDays)
+
+        // Average daily kcal intake strictly from complete nutrition days (never substitute priorTargetKcal).
+        let dailyIntakes: [Double] = completeNutritionRecords.map { rec in
+            rec.confirmedKcal ?? ((rec.proteinG * 4.0 + rec.carbsG * 4.0 + rec.fatG * 9.0) * 1.125)
         }
         let avgIntake = dailyIntakes.reduce(0.0, +) / Double(dailyIntakes.count)
 
         // Tissue energy equivalent: 7700 kcal per 1 kg of trend mass change
-        let dailyEnergyImbalance = (7700.0 * (lastW - firstW)) / spanDays
+        let dailyEnergyImbalance = (7700.0 * (lastW - firstW)) / actualSpanDays
         let empiricalTdee = avgIntake - dailyEnergyImbalance
 
         // Estimate average active burn over the window (TRIMP proxy + baseline NEAT)
         let avgActiveBurn = recent.map { 420.0 + ($0.workoutTrimp * 3.2) }.reduce(0.0, +) / Double(recent.count)
         let empiricalBmr = empiricalTdee - avgActiveBurn
 
-        let w = bayesianShrinkageWeight(sampleCount: recent.count, kappa: 14.0)
+        let w = bayesianShrinkageWeight(sampleCount: completeNutritionRecords.count, kappa: 14.0)
         let blendedBmr = ((1.0 - w) * priorBmrKcal) + (w * empiricalBmr)
         let clampedBmr = min(2450.0, max(1350.0, round(blendedBmr)))
         let adaptationDelta = round(clampedBmr - priorBmrKcal)
@@ -199,27 +211,52 @@ public enum AdaptivePhysiologyEngine {
             metabolicAdaptationKcal: adaptationDelta,
             adaptiveTargetIntakeKcal: adaptiveTarget,
             trendWeightDelta14dKg: round(deltaWeight14d * 100.0) / 100.0,
-            validDaysCount: recent.count
+            validDaysCount: completeNutritionRecords.count
         )
+    }
+
+    private static func calendarDaySpan(
+        from startRecord: DailyJoinedPhysiologyRecord,
+        to endRecord: DailyJoinedPhysiologyRecord
+    ) -> Double {
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+
+        if let startKeyDate = CorrelationEngine.parseDateKey(startRecord.dateString),
+           let endKeyDate = CorrelationEngine.parseDateKey(endRecord.dateString),
+           let days = gregorian.dateComponents([.day], from: startKeyDate, to: endKeyDate).day {
+            return Double(days)
+        }
+
+        let startDay = gregorian.startOfDay(for: startRecord.date)
+        let endDay = gregorian.startOfDay(for: endRecord.date)
+        let days = gregorian.dateComponents([.day], from: startDay, to: endDay).day ?? 0
+        return Double(days)
     }
 
     /// Loop 3: Ridge OLS Regression for Individual Physiological Sensitivities (Beta Slopes)
     public static func computeLearnedSensitivities(
         records: [DailyJoinedPhysiologyRecord]
     ) -> LearnedSensitivities {
-        let sorted = records.sorted { $0.date < $1.date }
-        guard sorted.count >= 5 else { return LearnedSensitivities() }
+        let (byKey, sortedKeys) = CorrelationEngine.indexRecordsByDay(records)
+        guard sortedKeys.count >= 5 else { return LearnedSensitivities() }
 
-        let w = bayesianShrinkageWeight(sampleCount: sorted.count, kappa: 14.0)
+        let w = bayesianShrinkageWeight(sampleCount: sortedKeys.count, kappa: 14.0)
 
         // 1. Beta_Na -> H2O (kg water spike per +1000mg sodium above 2000mg)
         var naGrams: [Double] = []
         var waterSpikesKg: [Double] = []
-        for i in 0..<(sorted.count - 1) {
-            if let nextW = sorted[i + 1].weightKg, let next7d = sorted[i + 1].rollingWeight7dKg {
-                naGrams.append((sorted[i].sodiumMg - 2000.0) / 1000.0)
-                waterSpikesKg.append(nextW - next7d)
+        for key in sortedKeys {
+            guard let current = byKey[key],
+                  current.hasCompleteNutrition,
+                  let nextKey = CorrelationEngine.nextDayKey(from: key),
+                  let next = byKey[nextKey],
+                  let nextW = next.weightKg,
+                  let next7d = next.rollingWeight7dKg else {
+                continue
             }
+            naGrams.append((current.sodiumMg - 2000.0) / 1000.0)
+            waterSpikesKg.append(nextW - next7d)
         }
         let rawBetaNa = ridgeSlope(x: naGrams, y: waterSpikesKg, ridgeLambda: 1.5) ?? 0.32
         let learnedBetaNa = min(0.75, max(0.10, ((1.0 - w) * 0.32) + (w * abs(rawBetaNa))))
@@ -227,13 +264,18 @@ public enum AdaptivePhysiologyEngine {
         // 2. Beta_TRIMP -> Battery Drain Factor (calibrated by next-morning HRV drop)
         var trimpValues: [Double] = []
         var hrvDropsPct: [Double] = []
-        for i in 0..<(sorted.count - 1) {
-            if sorted[i].workoutTrimp > 20.0,
-               let hrvT = sorted[i].overnightHrvMs,
-               let hrvT1 = sorted[i + 1].overnightHrvMs, hrvT > 0 {
-                trimpValues.append(sorted[i].workoutTrimp)
-                hrvDropsPct.append(max(5.0, ((hrvT - hrvT1) / hrvT) * 100.0 + 25.0))
+        for key in sortedKeys {
+            guard let current = byKey[key],
+                  current.workoutTrimp > 20.0,
+                  let hrvT = current.overnightHrvMs,
+                  hrvT > 0,
+                  let nextKey = CorrelationEngine.nextDayKey(from: key),
+                  let next = byKey[nextKey],
+                  let hrvT1 = next.overnightHrvMs else {
+                continue
             }
+            trimpValues.append(current.workoutTrimp)
+            hrvDropsPct.append(max(5.0, ((hrvT - hrvT1) / hrvT) * 100.0 + 25.0))
         }
         let rawBetaTrimp = ridgeSlope(x: trimpValues, y: hrvDropsPct, ridgeLambda: 2.0) ?? 0.32
         let learnedBetaTrimp = min(0.52, max(0.18, ((1.0 - w) * 0.32) + (w * max(0.20, rawBetaTrimp))))
@@ -241,9 +283,16 @@ public enum AdaptivePhysiologyEngine {
         // 3. Beta_LateMeal -> Overnight RHR Penalty (bpm)
         var lateMealRhrDiffs: [Double] = []
         var cleanRhrValues: [Double] = []
-        for i in 0..<(sorted.count - 1) {
-            guard sorted[i].workoutTrimp <= 130.0, let nextRhr = sorted[i + 1].overnightRhrBpm else { continue }
-            if sorted[i].hasLateMealAfter2130 {
+        for key in sortedKeys {
+            guard let current = byKey[key],
+                  current.hasCompleteNutrition,
+                  current.workoutTrimp <= 130.0,
+                  let nextKey = CorrelationEngine.nextDayKey(from: key),
+                  let next = byKey[nextKey],
+                  let nextRhr = next.overnightRhrBpm else {
+                continue
+            }
+            if current.hasLateMealAfter2130 {
                 lateMealRhrDiffs.append(nextRhr)
             } else {
                 cleanRhrValues.append(nextRhr)
@@ -262,11 +311,16 @@ public enum AdaptivePhysiologyEngine {
         // 4. Beta_Carbs -> Cardiac Drift (% per +100g carbs)
         var carbsHundreds: [Double] = []
         var drifts: [Double] = []
-        for i in 1..<sorted.count {
-            if let drift = sorted[i].runningCardiacDriftPct {
-                carbsHundreds.append(sorted[i - 1].carbsG / 100.0)
-                drifts.append(drift)
+        for key in sortedKeys {
+            guard let previous = byKey[key],
+                  previous.hasCompleteNutrition,
+                  let nextKey = CorrelationEngine.nextDayKey(from: key),
+                  let today = byKey[nextKey],
+                  let drift = today.runningCardiacDriftPct else {
+                continue
             }
+            carbsHundreds.append(previous.carbsG / 100.0)
+            drifts.append(drift)
         }
         let rawBetaCarbs = ridgeSlope(x: carbsHundreds, y: drifts, ridgeLambda: 1.5) ?? -1.8
         let learnedBetaCarbs = max(-4.2, min(-0.5, ((1.0 - w) * -1.8) + (w * min(-0.5, rawBetaCarbs))))

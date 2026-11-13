@@ -33,10 +33,10 @@ public final class MealStorageService: ObservableObject {
             .sorted(by: { $0.createdAt > $1.createdAt })
     }
 
-    /// Fetches meals logged in the 36-hour acute window up to and including the workout execution time.
-    public static func fetchAcuteNutritionMeals(for date: Date = Date()) -> [MealRecord] {
-        let windowStart = date.addingTimeInterval(-36.0 * 3600.0)
-        let windowEnd = date.addingTimeInterval(3600.0) // Small 1h tolerance for post-workout logging
+    /// Fetches confirmed meals logged in the acute window up to and including the workout execution time.
+    public static func fetchAcuteNutritionMeals(for workoutDate: Date = Date(), hoursBefore: Double = 36.0) -> [MealRecord] {
+        let windowStart = workoutDate.addingTimeInterval(-max(0, hoursBefore) * 3600.0)
+        let windowEnd = workoutDate
         return shared.allMeals.filter {
             !$0.isOptimisticPending && $0.createdAt >= windowStart && $0.createdAt <= windowEnd
         }
@@ -437,8 +437,11 @@ public final class MealStorageService: ObservableObject {
         allMeals
     }
 
-    public static func fetchTodayMeals() -> [MealRecord] {
-        MealStorageService.shared.allMeals
+    public static func fetchTodayMeals(calendar: Calendar = .current) -> [MealRecord] {
+        let todayKey = DietaryDay.containing(Date(), calendar: calendar).key
+        return MealStorageService.shared.allMeals.filter {
+            !$0.isOptimisticPending && $0.dietaryDate == todayKey
+        }
     }
 
     public func insertHydratedMeal(_ record: MealRecord, syncedToCloud: Bool = true, remoteId: Int64? = nil) {
