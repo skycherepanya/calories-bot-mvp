@@ -1,10 +1,10 @@
 # Lifecore storage and database reference
 
-Updated: 2026-11-12. Source: checked-in migrations and Swift models at audit baseline `3e6b998`. Deployed schema, policies and applied migration history were not inspected. No schema was changed or deployed by the documentation audit.
+Updated: 2026-11-13 (R7 Cloud & HealthKit Convergence). Source: checked-in migrations (`001`–`20261113120000`) and Swift models/DTOs (`SwiftDataModels.swift`, `CloudDTOs.swift`, `SyncCoordinator.swift`). Deployed Supabase schema/RLS remains to be verified and applied via `supabase db push` (R8/D1).
 
 ## Current local and cloud roles
 
-HealthKit supplies passive telemetry; SwiftData stores meals, cached workout analyses, the training queue and athlete memory. Profile calibration uses UserDefaults. Supabase receives direct REST uploads and provides capped initial hydration for empty local collections. It is not currently an immutable warehouse or a complete convergent sync system.
+HealthKit supplies passive telemetry and receives serialized dietary meal exports/deletes via `SyncOutbox` (`healthkitMeal`). SwiftData persists `MealEntity`, `WorkoutAnalysisEntity` (with `revision`), `AthleteTrainingPlanState`, `AthleteMemoryEntity`, and `SyncOperationEntity`. Profile calibration uses `UserDefaults`. Supabase receives typed REST uploads (`MealCloudDTO`, `WorkoutAnalysisCloudDTO`, daily telemetry) with expected-revision CAS (`PATCH` `?revision=eq.X`) and paginated incremental pulls (`SyncCoordinator.pullIncrementalAll`).
 
 ## Checked-in SQL contracts
 
@@ -74,10 +74,12 @@ Models live in `Core/Storage/SwiftDataModels.swift`, `Core/Storage/SyncOutbox.sw
 
 ## Compatibility and migration gates
 
-1. Numbered migrations005/007 alter `daily_metrics`, whose only checked-in CREATE is in the later timestamped file. A fresh version-ordered replay therefore has an ordering prerequisite. This is source inspection, not a claim that a local replay ran. Inspect actual history and prepare a tested bootstrap/baseline strategy; do not blindly rename applied migrations.
-2. Reconcile missing `neat_kcal`, nullable weight and complete typed round trips. SQL confidence is0–100; previous docs incorrectly stated0–1.
-3. Current pulls only hydrate empty collections, cap60/30 rows and lose optional meal metadata. Local/remote identity, pagination, deletes and revisions need R7.
-4. Checked-in migrations contain no RLS policies; deployed protection is unknown. Publishable keys are public configuration. R8 must verify authenticated ownership and cross-user denial before wider distribution.
-5. Proposed fields (`client_uuid`, revision, outbox/tombstones, raw kcal/buffer version/provenance) are **not deployed schema**. R6/R7 own versioned local/cloud migrations and data-preservation tests. Preserve legacy IDs and already-buffered kcal.
+[20261113120000_r7_sync_convergence.sql](../supabase/migrations/20261113120000_r7_sync_convergence.sql) extends the checked-in SQL schema for R7 convergence (with contract assertions in [sync_contract.sql](../supabase/tests/sync_contract.sql)):
 
-Use local/staging migration, full restore and authorization tests before `supabase db push` against a verified production target. See [reliability packet](superpowers/plans/2026-11-12-native-redesign/01-reliability.md) and [audit](audits/2026-11-12-architecture-and-product-audit.md).
+- **`public.daily_metrics`:** Reconciled in both [005](../supabase/migrations/005_daily_metrics_enhancements.sql) (`CREATE TABLE IF NOT EXISTS public.daily_metrics`) and `20261113120000` so fresh chronological replay succeeds; adds `neat_kcal NUMERIC(6,1)`.
+- **`public.meals`:** `ALTER COLUMN weight_g DROP NOT NULL`; adds `client_uuid UUID`, `revision INTEGER NOT NULL DEFAULT 1`, `is_deleted BOOLEAN NOT NULL DEFAULT FALSE`, `kcal_exact NUMERIC`, `buffer_version INTEGER NOT NULL DEFAULT 1`, `provenance TEXT NOT NULL DEFAULT 'legacy'`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`, partial unique index `idx_meals_user_client_uuid` on `(user_id, client_uuid)`, and `idx_meals_user_updated_at`. Swift confidence `0...1` is normalized to `0...100` (`confidence * 100`) at `MealCloudDTO` boundary.
+- **`public.workout_analyses`:** Adds `revision INTEGER NOT NULL DEFAULT 1` for CAS updates; `WorkoutAnalysisCloudDTO` matches `006_workout_analyses.sql` column names and converts `m <-> km` and `s <-> min` losslessly.
+
+1. Local Swift `SyncContractTests` verify DTO round-trips, outbox CAS, 409 conflict preservation, paginated pulls (>60 meals / >30 workouts), and HealthKit export serialization.
+2. Live remote application via `supabase db push` and PostgreSQL execution of `supabase/tests/sync_contract.sql` remain pending remote deployment (`psql`/`docker` unavailable locally).
+3. Checked-in migrations still contain no RLS policies; R8 owns authenticated ownership verification and cross-user denial tests before wider distribution.

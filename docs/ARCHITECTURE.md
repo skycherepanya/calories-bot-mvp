@@ -1,48 +1,39 @@
 # Lifecore architecture
 
-Updated:2026-11-12. This document describes checked-in behavior at audit baseline `3e6b998`; the [redesign specification](superpowers/specs/2026-11-12-native-redesign-design.md) describes the proposed target. No application architecture changed in the documentation audit.
+Updated: 2026-11-13 (Waves 1-4: R1-R7 + U1). Target architecture specification: [redesign specification](superpowers/specs/2026-11-12-native-redesign-design.md).
 
 ## Product and platform
 
-Lifecore combines workout telemetry, recovery context and nutrition into athletic decisions. Native iOS remains the primary client and math engine. SwiftUI/Charts present four tabs; HealthKit reads device data; SwiftData persists local records; Supabase REST uploads data and provides partial initial hydration; Gemini supplies recognition and narrative.
+Lifecore combines workout telemetry, recovery context and nutrition into athletic decisions. Native iOS remains the primary client and math engine. SwiftUI/Charts present four tabs plus a modal Settings flow; HealthKit reads and exports device data; SwiftData persists local records and durable sync operations; Supabase REST synchronizes meals, workout analyses, and telemetry; Gemini supplies qualitative recognition and narrative.
 
-Actual project settings:iOS 27.0 deployment floor, Swift 5.0 language mode, verified Xcode 27.1 toolchain. Existing documentation's Swift 6/iOS17+/Xcode16+ claims did not match the project. Swift 6 migration is planned and currently exposes actor-isolation warnings.
+Actual project settings: iOS 27.0 deployment floor, Swift 5.0 language mode, verified Xcode 27.1 toolchain (`LifecoreTests` hosted suite: 98 passing tests on `iPhone 17` iOS 27.0). Swift 6 language-mode migration remains a separate tracked gate.
 
-## Current component/data flow
+## Current component/data flow (R4 + R7 + U1)
 
 ```mermaid
 flowchart TD
-    HK[HealthKitManager / WorkoutTelemetryExtractor] --> T[Today and Trends query/history orchestration]
-    HK --> W[Workouts/detail orchestration]
-    T --> E[Readiness / Vitals / Load / Adaptive / Correlation engines]
-    W --> WE[WorkoutMathEngine]
-    E --> UI[SwiftUI four tabs]
-    WE --> UI
-    P[TrainingPlanStore + ProfileStore] --> T
-    P --> WD[RollingHorizonDeckView separate prescription inputs]
-    WD --> UI
-    M[MealStorageService] <--> SD[SwiftData: meals / analyses / plan / memory]
-    M --> T
-    M --> HKE[HealthKit dietary write/delete]
-    SD <--> S[SupabaseSyncService: uploads + capped empty-store hydration]
-    UI --> G[GeminiService + CoachPrompt + LifecoreContextRAG]
-    G --> UI
+    HK[HealthKitManager / WorkoutTelemetryExtractor] --> HB[PhysiologyHistoryBuilder R3d]
+    HB --> DSC[DailySnapshotCoordinator R4]
+    STORES[AthleteProfileStore + TrainingPlanStore + MealStorageService + WorkoutAnalysisStorage] -->|NotificationCenter invalidation| DSC
+    DSC --> TPS[TrainingPrescriptionService R4]
+    DSC --> ENV[AppEnvironment live/fixture]
+    ENV --> SHELL[MainTabView + SettingsView + UI Primitives U1]
+    SHELL --> TABS[Today / Workouts / Nutrition / Trends]
+    M[MealStorageService] <--> SD[SwiftData + SyncOutbox R6/R7]
+    SD <--> SC[SyncCoordinator + CloudDTOs R7]
+    SC <--> SB[Supabase REST]
+    SC --> HKW[Serialized HealthKit Meal Queue]
+    TABS --> G[GeminiService + CoachPrompt + LifecoreContextRAG R5]
     G --> SD
 ```
 
-Singleton services and feature-level orchestration are the actual dependency boundary. Today and Trends independently build physiological histories; Workouts separately generates advice. The current flow is not one canonical evaluated snapshot.
+R4 establishes `DailySnapshotCoordinator` and `TrainingPrescriptionService` as the single evaluated snapshot and prescription source; feature screen migrations onto the coordinator (`U2-U5`) follow in Wave 5. R7 introduces `SyncCoordinator` and typed `CloudDTOs` for revisioned CAS uploads, paginated incremental pulls, and serialized HealthKit meal exports. U1 establishes semantic adaptive tokens (`LifecoreDesignSystem`), reusable state/metric components (`Core/UI/Components/`), and `SettingsView` backed by `AppEnvironment`.
 
-## Responsibilities and verified limitations
+## Verified boundaries and open waves
 
-- **Health ingestion:** queries sleep/activity/workouts/history and builds TodaySnapshot. Sparse/unavailable histories can generate demo-like data; latest-ever independent biomarkers and baseline substitutions can masquerade as one night. Workout extraction loses the first interval and lacks reliable elevation handling. See F01/F04/F13/F14.
-- **Deterministic engines:** isolated Swift calculations are a reusable foundation. Call-site inputs undermine Today ACWR/battery and adaptive/correlation outputs; correlation narrative can contradict its sign. Preserve formulas only with dated/provenance-aware inputs and tests, not assumed clinical validity.
-- **Storage:** SwiftData models are MealEntity, WorkoutAnalysisEntity, AthleteTrainingPlanState and AthleteMemoryEntity. Profile calibration uses UserDefaults. Persistent-container failure falls back to memory; save errors and legacy migration failures can be hidden. No durable revisioned outbox exists.
-- **Cloud:** uploads use direct REST. Pull occurs only for empty collections, capped60 meals/30 analyses; workout pull names differ from SQL/upload. No complete incremental reconciliation/tombstone protocol exists. Deployed policies/ownership protection were not verified.
-- **AI:** qualitative narrative is intended to consume deterministic evidence, but live calorie-buffer arithmetic is delegated to the prompt; error fallbacks fabricate data. RAG meal totals have inconsistent time-window labels. AI memory currently needs a clearer confirmation/provenance lifecycle.
-- **Presentation:** current Daylight design forces light mode. Dense component stacks, independent state calculation and missing error states are the main redesign concerns. Exact visual/accessibility defects require runtime inspection.
-- **Verification:** thirteen Debug-startup verification groups only log; five Maestro smoke flows mostly inspect visibility/navigation. No XCTest target/test scheme action exists at baseline. Build passes with warnings; correctness/clinical/performance claims are not established by build success.
-
-## Required invariants
+- **Ingestion & deterministic math (R2-R4):** `DietaryDay`, `MetricSample`, `PhysiologyHistoryBuilder`, `VitalsAndIllnessEngine`, `TrainingLoadAndBatteryEngine`, `TrainingPrescriptionService`, and `DailySnapshotCoordinator` compute from observed HealthKit/SwiftData inputs without synthetic defaults or fake priors.
+- **Storage & sync convergence (R6-R7):** `SyncOutbox` tracks durable `.meal`, `.workout`, and `.healthkitMeal` mutations with monotonic local revisions; `SyncCoordinator` performs serialized FIFO uploads, expected-revision CAS (`409` conflict retention), idempotent initial-`POST` retry recovery, and paginated pulls. Migration `20261113120000_r7_sync_convergence.sql` and `005_daily_metrics_enhancements.sql` reconcile `daily_metrics`, `meals`, and `workout_analyses`; live `supabase db push` verification remains pending against remote DB.
+- **AI & presentation (R5, U1-U6):** Meal buffer arithmetic stays deterministic in Swift (`1.125` once); coach dossiers carry scoped evidence IDs and manual candidate memory confirmation. `U2-U6`, `R8` (auth/credential hardening), `R9` (truthful AppIntents), and `D1` E2E validation remain in upcoming waves.
 
 Deterministic Swift arithmetic precedes AI explanation. Ukrainian end-user copy; English prompts/code/docs. Native calorie buffer is exactly12.5% once, macros unchanged. Dietary attribution uses04:00; sleep has a separate bounded episode. Missing is not zero/normal. Preserve project multi-metric confluence rather than alarm on one ordinary RHR variation. Data must retain source/time/coverage and cannot silently become measured from a fixture or prior.
 

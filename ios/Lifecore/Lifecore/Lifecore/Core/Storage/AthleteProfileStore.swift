@@ -155,5 +155,6 @@ public final class AthleteProfileStore: ObservableObject {
         if let data = try? JSONEncoder().encode(profile) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
+        NotificationCenter.default.post(name: .lifecoreProfileDidMutate, object: nil)
     }
 }

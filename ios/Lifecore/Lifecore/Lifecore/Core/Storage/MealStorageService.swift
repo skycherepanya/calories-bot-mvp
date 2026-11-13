@@ -178,7 +178,7 @@ public final class MealStorageService: ObservableObject {
         entity.revision += 1
         entity.updatedAt = Date()
 
-        // Atomically enqueue outbox mutation intent
+        // Atomically enqueue cloud outbox & HealthKit export intent
         try SyncOutbox.shared.enqueue(
             entityID: entity.id,
             entityType: "meal",
@@ -187,6 +187,7 @@ public final class MealStorageService: ObservableObject {
             payloadJson: MealSyncPayload(from: entity).toJsonString(),
             in: context
         )
+        try enqueueHealthKitMealOperation(for: entity, kind: .upsert)
 
         // Injectable fault hook
         if let error = simulatedSaveError {
@@ -209,10 +210,11 @@ public final class MealStorageService: ObservableObject {
             allMeals.insert(record, at: 0)
             allMeals.sort(by: { $0.createdAt > $1.createdAt })
         }
+        notifyMealMutatedAndFlushHealthKit()
         return record
     }
 
-    /// Deletes a meal (soft delete tombstone), advancing revision and enqueuing an outbox delete operation.
+    /// Deletes a meal (soft delete tombstone), advancing revision and enqueuing outbox + HealthKit delete operations.
     public func deleteMeal(id: UUID) throws {
         let descriptor = FetchDescriptor<MealEntity>(
             predicate: #Predicate { $0.id == id }
@@ -226,7 +228,7 @@ public final class MealStorageService: ObservableObject {
         entity.revision += 1
         entity.updatedAt = Date()
 
-        // Atomically enqueue outbox delete tombstone
+        // Atomically enqueue cloud outbox delete tombstone & HealthKit delete
         try SyncOutbox.shared.enqueue(
             entityID: entity.id,
             entityType: "meal",
@@ -235,6 +237,7 @@ public final class MealStorageService: ObservableObject {
             payloadJson: MealSyncPayload(from: entity).toJsonString(),
             in: context
         )
+        try enqueueHealthKitMealOperation(for: entity, kind: .delete)
 
         // Injectable fault hook
         if let error = simulatedSaveError {
@@ -252,14 +255,10 @@ public final class MealStorageService: ObservableObject {
         // Only update UI state after durable save succeeded
         objectWillChange.send()
         allMeals.removeAll(where: { $0.id == id })
-
-        Task {
-            guard !AppEnvironment.current.isFixtureMode else { return }
-            try? await HealthKitManager.shared.deleteMealFromHealthKit(mealId: id)
-        }
+        notifyMealMutatedAndFlushHealthKit()
     }
 
-    /// Restores a soft-deleted meal atomically advancing revision and enqueuing outbox upsert.
+    /// Restores a soft-deleted meal atomically advancing revision and enqueuing outbox + HealthKit upsert.
     @discardableResult
     public func undoDeleteMeal(id: UUID) throws -> MealRecord {
         let descriptor = FetchDescriptor<MealEntity>(
@@ -274,7 +273,7 @@ public final class MealStorageService: ObservableObject {
         entity.revision += 1
         entity.updatedAt = Date()
 
-        // Atomically enqueue outbox upsert intent
+        // Atomically enqueue cloud & HealthKit outbox upsert intent
         try SyncOutbox.shared.enqueue(
             entityID: entity.id,
             entityType: "meal",
@@ -283,6 +282,7 @@ public final class MealStorageService: ObservableObject {
             payloadJson: MealSyncPayload(from: entity).toJsonString(),
             in: context
         )
+        try enqueueHealthKitMealOperation(for: entity, kind: .upsert)
 
         // Injectable fault hook
         if let error = simulatedSaveError {
@@ -304,10 +304,7 @@ public final class MealStorageService: ObservableObject {
             allMeals.sort(by: { $0.createdAt > $1.createdAt })
         }
 
-        Task {
-            guard !AppEnvironment.current.isFixtureMode else { return }
-            try? await HealthKitManager.shared.saveMealToHealthKit(meal: record)
-        }
+        notifyMealMutatedAndFlushHealthKit()
         return record
     }
 
@@ -350,10 +347,12 @@ public final class MealStorageService: ObservableObject {
             payloadJson: MealSyncPayload(from: entity).toJsonString(),
             in: context
         )
+        try? enqueueHealthKitMealOperation(for: entity, kind: .upsert)
 
         try? context.save()
 
         loadMealsFromSwiftData()
+        notifyMealMutatedAndFlushHealthKit()
         return entity.toRecord()
     }
 
@@ -404,12 +403,14 @@ public final class MealStorageService: ObservableObject {
             payloadJson: MealSyncPayload(from: entity).toJsonString(),
             in: context
         )
+        try? enqueueHealthKitMealOperation(for: entity, kind: .upsert)
 
         try? context.save()
 
         let record = entity.toRecord()
         objectWillChange.send()
         allMeals.insert(record, at: 0)
+        notifyMealMutatedAndFlushHealthKit()
         return record
     }
 
@@ -422,12 +423,47 @@ public final class MealStorageService: ObservableObject {
             allMeals.insert(meal, at: 0)
             let entity = MealEntity(record: meal)
             context.insert(entity)
+            try? SyncOutbox.shared.enqueue(
+                entityID: entity.id,
+                entityType: "meal",
+                operationKind: "upsert",
+                revision: entity.revision,
+                payloadJson: MealSyncPayload(from: entity).toJsonString(),
+                in: context
+            )
+            try? enqueueHealthKitMealOperation(for: entity, kind: .upsert)
             try? context.save()
 
-            Task {
-                guard !AppEnvironment.current.isFixtureMode else { return }
-                try? await HealthKitManager.shared.saveMealToHealthKit(meal: meal)
-            }
+            notifyMealMutatedAndFlushHealthKit()
+        }
+    }
+
+    private func enqueueHealthKitMealOperation(for entity: MealEntity, kind: SyncOperationKind) throws {
+        let payload = HealthKitMealExportPayload(
+            clientUUID: entity.clientUUID,
+            name: entity.name,
+            kcal: entity.kcal,
+            proteinG: entity.proteinG,
+            fatG: entity.fatG,
+            carbsG: entity.carbsG,
+            sodiumMg: entity.micronutrients?.sodiumMg,
+            fiberG: entity.micronutrients?.fiberG,
+            date: entity.createdAt
+        )
+        try SyncOutbox.shared.enqueueHealthKitMealOperation(
+            clientUUID: entity.clientUUID,
+            kind: kind,
+            revision: entity.revision,
+            payloadJson: CloudJSONCoding.encodeToString(payload),
+            in: context
+        )
+    }
+
+    private func notifyMealMutatedAndFlushHealthKit() {
+        NotificationCenter.default.post(name: .lifecoreMealDidMutate, object: nil)
+        guard !AppEnvironment.current.isFixtureMode else { return }
+        Task { @MainActor in
+            _ = await SyncCoordinator.shared.flushHealthKitMealExports()
         }
     }
 

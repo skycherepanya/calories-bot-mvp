@@ -2,13 +2,9 @@
 
 Native iOS athletic-performance application combining Apple Health telemetry, deterministic workout/recovery calculations, meal logging and Ukrainian AI explanations. The active client uses SwiftUI, Swift Charts, HealthKit and SwiftData; Supabase provides cloud upload and limited initial hydration. Legacy Telegram code is archived in tag `v1.0-telegram-archive`.
 
-## Current status — 2026-11-12
+## Current status — 2026-11-13
 
-The application builds with Xcode 27.1 for iOS Simulator. Checked-in deployment target is **iOS 27.0**, language mode **Swift 5.0**. The toolchain supports newer Swift; this does not mean the target uses Swift 6 language mode. Build warnings and substantial correctness gaps remain.
-
-The [architecture/product audit](docs/audits/2026-11-12-architecture-and-product-audit.md) records28 findings, including synthetic production health fallbacks, inconsistent training inputs, fabricated AI fallback results, cloud restore mismatches and unenforced tests. Existing model outputs are heuristics; clinical validity and performance claims have not been established by this audit.
-
-A complete redesign is **planned, not implemented**. The selected direction is calm native iOS with clear hierarchy and minimal noise:
+The application builds and passes its `LifecoreTests` suite (98 tests on iPhone 17 / **iOS 27.0**, Xcode 27.1, language mode **Swift 5.0**). Foundation reliability & convergence tasks **R1–R7** and native shell/design-system task **U1** are implemented and verified by unit/contract tests (`EnvironmentIsolationTests`, `DailySnapshotTests`, `SyncContractTests`, `NavigationTests`, `PhysiologyTests`, `WorkoutTelemetryTests`). Upcoming waves cover **R8–R9** (credential hardening, AppIntents) and **U2–U6 + D1** (screen vertical slices & end-to-end verification).
 
 - [Design specification](docs/superpowers/specs/2026-11-12-native-redesign-design.md).
 - [Master execution plan and copyable subagent launch prompt](docs/superpowers/plans/2026-11-12-native-redesign.md).

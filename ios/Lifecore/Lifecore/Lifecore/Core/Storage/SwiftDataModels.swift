@@ -196,6 +196,7 @@ public final class WorkoutAnalysisEntity {
     public var splitsJson: String       // JSON serialized [Split1km]
     public var lapsJson: String         // JSON serialized [IntervalLap]
     public var aiCoachReport: String?   // Markdown text from Gemini
+    public var revision: Int = 1
     public var createdAt: Date
     public var updatedAt: Date
     public var syncedToCloud: Bool
@@ -216,6 +217,7 @@ public final class WorkoutAnalysisEntity {
         splitsJson: String = "[]",
         lapsJson: String = "[]",
         aiCoachReport: String? = nil,
+        revision: Int = 1,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         syncedToCloud: Bool = false
@@ -235,6 +237,7 @@ public final class WorkoutAnalysisEntity {
         self.splitsJson = splitsJson
         self.lapsJson = lapsJson
         self.aiCoachReport = aiCoachReport
+        self.revision = revision
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.syncedToCloud = syncedToCloud
@@ -359,9 +362,11 @@ public enum WorkoutStorageService {
             if let report = aiCoachReport {
                 existing.aiCoachReport = report
             }
+            existing.revision += 1
             existing.updatedAt = Date()
             existing.syncedToCloud = false
             try? context.save()
+            NotificationCenter.default.post(name: .lifecoreWorkoutDidMutate, object: nil)
             Task {
                 _ = try? await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
             }
@@ -382,12 +387,14 @@ public enum WorkoutStorageService {
                 splitsJson: splitsJson,
                 lapsJson: lapsJson,
                 aiCoachReport: aiCoachReport,
+                revision: 1,
                 createdAt: Date(),
                 updatedAt: Date(),
                 syncedToCloud: false
             )
             context.insert(newEntity)
             try? context.save()
+            NotificationCenter.default.post(name: .lifecoreWorkoutDidMutate, object: nil)
             Task {
                 _ = try? await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
             }
@@ -399,9 +406,11 @@ public enum WorkoutStorageService {
         let context = LifecoreDataStore.shared.context
         if let existing = fetchAnalysis(for: workoutUUID) {
             existing.aiCoachReport = report
+            existing.revision += 1
             existing.updatedAt = Date()
             existing.syncedToCloud = false
             try? context.save()
+            NotificationCenter.default.post(name: .lifecoreWorkoutDidMutate, object: nil)
             Task {
                 _ = try? await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
             }
@@ -523,8 +532,11 @@ public final class AthleteMemoryEntity {
 
 @MainActor
 public enum AthleteMemoryStorageService {
-    public static func fetchAllFacts(includeCandidates: Bool = false) -> [AthleteMemoryEntity] {
-        let context = LifecoreDataStore.shared.context
+    public static func fetchAllFacts(
+        includeCandidates: Bool = false,
+        in customContext: ModelContext? = nil
+    ) -> [AthleteMemoryEntity] {
+        let context = customContext ?? LifecoreDataStore.shared.context
         let descriptor = FetchDescriptor<AthleteMemoryEntity>(
             predicate: #Predicate { !$0.isDeleted },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
@@ -536,12 +548,12 @@ public enum AthleteMemoryStorageService {
         return results.filter { $0.confirmationStatus == "confirmed" }
     }
 
-    public static func fetchConfirmedFacts() -> [AthleteMemoryEntity] {
-        fetchAllFacts(includeCandidates: false)
+    public static func fetchConfirmedFacts(in customContext: ModelContext? = nil) -> [AthleteMemoryEntity] {
+        fetchAllFacts(includeCandidates: false, in: customContext)
     }
 
-    public static func fetchCandidateFacts() -> [AthleteMemoryEntity] {
-        let context = LifecoreDataStore.shared.context
+    public static func fetchCandidateFacts(in customContext: ModelContext? = nil) -> [AthleteMemoryEntity] {
+        let context = customContext ?? LifecoreDataStore.shared.context
         let descriptor = FetchDescriptor<AthleteMemoryEntity>(
             predicate: #Predicate { !$0.isDeleted },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
@@ -555,10 +567,11 @@ public enum AthleteMemoryStorageService {
         factTextUk: String,
         category: String,
         tags: [String] = [],
-        isPinnedGoal: Bool = false
+        isPinnedGoal: Bool = false,
+        in customContext: ModelContext? = nil
     ) -> AthleteMemoryEntity {
-        let context = LifecoreDataStore.shared.context
-        let existing = fetchAllFacts(includeCandidates: true)
+        let context = customContext ?? LifecoreDataStore.shared.context
+        let existing = fetchAllFacts(includeCandidates: true, in: context)
         // Deduplicate very similar facts and promote candidate to confirmed on explicit save
         if let match = existing.first(where: { $0.factTextUk.lowercased() == factTextUk.lowercased() }) {
             match.isPinnedGoal = isPinnedGoal || match.isPinnedGoal
@@ -587,10 +600,11 @@ public enum AthleteMemoryStorageService {
     public static func saveCandidateFact(
         factTextUk: String,
         category: String,
-        tags: [String] = []
+        tags: [String] = [],
+        in customContext: ModelContext? = nil
     ) -> AthleteMemoryEntity {
-        let context = LifecoreDataStore.shared.context
-        let existing = fetchAllFacts(includeCandidates: true)
+        let context = customContext ?? LifecoreDataStore.shared.context
+        let existing = fetchAllFacts(includeCandidates: true, in: context)
         if let match = existing.first(where: { $0.factTextUk.lowercased() == factTextUk.lowercased() }) {
             return match
         }
@@ -611,8 +625,11 @@ public enum AthleteMemoryStorageService {
     }
 
     @discardableResult
-    public static func confirmCandidateFact(id: UUID) -> AthleteMemoryEntity? {
-        let context = LifecoreDataStore.shared.context
+    public static func confirmCandidateFact(
+        id: UUID,
+        in customContext: ModelContext? = nil
+    ) -> AthleteMemoryEntity? {
+        let context = customContext ?? LifecoreDataStore.shared.context
         let descriptor = FetchDescriptor<AthleteMemoryEntity>(
             predicate: #Predicate { $0.id == id && !$0.isDeleted }
         )
@@ -625,8 +642,11 @@ public enum AthleteMemoryStorageService {
         return entity
     }
 
-    public static func deleteFact(id: UUID) {
-        let context = LifecoreDataStore.shared.context
+    public static func deleteFact(
+        id: UUID,
+        in customContext: ModelContext? = nil
+    ) {
+        let context = customContext ?? LifecoreDataStore.shared.context
         let descriptor = FetchDescriptor<AthleteMemoryEntity>(
             predicate: #Predicate { $0.id == id }
         )

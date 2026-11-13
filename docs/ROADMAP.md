@@ -1,14 +1,16 @@
 # Lifecore roadmap
 
-## Active work — 2026-11-12
+## Active work — 2026-11-13
 
 - [x] Architecture/product audit with 28 findings and explicit verification limits.
 - [x] Calm native iOS design specification and dependency-ordered subagent execution plan.
 - [x] Documentation reconciled with current platform, test and persistence limitations.
-- [ ] R1–R2: enforced isolated tests and observation/calendar contracts.
-- [ ] R3a–R4: correct ingestion/math/history and one shared prescription.
-- [ ] R5a–R9: validated AI/evidence, durable storage/sync, account configuration and truthful Intents.
-- [ ] U1–U6: native shell, Today, Workouts, Nutrition, Trends and Coach redesign.
+- [x] R1–R2: enforced isolated tests and observation/calendar contracts.
+- [x] R3a–R4: correct ingestion/math/history and shared `DailySnapshotCoordinator` + `TrainingPrescriptionService`.
+- [x] R5a–R7: validated AI/evidence, durable SwiftData/outbox storage, and revisioned cloud/HealthKit convergence (SQL deployment pending remote `supabase db push`).
+- [ ] R8–R9: account/credential configuration and truthful AppIntents.
+- [x] U1: semantic design system primitives, native shell, and Settings routes.
+- [ ] U2–U6: Today, Workouts, Nutrition, Trends and Coach vertical slices.
 - [ ] D1: outcome-based E2E, migration/authentication checks, visual/accessibility/device evidence and release review.
 
 Start at the [master execution plan](superpowers/plans/2026-11-12-native-redesign.md). The plan owns detailed task status and dependencies. [Audit findings](audits/2026-11-12-architecture-and-product-audit.md) remain open; no app fixes or database migrations were performed in this documentation change.

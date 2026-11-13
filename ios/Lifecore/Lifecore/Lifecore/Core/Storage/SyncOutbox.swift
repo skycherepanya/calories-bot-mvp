@@ -18,6 +18,7 @@ public enum SyncOperationKind: String, Codable, Sendable {
 public enum SyncEntityType: String, Codable, Sendable {
     case meal
     case workout
+    case healthkitMeal = "healthkit_meal"
 }
 
 @Model
@@ -178,6 +179,25 @@ public final class SyncOutbox {
         return op
     }
 
+    /// Enqueues a serialized HealthKit meal export/delete operation keyed by `clientUUID`.
+    @discardableResult
+    public func enqueueHealthKitMealOperation(
+        clientUUID: UUID,
+        kind: SyncOperationKind,
+        revision: Int,
+        payloadJson: String,
+        in customContext: ModelContext? = nil
+    ) throws -> SyncOperationEntity {
+        try enqueue(
+            entityID: clientUUID,
+            entityType: SyncEntityType.healthkitMeal.rawValue,
+            operationKind: kind.rawValue,
+            revision: revision,
+            payloadJson: payloadJson,
+            in: customContext
+        )
+    }
+
     /// Fetches all pending operations, optionally filtered by entity type.
     public func fetchPendingOperations(
         for entityType: String? = nil,
@@ -245,6 +265,20 @@ public final class SyncOutbox {
             throw PersistenceError.entityNotFound(operationID)
         }
         op.status = SyncOperationStatus.failed.rawValue
+        op.updatedAt = Date()
+        try ctx.save()
+    }
+
+    /// Resets an operation back to pending after a transient failure while preserving `attempts` and `lastAttemptAt`.
+    public func markRetryPending(operationID: UUID, in customContext: ModelContext? = nil) throws {
+        let ctx = customContext ?? defaultContext
+        let descriptor = FetchDescriptor<SyncOperationEntity>(
+            predicate: #Predicate { $0.operationID == operationID }
+        )
+        guard let op = try ctx.fetch(descriptor).first else {
+            throw PersistenceError.entityNotFound(operationID)
+        }
+        op.status = SyncOperationStatus.pending.rawValue
         op.updatedAt = Date()
         try ctx.save()
     }

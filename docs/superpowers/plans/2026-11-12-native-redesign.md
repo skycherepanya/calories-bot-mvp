@@ -52,14 +52,14 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 - [x] R3b — Workout timing and metadata correctness.
 - [x] R3c — Longitudinal load, timed battery and HRV-method consistency.
 - [x] R3d — Calendar-based joins, signed correlations and adaptive date math.
-- [ ] R4 — One daily snapshot and prescription with revisioned invalidation.
+- [x] R4 — One daily snapshot and prescription with revisioned invalidation.
 - [x] R5a — Validated nutrition and honest AI failures.
 - [x] R5b — Scoped evidence, factual offline explanation and controlled memory.
 - [x] R6 — Durable mutations, migration preservation and meal lifecycle.
-- [ ] R7 — Typed, idempotent, revisioned, paginated sync.
+- [x] R7 — Typed, idempotent, revisioned, paginated sync. (Swift/DTO/Coordinator verified via `SyncContractTests`; `supabase db push` deployment pending remote DB check)
 - [ ] R8 — Configuration, credential migration and cloud authorization.
 - [ ] R9 — Durable and truthful AppIntents.
-- [ ] U1 — Semantic design system, native shell and settings.
+- [x] U1 — Semantic design system, native shell and settings.
 - [ ] U2 — Today hierarchy and all data states.
 - [ ] U3 — Workout planning/history/detail by sport.
 - [ ] U4 — Food capture/review/confirm/delete/undo.

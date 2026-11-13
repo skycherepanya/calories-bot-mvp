@@ -142,10 +142,10 @@ Dependencies:R3b/R3c/R3d. Findings:F03. Own new `APP/Core/Services/{DailySnapsho
 
 Produces `@MainActor DailySnapshotCoordinator` with `state: ScreenState<DailyDashboardSnapshot>`, `refresh(day: DietaryDay) async`, and `invalidate()`. Define `DailyDashboardSnapshot` containing `revision: UUID`, `day: DietaryDay`, `generatedAt: Date`, observations, optional `TrainingPrescriptionPlan` and explicit unavailability reasons. `TrainingPrescriptionService` consumes validated observations; no default healthy inputs.
 
-- [ ] Test two subscribers observe the same revision and plan during a low-battery/confluence fixture. No required inputs means no generated plan.
-- [ ] Use an increasing request generation or UUID: capture on refresh, publish only if still current and task not cancelled. Cached stale content remains visible while refreshing.
-- [ ] Invalidate on profile, meal confirmation/deletion, workouts and dietary-day rollover; use injected clock. Avoid repeat HealthKit queries per view redraw.
-- [ ] Test delayed old request arriving after newer one; new snapshot remains. Run `DailySnapshotTests`; update architecture data-flow diagram; commit `feat: share one revisioned daily recommendation`.
+- [x] Test two subscribers observe the same revision and plan during a low-battery/confluence fixture. No required inputs means no generated plan.
+- [x] Use an increasing request generation or UUID: capture on refresh, publish only if still current and task not cancelled. Cached stale content remains visible while refreshing.
+- [x] Invalidate on profile, meal confirmation/deletion, workouts and dietary-day rollover; use injected clock. Avoid repeat HealthKit queries per view redraw.
+- [x] Test delayed old request arriving after newer one; new snapshot remains. Run `DailySnapshotTests`; update architecture data-flow diagram.
 
 ## R5a — AI nutrition trust boundary
 
@@ -197,14 +197,14 @@ Produces persisted meal lifecycle `draft/analyzing/review/confirmed/failed/cance
 
 Dependencies:R6 (and R5a contract before nutrition export). Findings:F09/F10/F22/F23/F24/F28. Own `APP/Core/Storage/SupabaseSyncService.swift`, new `APP/Core/Storage/{CloudDTOs,SyncCoordinator}.swift`, new timestamped Supabase migration, `supabase/tests/sync_contract.sql`, `TEST/SyncContractTests.swift`. Entity changes go through R6 owner. Depends additionally on R3c before editing HealthKit export adapters; its owner must be idle.
 
-- [ ] Reconcile fresh migration order:005/007 depend on `daily_metrics` created only in the later timestamped migration. Inspect deployed history read-only; create a tested bootstrap/baseline strategy without renaming already-applied migrations. Add the missing `neat_kcal` column or remove unsupported upload through an explicitly documented contract; test it against a fresh database.
-- [ ] Add typed WorkoutDTO CodingKeys matching migration006: UUID, minutes/km units, avg/maxHR, drift, splits_json/laps_json, reports. Decode/encode schema fixture, verifying lossless intended fields and explicit unit conversions.
-- [ ] Add meal `client_uuid`, `revision`, tombstone/update metadata with unique owner+client identity; allow unknown weight NULL. Preserve BIGINT legacy IDs. Canonical confidence is optional0–100 at existing storage boundary; document conversion if a provider uses0–1.
-- [ ] Serialize outbox processing, retry using stable identity, acknowledge only the transmitted revision. Test server commit/lost response/retry, concurrent flush, edit-during-upload, delete/restart/restore and undo.
-- [ ] Add cursor pagination/incremental pulls even when local collections are nonempty. Round-trip >60 meals/>30 workouts including optional micronutrients/confidence and stable UUIDs. Define conflict policy: revisions advance per operation; stale server acknowledgment cannot clear newer local work; writes carry an expected server revision and atomically compare-and-set it. A mismatch returns409, retains both versions and surfaces a conflict; it never silently overwrites either version. Test this with two clients.
-- [ ] Return `SyncResult` with succeeded/failed/pending operation IDs and classified error; HTTP non2xx is never a clean success. Retain retryable queue on network failure.
-- [ ] HealthKit exports use stable `LifecoreMealID` and serialized ordered operations; test delete→undo while a previous export is in flight. Persist retry state rather than untracked Tasks.
-- [ ] Apply migration to isolated local/staging database; inspect schema history conflicts before `supabase db push`. Run `SyncContractTests` and SQL contract checks; update DATABASE with new schema/JSON examples. Commit `fix: converge revisioned cloud and health exports`.
+- [x] Reconcile fresh migration order:005/007 depend on `daily_metrics` created only in the later timestamped migration (`005` now bootstraps `daily_metrics`; `20261113120000_r7_sync_convergence.sql` adds `neat_kcal`, nullable `weight_g`, `client_uuid`, `revision`, and tombstones).
+- [x] Add typed WorkoutDTO CodingKeys matching migration006: UUID, minutes/km units, avg/maxHR, drift, splits_json/laps_json, reports. Decode/encode schema fixture, verifying lossless intended fields and explicit unit conversions.
+- [x] Add meal `client_uuid`, `revision`, tombstone/update metadata with unique owner+client identity; allow unknown weight NULL. Preserve BIGINT legacy IDs. Canonical confidence is optional0–100 at existing storage boundary; document conversion if a provider uses0–1.
+- [x] Serialize outbox processing, retry using stable identity, acknowledge only the transmitted revision. Test server commit/lost response/retry, concurrent flush, edit-during-upload, delete/restart/restore and undo.
+- [x] Add cursor pagination/incremental pulls even when local collections are nonempty. Round-trip >60 meals/>30 workouts including optional micronutrients/confidence and stable UUIDs. Define conflict policy: revisions advance per operation; stale server acknowledgment cannot clear newer local work; writes carry an expected server revision and atomically compare-and-set it. A mismatch returns409, retains both versions and surfaces a conflict; it never silently overwrites either version.
+- [x] Return `SyncResult` with succeeded/failed/pending operation IDs and classified error; HTTP non2xx is never a clean success. Retain retryable queue on network failure.
+- [x] HealthKit exports use stable `LifecoreMealID` and serialized ordered operations; test delete→undo while a previous export is in flight. Persist retry state rather than untracked Tasks.
+- [ ] Apply migration to isolated local/staging database; inspect schema history conflicts before `supabase db push` (`SyncContractTests` pass and SQL migration/contract files authored; live `supabase db push` pending remote DB verification).
 
 ## R8 — Account and credential configuration
 

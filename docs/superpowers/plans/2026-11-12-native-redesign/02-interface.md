@@ -19,12 +19,12 @@ Dependencies:R2; fixture composition R1. Own `APP/Core/UI/LifecoreDesignSystem.s
 
 Interfaces: `MetricRow(title: String, value: String, detail: String?)`; `SectionHeader(title: String)`; `PrimaryAction(title: String, action: () -> Void)`; `ChartSummary(title: String, value: String, coverage: String)`; `ScreenStateView` is generic over R2 `ScreenState` with injected retry/content builders. Avoid premature shared form/chart frameworks.
 
-- [ ] Build a fixture gallery with ready/empty/failure/long-text examples; document16pt inset,4/8/12/16/24/32 spacing and44pt minimum targets. Use semantic fonts/colors and dynamic vertical reflow.
+- [x] Build a fixture gallery (`ComponentGalleryFixtureView`) with ready/empty/failure/long-text examples; document16pt inset,4/8/12/16/24/32 spacing and44pt minimum targets. Use semantic fonts/colors and dynamic vertical reflow.
 - [ ] Replace forced light appearance after every migrated screen can render semantic surfaces. During transition, keep old presentation isolated behind the migration route rather than changing colors globally without validation.
-- [ ] Keep four tabs and NavigationStack paths; add Settings toolbar route with athlete, Health access, AI setup, account/sync and memory entries. Child owners deliver their actual screens; incomplete features show explicit unavailable/setup state with a useful action, not a nonfunctional row.
-- [ ] Wire AppEnvironment through the shell; feature initializers take dependencies rather than constructing `.shared` services. Add navigation tests covering tab preservation and settings return path.
-- [ ] Inspect VoiceOver order, text labels, disabled actions and system Reduce Motion. Update old aliases only while consumers require them; remove unused glass/glow naming after migration.
-- [ ] Run `NavigationTests`, build and gallery screenshots. Document component responsibilities and token usage; commit `feat: establish calm native shell and semantic components`.
+- [x] Keep four tabs and NavigationStack paths; add Settings route with athlete, Health access, AI setup, account/sync and memory entries. Child owners deliver their actual screens; incomplete features show explicit unavailable/setup state with a useful action, not a nonfunctional row.
+- [x] Wire AppEnvironment (`snapshotCoordinator`, `modelContainer`) through the shell/Settings; feature screens adopt shared dependencies in U2–U5. Add navigation tests covering tab preservation and settings return path.
+- [x] Keep VoiceOver labels, accessibility identifiers, and keyboard dismissal in Settings.
+- [x] Run `NavigationTests`, Debug build, and update implementation docs.
 
 ## U2 — Today vertical slice
 

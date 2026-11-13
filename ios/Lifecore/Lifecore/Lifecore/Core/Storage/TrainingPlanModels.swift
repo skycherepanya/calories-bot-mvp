@@ -89,6 +89,7 @@ public final class TrainingPlanStore: ObservableObject {
             existing.targetACWRRatio = goalConfig.targetACWRRatio
             existing.updatedAt = Date()
             try? context.save()
+            NotificationCenter.default.post(name: .lifecoreTrainingPlanDidMutate, object: nil)
         }
     }
 }

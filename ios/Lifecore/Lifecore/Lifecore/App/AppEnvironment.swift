@@ -182,6 +182,7 @@ public final class LiveSyncProvider: SyncProvider, Sendable {
 // MARK: - AppEnvironment
 
 public struct AppEnvironment: Sendable {
+    public let id: UUID
     public let mode: AppEnvironmentMode
     public var isFixtureMode: Bool { mode == .fixture }
     public let modelContainer: ModelContainer
@@ -190,17 +191,24 @@ public struct AppEnvironment: Sendable {
     public let syncProvider: any SyncProvider
 
     public init(
+        id: UUID = UUID(),
         mode: AppEnvironmentMode,
         modelContainer: ModelContainer,
         healthProvider: any HealthDataProvider,
         aiProvider: any AIProvider,
         syncProvider: any SyncProvider
     ) {
+        self.id = id
         self.mode = mode
         self.modelContainer = modelContainer
         self.healthProvider = healthProvider
         self.aiProvider = aiProvider
         self.syncProvider = syncProvider
+    }
+
+    @MainActor
+    public var snapshotCoordinator: DailySnapshotCoordinator {
+        SnapshotCoordinatorRegistry.shared.coordinator(for: id, mode: mode)
     }
 
     // MARK: - Factory Constructors
@@ -264,6 +272,31 @@ public struct AppEnvironment: Sendable {
 
     public static func reset() {
         storage.set(nil)
+        Task { @MainActor in
+            SnapshotCoordinatorRegistry.shared.reset()
+        }
+    }
+}
+
+@MainActor
+private final class SnapshotCoordinatorRegistry {
+    static let shared = SnapshotCoordinatorRegistry()
+    private var coordinators: [UUID: DailySnapshotCoordinator] = [:]
+
+    func coordinator(for environmentID: UUID, mode: AppEnvironmentMode) -> DailySnapshotCoordinator {
+        if let existing = coordinators[environmentID] {
+            return existing
+        }
+        let dataSource: any DailySnapshotDataSource = mode == .fixture
+            ? FixtureDailySnapshotDataSource()
+            : LiveDailySnapshotDataSource()
+        let created = DailySnapshotCoordinator(dataSource: dataSource)
+        coordinators[environmentID] = created
+        return created
+    }
+
+    func reset() {
+        coordinators.removeAll()
     }
 }
 

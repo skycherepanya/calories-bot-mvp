@@ -2,6 +2,21 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Tasks R4, R7, and U1: Shared snapshot coordinator, cloud sync convergence, and native Settings shell
+- **Shared Snapshot & Prescription Coordinator (R4):**
+  - Added `TrainingPrescriptionService.evaluate` (`ios/Lifecore/Lifecore/Lifecore/Core/Services/TrainingPrescriptionService.swift`) requiring measured overnight vitals, non-insufficient workload coverage, and valid athlete HR baselines (`missingHeartRateBaselines`) without synthetic healthy defaults, capping provisional ACWR target ratio at `1.00` and clamping provisional EF delta scaling (`<= 0`).
+  - Added `@MainActor DailySnapshotCoordinator` (`ios/Lifecore/Lifecore/Lifecore/Core/Services/DailySnapshotCoordinator.swift`) with monotonically increasing `requestGeneration`, UUID revisioning, cancellation recovery (clearing `isRefreshing`), request coalescing within a 60s freshness window, automatic invalidation via `NotificationCenter` (`MealStorageService`, `AthleteProfileStore`, `TrainingPlanStore`, `WorkoutAnalysisStorage`, `SyncCoordinator`), and `04:00 AM` dietary-day rollover checks.
+  - Wired `AppEnvironment.snapshotCoordinator` (`AppEnvironment.live` vs isolated `FixtureDailySnapshotDataSource`).
+- **Cloud & HealthKit Sync Convergence (R7):**
+  - Reconciled `005_daily_metrics_enhancements.sql` bootstrap order for `public.daily_metrics`, added `20261113120000_r7_sync_convergence.sql` (`daily_metrics.neat_kcal`, nullable `meals.weight_g`, `meals.client_uuid`/`revision`/`is_deleted`/`kcal_exact`/`buffer_version`/`provenance`/`updated_at`, `workout_analyses.revision`), and authored `supabase/tests/sync_contract.sql`.
+  - Added typed `WorkoutAnalysisCloudDTO` (matching `006_workout_analyses.sql` with `m <-> km` and `s <-> min` conversions) and `MealCloudDTO` (`CloudDTOs.swift`) with 0-100 confidence normalization and optional micronutrients.
+  - Implemented `@MainActor SyncCoordinator` (`SyncCoordinator.swift`), outbox `healthkitMeal` serialization (`SyncOutbox.swift`), `WorkoutAnalysisEntity.revision` increment/CAS, idempotent HTTP 409 recovery on initial `POST /rest/v1/meals` retries, protection of unresolved 409/unsynced records during paginated incremental `pullIncrementalAll`, atomic HealthKit outbox enqueueing in `MealStorageService`, and full `SyncResult` propagation in `SupabaseSyncService`.
+- **Semantic Primitives & Native Shell (U1):**
+  - Extended `LifecoreDesignSystem.swift` (`LifecoreLayout`, `MetricStatusTone`, adaptive semantic tokens) and added `MetricRow`, `SectionHeader`, `ScreenStateView` (with `ComponentGalleryFixtureView`), `PrimaryAction`, and `ChartSummary` under `Core/UI/Components/`.
+  - Added `SettingsView` (`Features/Settings/SettingsView.swift`) with 5 routes (Athlete Profile, Apple Health Access, AI & Privacy, Sync Outbox, Coach Memory with injected `ModelContext`) and preserved 4-tab `MainTabView` identity with `MainTabNavigationState`.
+- **Verification:** `xcodebuild test` passed all 98 tests (`DailySnapshotTests`, `SyncContractTests`, `NavigationTests`, `EnvironmentIsolationTests`, `PhysiologyTests`, `WorkoutTelemetryTests`, etc.) on iPhone 17 (`iOS 27.0`); live `supabase db push` / PostgreSQL contract execution remains pending until remote DB deployment.
+- **Affected Files:** `TrainingPrescriptionService.swift`, `DailySnapshotCoordinator.swift`, `CloudDTOs.swift`, `SyncOutbox.swift`, `SyncCoordinator.swift`, `SupabaseSyncService.swift`, `MealStorageService.swift`, `SwiftDataModels.swift`, `AthleteProfileStore.swift`, `TrainingPlanModels.swift`, `LifecoreDesignSystem.swift`, `Core/UI/Components/*.swift`, `SettingsView.swift`, `MainTabView.swift`, `LifecoreApp.swift`, `AppEnvironment.swift`, `DailySnapshotTests.swift`, `SyncContractTests.swift`, `NavigationTests.swift`, `005_daily_metrics_enhancements.sql`, `20261113120000_r7_sync_convergence.sql`, `supabase/tests/sync_contract.sql`.
+
 ## [2026-11-13] - Tasks R3d & R5b: Shared longitudinal joins, honest associations, and scoped coach evidence
 
 - **Task R3d (Shared Longitudinal Joins & Honest Associations):**

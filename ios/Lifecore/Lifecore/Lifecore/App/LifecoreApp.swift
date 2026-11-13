@@ -4,6 +4,7 @@ import SwiftData
 @main
 struct LifecoreApp: App {
     private let environment: AppEnvironment
+    @StateObject private var navigationState = MainTabNavigationState()
 
     init() {
         self.environment = AppEnvironment.current
@@ -11,7 +12,7 @@ struct LifecoreApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            MainTabView(navigationState: navigationState)
                 .preferredColorScheme(.light)
                 .environment(\.appEnvironment, environment)
         }

@@ -1,6 +1,42 @@
 import SwiftUI
+import UIKit
 
 /* Hallmark · scope: app · genre: modern-minimal · theme: Bevel Daylight · redesign: full · v2.0.0 */
+
+// MARK: - Lifecore Layout & Spacing Tokens
+
+public enum LifecoreLayout {
+    public static let pageInset: CGFloat = 16
+    public static let spacing4: CGFloat = 4
+    public static let spacing8: CGFloat = 8
+    public static let spacing12: CGFloat = 12
+    public static let spacing16: CGFloat = 16
+    public static let spacing24: CGFloat = 24
+    public static let spacing32: CGFloat = 32
+    public static let minTouchTarget: CGFloat = 44
+}
+
+// MARK: - Semantic Metric Status Tone
+
+public enum MetricStatusTone: String, CaseIterable, Sendable {
+    case neutral
+    case optimal
+    case warning
+    case danger
+    case teal
+    case indigo
+
+    public var color: Color {
+        switch self {
+        case .neutral: return LifecoreTheme.semanticSecondaryLabel
+        case .optimal: return LifecoreTheme.statusOptimal
+        case .warning: return LifecoreTheme.statusWarning
+        case .danger: return LifecoreTheme.statusDanger
+        case .teal: return LifecoreTheme.accentTeal
+        case .indigo: return LifecoreTheme.accentIndigo
+        }
+    }
+}
 
 // MARK: - Lifecore Design System (Bevel & Apple Health Daylight 3.3)
 
@@ -10,6 +46,15 @@ public enum LifecoreTheme {
     public static let paperCard = Color(red: 1.000, green: 1.000, blue: 1.000)     // #FFFFFF
     public static let paperWell = Color(red: 0.937, green: 0.929, blue: 0.902)     // #EFECE6
     public static let ruleHairline = Color(red: 0.894, green: 0.882, blue: 0.855)  // #E4E1DA
+
+    // Adaptive Semantic Surfaces & Labels (UIKit-backed for Light/Dark transition)
+    public static let semanticCanvas = Color(uiColor: .systemGroupedBackground)
+    public static let semanticCard = Color(uiColor: .secondarySystemGroupedBackground)
+    public static let semanticWell = Color(uiColor: .tertiarySystemGroupedBackground)
+    public static let semanticSeparator = Color(uiColor: .separator)
+    public static let semanticPrimaryLabel = Color(uiColor: .label)
+    public static let semanticSecondaryLabel = Color(uiColor: .secondaryLabel)
+    public static let semanticTertiaryLabel = Color(uiColor: .tertiaryLabel)
 
     // Typography Ink Hierarchy (Obsidian Ink)
     public static let inkPrimary = Color(red: 0.078, green: 0.082, blue: 0.094)    // #141518
