@@ -213,13 +213,8 @@ public final class WorkoutAnalysisEntity {
 @MainActor
 public final class LifecoreDataStore {
     public static let shared = LifecoreDataStore()
-    public let container: ModelContainer
 
-    public var context: ModelContext {
-        container.mainContext
-    }
-
-    private init() {
+    internal lazy var persistentContainer: ModelContainer = {
         let schema = Schema([
             MealEntity.self,
             WorkoutAnalysisEntity.self,
@@ -228,13 +223,26 @@ public final class LifecoreDataStore {
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            self.container = try ModelContainer(for: schema, configurations: [config])
+            return try ModelContainer(for: schema, configurations: [config])
         } catch {
             print("⚠️ Failed to initialize persistent ModelContainer: \(error). Falling back to memory store.")
             let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            self.container = try! ModelContainer(for: schema, configurations: [fallbackConfig])
+            return try! ModelContainer(for: schema, configurations: [fallbackConfig])
         }
+    }()
+
+    public var container: ModelContainer {
+        if AppEnvironment.current.isFixtureMode {
+            return AppEnvironment.current.modelContainer
+        }
+        return persistentContainer
     }
+
+    public var context: ModelContext {
+        container.mainContext
+    }
+
+    private init() {}
 }
 
 // MARK: - WorkoutStorageService (SwiftData Access for Workout Analyses)

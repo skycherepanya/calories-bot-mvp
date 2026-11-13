@@ -3,6 +3,8 @@ import HealthKit
 
 public final class HealthKitManager: @unchecked Sendable {
     public static let shared = HealthKitManager()
+    public static var writeAttemptCount: Int = 0
+    public static var authorizationAttemptCount: Int = 0
     private let healthStore = HKHealthStore()
 
     private init() {}
@@ -13,6 +15,8 @@ public final class HealthKitManager: @unchecked Sendable {
     }
 
     public func requestAuthorization() async throws {
+        guard !AppEnvironment.current.isFixtureMode else { return }
+        Self.authorizationAttemptCount += 1
         guard isAvailable else {
             throw HealthKitError.notAvailableOnDevice
         }
@@ -66,6 +70,8 @@ public final class HealthKitManager: @unchecked Sendable {
         date: Date = Date(),
         mealId: UUID? = nil
     ) async throws {
+        guard !AppEnvironment.current.isFixtureMode else { return }
+        Self.writeAttemptCount += 1
         guard isAvailable else { throw HealthKitError.notAvailableOnDevice }
 
         var metadata: [String: Any] = [
@@ -129,6 +135,8 @@ public final class HealthKitManager: @unchecked Sendable {
     }
 
     public func deleteMealFromHealthKit(mealId: UUID) async throws {
+        guard !AppEnvironment.current.isFixtureMode else { return }
+        Self.writeAttemptCount += 1
         guard isAvailable else { return }
 
         let dietaryTypes: [HKQuantityType] = [

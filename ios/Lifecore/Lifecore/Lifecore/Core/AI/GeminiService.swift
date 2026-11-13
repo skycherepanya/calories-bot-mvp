@@ -146,7 +146,12 @@ public enum GeminiError: Error, LocalizedError {
 // MARK: - Gemini Service
 
 public final class GeminiService: @unchecked Sendable {
-    public static let shared = GeminiService()
+    private static let _shared = GeminiService()
+    public static var sharedAccessCount: Int = 0
+    public static var shared: GeminiService {
+        sharedAccessCount += 1
+        return _shared
+    }
 
     /// Bundled default API key matching Lifecore environment
     private static let encodedKey = "QVEuQWI4Uk42TGhKZnl6M21ObUpfZHE3d1BwZTBUMUV1Z2VhRnJWb2hXNWVGV1E5VlZfbGc="

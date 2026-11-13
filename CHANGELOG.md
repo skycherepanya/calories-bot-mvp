@@ -2,6 +2,28 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Task B: Verify and complete R1 fixture isolation
+
+- Isolated `MockAIProvider` in `AppEnvironment.swift` to generate standalone, deterministic offline mock responses without accessing `GeminiService.shared`.
+- Routed `LifecoreDataStore` container and context dynamically through `AppEnvironment.current.modelContainer` when in fixture mode, ensuring 0 disk persistence during tests and fixture UI runs.
+- Added runtime fixture mode guards to `HealthKitManager.requestAuthorization()`, `saveMealToHealthKit()`, `deleteMealFromHealthKit()`, preventing modal system permission prompts and unisolated HealthKit writes.
+- Added runtime fixture guards to `SupabaseSyncService.syncPendingMeals()`, `syncPendingWorkoutAnalyses()`, and `syncDailyActivityAndWorkout()`, eliminating network requests in fixture mode.
+- Injected `@Environment(\.appEnvironment)` into `TodayView` and `NutritionView`, insulating meal logging, AI calls, and cloud sync flows from production singletons.
+- Fixed `EnvironmentStorage` caching logic in `AppEnvironment.swift` to prevent re-instantiating in-memory `ModelContainer` on successive property accesses, resolving SwiftData SIGTRAP during test host launch.
+- Expanded `EnvironmentIsolationTests.swift` with 7 passing assertions verifying mock AI independence, memory-only storage routing, and suppression of network and HealthKit side effects.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/App/AppEnvironment.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/AI/GeminiService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/MealStorageService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SupabaseSyncService.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/Storage/SwiftDataModels.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Nutrition/NutritionView.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Features/Today/TodayView.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/EnvironmentIsolationTests.swift`
+- `CHANGELOG.md`
+
 ## [2026-11-12] - Task A: Install selected Core app icon
 
 - Resized `docs/branding/2026-11-12-icon-concepts/lifecore-core.png` to 1024×1024 (`AppIcon-1024.png`) retaining full square composition and sharp edges.

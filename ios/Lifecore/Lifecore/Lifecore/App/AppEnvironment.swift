@@ -16,12 +16,14 @@ public protocol HealthDataProvider: Sendable {
     var isMock: Bool { get }
     func requestAuthorization() async throws
     func saveMeal(id: UUID, name: String, calories: Double, proteinGrams: Double, fatGrams: Double, carbsGrams: Double, sodiumMg: Double, date: Date) async throws
+    func saveMeal(meal: MealRecord) async throws
     func deleteMeal(mealId: UUID) async throws
 }
 
 public protocol AIProvider: Sendable {
     var isMock: Bool { get }
     func analyzeFoodDescription(_ text: String) async throws -> MealNutrition
+    func analyzeFood(imageJpegData: Data?, textDescription: String?) async throws -> MealNutrition
     func generateDebrief(dossier: AssembledHealthDossier) async throws -> StructuredWorkoutDebrief
 }
 
@@ -48,6 +50,10 @@ public actor MockHealthDataProvider: HealthDataProvider {
         savedMealsCount += 1
     }
 
+    public func saveMeal(meal: MealRecord) async throws {
+        savedMealsCount += 1
+    }
+
     public func deleteMeal(mealId: UUID) async throws {
         deletedMealsCount += 1
     }
@@ -59,11 +65,36 @@ public final class MockAIProvider: AIProvider, Sendable {
     public init() {}
 
     public func analyzeFoodDescription(_ text: String) async throws -> MealNutrition {
-        GeminiService.shared.generateOfflineMeal(textDescription: text)
+        MealNutrition(
+            mealName: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Вівсянка з ягодами" : text,
+            kcal: 320,
+            protein: 14.0,
+            fat: 6.0,
+            carbs: 52.0,
+            weightG: 300,
+            confidence: 0.92,
+            tags: ["whole_food", "solid"],
+            micronutrients: nil,
+            aminoAcids: nil
+        )
+    }
+
+    public func analyzeFood(imageJpegData: Data?, textDescription: String?) async throws -> MealNutrition {
+        let name = textDescription ?? "Фото страви"
+        return try await analyzeFoodDescription(name)
     }
 
     public func generateDebrief(dossier: AssembledHealthDossier) async throws -> StructuredWorkoutDebrief {
-        GeminiService.shared.generateStructuredWorkoutDebriefOffline(dossier: dossier)
+        StructuredWorkoutDebrief(
+            headlineUk: "Детермінований розбір тренування (fixture mode)",
+            regimeBadgeUk: "Аеробна база",
+            regimeTone: "teal",
+            executionAnalysisUk: "Темп і пульс відповідали цільовому аеробному порогу без надмірного серцевого дрейфу.",
+            benchmarkComparisonUk: "Продуктивність стабільна порівняно з аналогічними тренуваннями.",
+            rootCauseAndDirectiveUk: "Повноцінне відновлення та достатній сон забезпечили високу якість сесії.",
+            evidencePills: [],
+            followUpQuestionsUk: []
+        )
     }
 }
 
@@ -107,6 +138,10 @@ public final class LiveHealthDataProvider: HealthDataProvider, Sendable {
         try await HealthKitManager.shared.saveMealToHealthKit(meal: record, date: date)
     }
 
+    public func saveMeal(meal: MealRecord) async throws {
+        try await HealthKitManager.shared.saveMealToHealthKit(meal: meal, date: meal.createdAt)
+    }
+
     public func deleteMeal(mealId: UUID) async throws {
         try await HealthKitManager.shared.deleteMealFromHealthKit(mealId: mealId)
     }
@@ -119,6 +154,10 @@ public final class LiveAIProvider: AIProvider, Sendable {
 
     public func analyzeFoodDescription(_ text: String) async throws -> MealNutrition {
         try await GeminiService.shared.analyzeFood(imageJpegData: nil, textDescription: text)
+    }
+
+    public func analyzeFood(imageJpegData: Data?, textDescription: String?) async throws -> MealNutrition {
+        try await GeminiService.shared.analyzeFood(imageJpegData: imageJpegData, textDescription: textDescription)
     }
 
     public func generateDebrief(dossier: AssembledHealthDossier) async throws -> StructuredWorkoutDebrief {
@@ -169,7 +208,7 @@ public struct AppEnvironment: Sendable {
     public static func live() -> AppEnvironment {
         AppEnvironment(
             mode: .live,
-            modelContainer: LifecoreDataStore.shared.container,
+            modelContainer: LifecoreDataStore.shared.persistentContainer,
             healthProvider: LiveHealthDataProvider(),
             aiProvider: LiveAIProvider(),
             syncProvider: LiveSyncProvider()
@@ -239,10 +278,17 @@ private final class EnvironmentStorage: Sendable {
     private let state = OSAllocatedUnfairLock<AppEnvironment?>(initialState: nil)
 
     func get() -> AppEnvironment {
-        if let custom = state.withLock({ $0 }) {
-            return custom
+        if let existing = state.withLock({ $0 }) {
+            return existing
         }
-        return AppEnvironment.isFixtureLaunchRequested ? AppEnvironment.fixture() : AppEnvironment.live()
+        let created = AppEnvironment.isFixtureLaunchRequested ? AppEnvironment.fixture() : AppEnvironment.live()
+        return state.withLock { current in
+            if let current = current {
+                return current
+            }
+            current = created
+            return created
+        }
     }
 
     func set(_ env: AppEnvironment?) {

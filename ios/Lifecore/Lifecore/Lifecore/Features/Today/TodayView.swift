@@ -564,6 +564,13 @@ public struct TodayView: View {
         )
         self.adaptiveSnapshot = evaluatedAdaptive
 
+        if AppEnvironment.current.isFixtureMode {
+            loadFallbackSnapshot(adaptive: evaluatedAdaptive)
+            updatePrescriptionPlan()
+            isLoading = false
+            return
+        }
+
         let manager = HealthKitManager.shared
         if manager.isAvailable {
             do {
@@ -761,6 +768,10 @@ public struct TodayView: View {
     }
 
     private func syncWithCloud() async {
+        guard !AppEnvironment.current.isFixtureMode else {
+            cloudSyncMessage = "Хмара оновлена (fixture mode)"
+            return
+        }
         guard let snap = snapshot else { return }
         isSyncingWithCloud = true
         cloudSyncMessage = "Синхронізація..."

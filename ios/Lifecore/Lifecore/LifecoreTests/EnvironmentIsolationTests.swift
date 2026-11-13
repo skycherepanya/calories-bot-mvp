@@ -105,4 +105,93 @@ final class EnvironmentIsolationTests: XCTestCase {
         XCTAssertFalse(env.aiProvider.isMock)
         XCTAssertFalse(env.syncProvider.isMock)
     }
+
+    func testMockAIProviderDoesNotAccessGeminiShared() async throws {
+        let countBefore = GeminiService.sharedAccessCount
+        let provider = MockAIProvider()
+        _ = try await provider.analyzeFoodDescription("Вівсянка з ягодами 300г")
+        _ = try await provider.generateDebrief(dossier: TestFixtures.sampleAssembledDossier())
+        XCTAssertEqual(
+            GeminiService.sharedAccessCount,
+            countBefore,
+            "MockAIProvider must never access or trigger GeminiService.shared"
+        )
+    }
+
+    func testMealStorageUsesFixtureContainerAndDoesNotTouchPersistentStore() throws {
+        let fixtureEnv = AppEnvironment.fixture()
+        AppEnvironment.current = fixtureEnv
+        XCTAssertTrue(AppEnvironment.current.isFixtureMode)
+
+        let uniqueMealName = "Fixture Isolation Meal \(UUID().uuidString)"
+        let nutrition = MealNutrition(
+            mealName: uniqueMealName,
+            kcal: 420,
+            protein: 30,
+            fat: 10,
+            carbs: 50,
+            weightG: 300,
+            confidence: 0.95,
+            tags: ["whole_food"],
+            micronutrients: nil,
+            aminoAcids: nil
+        )
+
+        let addedRecord = MealStorageService.shared.addMeal(nutrition: nutrition, dietaryDate: "2026-11-12")
+
+        let fixtureContext = ModelContext(fixtureEnv.modelContainer)
+        let descriptor = FetchDescriptor<MealEntity>(
+            predicate: #Predicate { $0.id == addedRecord.id }
+        )
+        let fixtureMatches = try fixtureContext.fetch(descriptor)
+        XCTAssertEqual(fixtureMatches.count, 1, "Meal must be written to AppEnvironment.current.modelContainer in fixture mode")
+    }
+
+    func testFixtureModePreventsRealHealthKitWritesAndNetworkSync() async throws {
+        let fixtureEnv = AppEnvironment.fixture()
+        AppEnvironment.current = fixtureEnv
+        XCTAssertTrue(AppEnvironment.current.isFixtureMode)
+
+        let initialHKWrites = HealthKitManager.writeAttemptCount
+        let initialHKAuths = HealthKitManager.authorizationAttemptCount
+        let initialNetworkRequests = SupabaseSyncService.networkRequestAttemptCount
+
+        // 1. Storage deletion in fixture mode must not trigger HealthKit writes
+        let testMeal = MealRecord(
+            name: "Test Meal",
+            kcal: 300,
+            proteinG: 20,
+            fatG: 10,
+            carbsG: 30,
+            tags: [],
+            dietaryDate: "2026-11-12"
+        )
+        MealStorageService.shared.deleteMeal(id: testMeal.id)
+        MealStorageService.shared.restoreMeal(testMeal)
+
+        // 2. Direct calls to HealthKit in fixture mode must safe no-op
+        try await HealthKitManager.shared.requestAuthorization()
+        try await HealthKitManager.shared.saveMealToHealthKit(meal: testMeal)
+        try await HealthKitManager.shared.deleteMealFromHealthKit(mealId: testMeal.id)
+
+        // 3. Direct calls to Supabase sync in fixture mode must safe no-op
+        _ = try await SupabaseSyncService.shared.syncPendingMeals()
+        _ = try await SupabaseSyncService.shared.syncPendingWorkoutAnalyses()
+
+        XCTAssertEqual(
+            HealthKitManager.writeAttemptCount,
+            initialHKWrites,
+            "HealthKit write operations must safe no-op with 0 writes in fixture mode"
+        )
+        XCTAssertEqual(
+            HealthKitManager.authorizationAttemptCount,
+            initialHKAuths,
+            "HealthKit authorization requests must safe no-op in fixture mode"
+        )
+        XCTAssertEqual(
+            SupabaseSyncService.networkRequestAttemptCount,
+            initialNetworkRequests,
+            "Supabase sync must produce 0 network requests in fixture mode"
+        )
+    }
 }

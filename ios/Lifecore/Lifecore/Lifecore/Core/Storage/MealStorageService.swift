@@ -23,6 +23,7 @@ public final class MealStorageService: ObservableObject {
     }
 
     private func removeLegacySeedMealsIfNeeded() {
+        guard !AppEnvironment.current.isFixtureMode else { return }
         let cleanedKey = "lifecore_cleaned_seed_meals_v2"
         if !UserDefaults.standard.bool(forKey: cleanedKey) {
             let seedNames = [
@@ -106,6 +107,7 @@ public final class MealStorageService: ObservableObject {
     }
 
     private func migrateFromUserDefaultsIfNeeded() {
+        guard !AppEnvironment.current.isFixtureMode else { return }
         guard let data = UserDefaults.standard.data(forKey: legacyStorageKey),
               let list = try? JSONDecoder().decode([MealRecord].self, from: data),
               !list.isEmpty else {
@@ -235,6 +237,7 @@ public final class MealStorageService: ObservableObject {
         }
 
         Task {
+            guard !AppEnvironment.current.isFixtureMode else { return }
             try? await HealthKitManager.shared.deleteMealFromHealthKit(mealId: id)
         }
     }
@@ -248,6 +251,7 @@ public final class MealStorageService: ObservableObject {
             try? context.save()
 
             Task {
+                guard !AppEnvironment.current.isFixtureMode else { return }
                 try? await HealthKitManager.shared.saveMealToHealthKit(meal: meal)
             }
         }

@@ -184,7 +184,7 @@ Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifec
 
 ### 3.2. Verification evidence
 
-Baseline `3e6b998` builds for iOS Simulator with Xcode 27.1, with actor-isolation/deprecation warnings. `xcodebuild test` exits 66: scheme lacks a test action. Thirteen Debug startup verification groups only print results; they are not an enforced test suite. Five Maestro flows mostly check visibility/navigation, not persistent outcomes. Shell syntax check passed. Isolated Swift probes reproduced specific math/decoder defects; see the audit. No new simulator visual, device, clinical or production database verification was performed.
+Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 23 tests in `LifecoreTests` pass cleanly in 0.19s without side effects.
 
 ### 3.3. Persistence and cloud limitations
 

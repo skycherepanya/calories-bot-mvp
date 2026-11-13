@@ -2,6 +2,7 @@ import SwiftUI
 import HealthKit
 
 public struct NutritionView: View {
+    @Environment(\.appEnvironment) private var env
     @StateObject private var storage = MealStorageService.shared
     @ObservedObject private var athleteStore = AthleteProfileStore.shared
 
@@ -331,22 +332,38 @@ public struct NutritionView: View {
             dietaryDate: targetDietaryDate
         )
 
-        // 2. Asynchronous background analysis via Gemini
+        // 2. Asynchronous background analysis via Gemini or Fixture Provider
         Task {
             do {
-                let nutrition = try await GeminiService.shared.analyzeFood(
-                    imageJpegData: imageJpegData,
-                    textDescription: textDescription
-                )
+                let nutrition: MealNutrition
+                if env.isFixtureMode {
+                    nutrition = try await env.aiProvider.analyzeFood(
+                        imageJpegData: imageJpegData,
+                        textDescription: textDescription
+                    )
+                } else {
+                    nutrition = try await GeminiService.shared.analyzeFood(
+                        imageJpegData: imageJpegData,
+                        textDescription: textDescription
+                    )
+                }
 
                 // 3. Resolve pending card with finalized macros and tags
                 if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: nutrition) {
                     // 4. Background write-back to Apple HealthKit
-                    try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
+                    if env.isFixtureMode {
+                        try? await env.healthProvider.saveMeal(meal: resolved)
+                    } else {
+                        try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
+                    }
                 }
 
                 // 5. Asynchronous cloud sync to Supabase
-                _ = try? await SupabaseSyncService.shared.syncPendingMeals()
+                if env.isFixtureMode {
+                    _ = try? await env.syncProvider.syncPendingMeals()
+                } else {
+                    _ = try? await SupabaseSyncService.shared.syncPendingMeals()
+                }
 
                 let impact = UINotificationFeedbackGenerator()
                 impact.prepare()
@@ -354,11 +371,32 @@ public struct NutritionView: View {
 
             } catch {
                 print("[NutritionView] AI analysis failed with error: \(error.localizedDescription)")
-                let fallback = GeminiService.shared.generateOfflineMeal(textDescription: textDescription)
-                if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: fallback) {
-                    try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
+                let fallback: MealNutrition
+                if env.isFixtureMode {
+                    fallback = (try? await env.aiProvider.analyzeFood(imageJpegData: nil, textDescription: textDescription)) ?? MealNutrition(
+                        mealName: textDescription ?? "Страва",
+                        kcal: 300,
+                        protein: 15,
+                        fat: 10,
+                        carbs: 35,
+                        confidence: 0.8,
+                        tags: ["whole_food"]
+                    )
+                } else {
+                    fallback = GeminiService.shared.generateOfflineMeal(textDescription: textDescription)
                 }
-                _ = try? await SupabaseSyncService.shared.syncPendingMeals()
+                if let resolved = storage.resolvePending(id: pendingRecord.id, nutrition: fallback) {
+                    if env.isFixtureMode {
+                        try? await env.healthProvider.saveMeal(meal: resolved)
+                    } else {
+                        try? await HealthKitManager.shared.saveMealToHealthKit(meal: resolved)
+                    }
+                }
+                if env.isFixtureMode {
+                    _ = try? await env.syncProvider.syncPendingMeals()
+                } else {
+                    _ = try? await SupabaseSyncService.shared.syncPendingMeals()
+                }
             }
         }
     }

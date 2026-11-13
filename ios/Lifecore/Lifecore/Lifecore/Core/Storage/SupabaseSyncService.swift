@@ -5,6 +5,7 @@ import SwiftData
 
 public final class SupabaseSyncService: @unchecked Sendable {
     public static let shared = SupabaseSyncService()
+    public static var networkRequestAttemptCount: Int = 0
 
     public var supabaseURL = URL(string: "https://khmviccwbuktnvdxhnwg.supabase.co")!
     public var supabaseKey = "sb_publishable_kf0wGKz9z9VpZiu_hQe0xQ_6WTvrpXy"
@@ -23,6 +24,8 @@ public final class SupabaseSyncService: @unchecked Sendable {
     /// Uploads unsynced meals to Supabase `meals` table and updates local `syncedToCloud` flag.
     @MainActor
     public func syncPendingMeals() async throws -> Int {
+        guard !AppEnvironment.current.isFixtureMode else { return 0 }
+        Self.networkRequestAttemptCount += 1
         let unsynced = MealStorageService.shared.fetchUnsyncedMeals()
         guard !unsynced.isEmpty else { return 0 }
 
@@ -90,6 +93,8 @@ public final class SupabaseSyncService: @unchecked Sendable {
     /// Uploads unsynced workout analyses to Supabase `workout_analyses` table with upsert resolution.
     @MainActor
     public func syncPendingWorkoutAnalyses() async throws -> Int {
+        guard !AppEnvironment.current.isFixtureMode else { return 0 }
+        Self.networkRequestAttemptCount += 1
         let unsynced = WorkoutStorageService.fetchUnsyncedAnalyses()
         guard !unsynced.isEmpty else { return 0 }
 
@@ -160,6 +165,8 @@ public final class SupabaseSyncService: @unchecked Sendable {
         workout: WorkoutLog? = nil,
         pureNEATKcal: Double? = nil
     ) async throws {
+        guard !AppEnvironment.current.isFixtureMode else { return }
+        Self.networkRequestAttemptCount += 1
         // 1. Sync daily activity to daily_metrics
         if let act = dailyActivity {
             var payload: [String: Any] = [
