@@ -86,11 +86,11 @@ Dependencies:R2. Findings:F01/F04/F05. Own `APP/Core/HealthKit/HealthKitManager.
 
 Produces `HealthRepository` protocol with async throwing `weightHistory(in: DateInterval) -> [Observation<Double>]` and `sleepEpisode(endingBefore: Date) -> SleepEpisode?`; define `SleepEpisode` with interval and optional method-tagged HRV/RHR/temp/respiration/SpO2 observations. A concrete query adapter supplies these values; fixture implementation lives in test composition.
 
-- [ ] Write fixtures with0/1/4/5 actual samples; assert exact returned sample count and timestamps, no fallback generator invocation. Include query error and unavailable HealthKit paths.
-- [ ] Bound nocturnal samples to the selected episode. Dedupe overlapping samples using documented source precedence and interval union; include `.asleepUnspecified` in total sleep without inventing stage distribution.
-- [ ] Preserve RMSSD/SDNN identity and same-method baseline selection. Missing/stale pillars stay optional; never replace with a normal baseline.
-- [ ] Remove automatic synthetic history branches; move deterministic sample generators to fixture-only providers. Preserve sparse measured samples rather than replacing entire collections.
-- [ ] Test two overlapping sources, unspecified-only sleep, old temperature with fresh HRV, partial permission-like data and both HRV methods. Run `HealthRepositoryTests`; update HealthKit architecture notes; commit `fix: preserve real health coverage and episode timing`.
+- [x] Write fixtures with0/1/4/5 actual samples; assert exact returned sample count and timestamps, no fallback generator invocation. Include query error and unavailable HealthKit paths.
+- [x] Bound nocturnal samples to the selected episode. Dedupe overlapping samples using documented source precedence and interval union; include `.asleepUnspecified` in total sleep without inventing stage distribution.
+- [x] Preserve RMSSD/SDNN identity and same-method baseline selection. Missing/stale pillars stay optional; never replace with a normal baseline.
+- [x] Remove automatic synthetic history branches; move deterministic sample generators to fixture-only providers. Preserve sparse measured samples rather than replacing entire collections.
+- [x] Test two overlapping sources, unspecified-only sleep, old temperature with fresh HRV, partial permission-like data and both HRV methods. Run `HealthRepositoryTests`; update HealthKit architecture notes; commit `fix: preserve real health coverage and episode timing`.
 
 ## R3b — Workout normalization and metadata
 

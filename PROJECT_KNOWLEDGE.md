@@ -175,7 +175,7 @@ $$
 Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifecore/Lifecore/`. Deployment floor: iOS 27.0. Language mode: Swift 5.0. Verified toolchain: Xcode 27.1. Swift 6 migration is a proposed explicit gate.
 
 - `App/`: lifecycle, Debug verification logging, four-tab shell, forced-light appearance.
-- `Core/HealthKit/`: queries and workout extraction. Missing/sparse data can currently trigger synthetic fallbacks; episode freshness and split start timing need correction.
+- `Core/HealthKit/`: queries, `HealthRepository` protocol, `SleepEpisodeReader`, and workout extraction. Synthetic fallback branches removed; nocturnal vitals strictly bounded to sleep episodes; missingness truthfully preserved.
 - `Core/MathEngine/`: deterministic readiness, workouts, vitals, workload/battery, correlations, adaptive physiology and prescription. Several production call sites supply fabricated or incomplete inputs.
 - `Core/Storage/`: SwiftData meals, workout analyses, training plan and athlete memories; UserDefaults profile; direct Supabase REST. Save failures can be hidden; no durable revisioned outbox exists.
 - `Core/AI/`: food/report/chat provider, prompts and RAG. Nutrition buffer/validation, fabricated fallback responses and mislabeled evidence windows are open defects.
@@ -184,7 +184,7 @@ Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifec
 
 ### 3.2. Verification evidence
 
-Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 23 tests in `LifecoreTests` pass cleanly in 0.19s without side effects.
+Baseline test harness established: `LifecoreTests` application-hosted target and scheme configured. Math engine legacy verifications migrated to unit tests; domain contracts for `Observation`, `DietaryDay`, and `ScreenState` verified with 15 tests. Core app icon (1024×1024) integrated and verified on iOS 27.0 simulator. Task B completed full fixture isolation: `MockAIProvider` is standalone, `LifecoreDataStore` routes to an in-memory `ModelContainer` in fixture mode, `EnvironmentStorage` caches isolated environments, and runtime guards suppress HealthKit authorization modals, HealthKit writes, and Supabase cloud sync during tests. All 32 tests in `LifecoreTests` (including 9 in `HealthRepositoryTests` for Task R3a) pass cleanly in ~0.21s without side effects.
 
 ### 3.3. Persistence and cloud limitations
 

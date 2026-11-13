@@ -2,6 +2,22 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-13] - Task R3a: Real HealthKit observations and sleep episodes
+
+- Introduced `HealthRepository` protocol (`weightHistory(in:)`, `sleepEpisode(endingBefore:)`) and concrete `HealthKitRepository` and `FixtureHealthRepository` adapters.
+- Implemented `SleepEpisode` domain model with interval-bounded nocturnal vitals (`Observation<Double>`), explicit `HRVMethod` tagging (`.sdnn` vs `.rmssd`), and unmeasured vitals truthfully retained as `nil`.
+- Built `SleepEpisodeReader` with time-slicing interval union algorithm (`deduplicateAndUnion`) honoring source priority (Apple Watch > iOS Built-in > third-party apps) and handling `.asleepUnspecified` sleep duration without fabricating stage breakdowns.
+- Bounded nocturnal vitals queries (HRV, RHR, sleeping wrist temperature, respiratory rate, SpO2) strictly to the sleep episode window.
+- Completely removed synthetic data fallbacks (`generateFallbackWeightSamples`, `generateFallbackAutonomicSamples`, `generateFallbackEfSamples`) from `HealthKitManager.swift`, returning real measured observations or empty collections without substituting synthetic baselines.
+- Added comprehensive test suite `HealthRepositoryTests.swift` with 9 passing tests covering sample counts (0/1/4/5), error handling, source precedence, stage merging, unspecified sleep, and missingness preservation. Total passing tests: 32.
+
+Affected files:
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthRepository.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/SleepEpisodeReader.swift`
+- `ios/Lifecore/Lifecore/Lifecore/Core/HealthKit/HealthKitManager.swift`
+- `ios/Lifecore/Lifecore/LifecoreTests/HealthRepositoryTests.swift`
+- `CHANGELOG.md`
+
 ## [2026-11-13] - Task B: Verify and complete R1 fixture isolation
 
 - Isolated `MockAIProvider` in `AppEnvironment.swift` to generate standalone, deterministic offline mock responses without accessing `GeminiService.shared`.

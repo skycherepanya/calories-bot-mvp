@@ -191,123 +191,107 @@ public final class HealthKitManager: @unchecked Sendable {
 
     // MARK: - 2. Sleep Stages & Recovery Biomarkers
     public func fetchLastNightSleep() async throws -> SleepLog {
-        let calendar = Calendar.current
+        guard isAvailable else {
+            let calendar = Calendar.current
+            let now = Date()
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now.addingTimeInterval(-86400)
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+            return SleepLog(
+                sleepDate: dateFormatter.string(from: yesterday),
+                totalHours: 0,
+                deepHours: 0,
+                remHours: 0,
+                coreHours: 0,
+                awakeHours: 0,
+                hrvAvgMs: nil,
+                rhrBpm: nil,
+                hrvRmssdMs: nil,
+                wristTempDeltaC: nil,
+                spo2Pct: nil,
+                respiratoryRate: nil,
+                sleepEfficiencyPct: nil,
+                immuneState: nil
+            )
+        }
+
         let now = Date()
-        // Pull samples from last 24 hours to capture overnight sleep
-        guard let yesterday = calendar.date(byAdding: .hour, value: -24, to: now) else {
-            throw HealthKitError.invalidDateRange
-        }
-
-        let predicate = HKQuery.predicateForSamples(withStart: yesterday, end: now, options: .strictEndDate)
-        let sleepType = HKCategoryType(.sleepAnalysis)
-
-        let samples: [HKCategorySample] = try await withCheckedThrowingContinuation { continuation in
-            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            let query = HKSampleQuery(
-                sampleType: sleepType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sortDescriptor]
-            ) { _, results, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                continuation.resume(returning: (results as? [HKCategorySample]) ?? [])
-            }
-            healthStore.execute(query)
-        }
-
-        var deepSeconds: TimeInterval = 0
-        var remSeconds: TimeInterval = 0
-        var coreSeconds: TimeInterval = 0
-        var awakeSeconds: TimeInterval = 0
-
-        for sample in samples {
-            let duration = sample.endDate.timeIntervalSince(sample.startDate)
-            switch sample.value {
-            case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
-                deepSeconds += duration
-            case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
-                remSeconds += duration
-            case HKCategoryValueSleepAnalysis.asleepCore.rawValue:
-                coreSeconds += duration
-            case HKCategoryValueSleepAnalysis.awake.rawValue:
-                awakeSeconds += duration
-            default:
-                break
-            }
-        }
-
-        let deepHours = round((deepSeconds / 3600.0) * 100) / 100
-        let remHours = round((remSeconds / 3600.0) * 100) / 100
-        let coreHours = round((coreSeconds / 3600.0) * 100) / 100
-        let awakeHours = round((awakeSeconds / 3600.0) * 100) / 100
-        let totalHours = round((deepHours + remHours + coreHours) * 100) / 100
-
-        // Fetch latest morning autonomic biomarkers & overnight vitals
-        async let hrv = fetchLatestQuantity(for: HKQuantityType(.heartRateVariabilitySDNN), unit: .secondUnit(with: .milli))
-        async let rhr = fetchLatestQuantity(for: HKQuantityType(.restingHeartRate), unit: HKUnit.count().unitDivided(by: .minute()))
-        async let wristTemp = fetchLatestQuantity(for: HKQuantityType(.appleSleepingWristTemperature), unit: .degreeCelsius())
-        async let spo2 = fetchLatestQuantity(for: HKQuantityType(.oxygenSaturation), unit: .percent())
-        async let respRate = fetchLatestQuantity(for: HKQuantityType(.respiratoryRate), unit: HKUnit.count().unitDivided(by: .minute()))
-
-        let hrvValue = try? await hrv
-        let rhrValue = try? await rhr
-        let wristTempValue = try? await wristTemp
-        let spo2Value = (try? await spo2).map { $0 * 100.0 }
-        let respRateValue = try? await respRate
-
-        // Determine sleep date (typically yesterday if waking up today)
-        let sleepStartDate = samples.last?.startDate ?? (calendar.date(byAdding: .hour, value: -8, to: now) ?? now)
-        let sleepDate: Date = samples.last?.startDate ?? (calendar.date(byAdding: .day, value: -1, to: now) ?? now)
-
-        let cleanRmssd = await fetchCleanNightlyRMSSD(start: sleepStartDate, end: now)
-
-        let totalSleptHours = deepHours + remHours + coreHours
-        let totalTimeInBed = totalSleptHours + awakeHours
-        let sleepEfficiency: Double? = totalTimeInBed > 0 ? min(100.0, round((totalSleptHours / totalTimeInBed) * 1000.0) / 10.0) : nil
-
-        let profile = await AthleteProfileStore.shared.profile
-        let effectiveHrv = (profile.hrvMethod == .hybridRMSSD && cleanRmssd != nil) ? cleanRmssd! : (hrvValue ?? profile.hrvBaselineMs)
-        let effectiveRhr = rhrValue ?? profile.restingHeartRateBaselineBpm
-
-        let vitalsInput = NocturnalVitalsInput(
-            hrvMs: effectiveHrv,
-            rhrBpm: effectiveRhr,
-            wristTempCelsius: wristTempValue,
-            wristTempDeltaCelsius: wristTempValue != nil ? (wristTempValue! - profile.wristTempBaselineCelsius) : nil,
-            respiratoryRateBpm: respRateValue ?? profile.respiratoryRateBaselineBpm,
-            spo2Pct: spo2Value ?? profile.spo2BaselinePct
-        )
-        let vitalsBaseline = NocturnalVitalsBaseline(
-            hrvMeanMs: profile.hrvBaselineMs,
-            rhrMeanBpm: profile.restingHeartRateBaselineBpm,
-            wristTempMeanCelsius: profile.wristTempBaselineCelsius,
-            respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
-            spo2MeanPct: profile.spo2BaselinePct
-        )
-        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: vitalsBaseline)
+        let episode = try? await sleepEpisode(endingBefore: now)
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
 
+        guard let episode = episode else {
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now) ?? now.addingTimeInterval(-86400)
+            return SleepLog(
+                sleepDate: dateFormatter.string(from: yesterday),
+                totalHours: 0,
+                deepHours: 0,
+                remHours: 0,
+                coreHours: 0,
+                awakeHours: 0,
+                hrvAvgMs: nil,
+                rhrBpm: nil,
+                hrvRmssdMs: nil,
+                wristTempDeltaC: nil,
+                spo2Pct: nil,
+                respiratoryRate: nil,
+                sleepEfficiencyPct: nil,
+                immuneState: nil
+            )
+        }
+
+        let totalSleptHours = episode.totalSleepHours
+        let totalTimeInBed = totalSleptHours + (episode.awakeDurationSeconds / 3600.0)
+        let sleepEfficiency: Double? = totalTimeInBed > 0 ? min(100.0, round((totalSleptHours / totalTimeInBed) * 1000.0) / 10.0) : nil
+
+        let profile = await AthleteProfileStore.shared.profile
+
+        let hrvValue = episode.hrvMethod == .sdnn ? episode.hrv?.value : nil
+        let rmssdValue = episode.hrvMethod == .rmssd ? episode.hrv?.value : nil
+        let rhrValue = episode.restingHeartRate?.value
+        let wristTempDelta = episode.wristTemperatureDeltaCelsius?.value
+        let respRateValue = episode.respiratoryRate?.value
+        let spo2Value = episode.oxygenSaturation?.value
+
+        var immuneStateString: String? = nil
+        if hrvValue != nil || rmssdValue != nil || rhrValue != nil || wristTempDelta != nil || respRateValue != nil || spo2Value != nil {
+            let vitalsInput = NocturnalVitalsInput(
+                hrvMs: (rmssdValue ?? hrvValue) ?? profile.hrvBaselineMs,
+                rhrBpm: rhrValue ?? profile.restingHeartRateBaselineBpm,
+                wristTempCelsius: wristTempDelta.map { profile.wristTempBaselineCelsius + $0 },
+                wristTempDeltaCelsius: wristTempDelta,
+                respiratoryRateBpm: respRateValue,
+                spo2Pct: spo2Value
+            )
+            let vitalsBaseline = NocturnalVitalsBaseline(
+                hrvMeanMs: profile.hrvBaselineMs,
+                rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+                wristTempMeanCelsius: profile.wristTempBaselineCelsius,
+                respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
+                spo2MeanPct: profile.spo2BaselinePct
+            )
+            let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: vitalsBaseline)
+            immuneStateString = vitalsEval.state.rawValue
+        }
+
         return SleepLog(
-            sleepDate: dateFormatter.string(from: sleepDate),
-            totalHours: totalHours,
-            deepHours: deepHours,
-            remHours: remHours,
-            coreHours: coreHours,
-            awakeHours: awakeHours,
-            hrvAvgMs: hrvValue != nil ? round(hrvValue! * 10) / 10 : nil,
-            rhrBpm: rhrValue != nil ? round(rhrValue! * 10) / 10 : nil,
-            hrvRmssdMs: cleanRmssd != nil ? round(cleanRmssd! * 10) / 10 : nil,
-            wristTempDeltaC: wristTempValue != nil ? round((wristTempValue! - profile.wristTempBaselineCelsius) * 100) / 100 : nil,
-            spo2Pct: spo2Value != nil ? round(spo2Value! * 10) / 10 : nil,
-            respiratoryRate: respRateValue != nil ? round(respRateValue! * 10) / 10 : nil,
+            sleepDate: dateFormatter.string(from: episode.interval.start),
+            totalHours: round(totalSleptHours * 100) / 100,
+            deepHours: round((episode.deepDurationSeconds / 3600.0) * 100) / 100,
+            remHours: round((episode.remDurationSeconds / 3600.0) * 100) / 100,
+            coreHours: round((episode.coreDurationSeconds / 3600.0) * 100) / 100,
+            awakeHours: round((episode.awakeDurationSeconds / 3600.0) * 100) / 100,
+            hrvAvgMs: hrvValue,
+            rhrBpm: rhrValue,
+            hrvRmssdMs: rmssdValue,
+            wristTempDeltaC: wristTempDelta,
+            spo2Pct: spo2Value,
+            respiratoryRate: respRateValue,
             sleepEfficiencyPct: sleepEfficiency,
-            immuneState: vitalsEval.state.rawValue
+            immuneState: immuneStateString
         )
     }
 
@@ -653,22 +637,28 @@ public final class HealthKitManager: @unchecked Sendable {
         let profile = await AthleteProfileStore.shared.profile
 
         // 1. Overnight Vitals Evaluation
-        let vitalsInput = NocturnalVitalsInput(
-            hrvMs: sleep.hrvRmssdMs ?? sleep.hrvAvgMs ?? profile.hrvBaselineMs,
-            rhrBpm: sleep.rhrBpm ?? profile.restingHeartRateBaselineBpm,
-            wristTempCelsius: profile.wristTempBaselineCelsius + (sleep.wristTempDeltaC ?? 0.0),
-            wristTempDeltaCelsius: sleep.wristTempDeltaC,
-            respiratoryRateBpm: sleep.respiratoryRate ?? profile.respiratoryRateBaselineBpm,
-            spo2Pct: sleep.spo2Pct ?? profile.spo2BaselinePct
-        )
-        let resolvedBaseline = vitalsBaseline ?? NocturnalVitalsBaseline(
-            hrvMeanMs: profile.hrvBaselineMs,
-            rhrMeanBpm: profile.restingHeartRateBaselineBpm,
-            wristTempMeanCelsius: profile.wristTempBaselineCelsius,
-            respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
-            spo2MeanPct: profile.spo2BaselinePct
-        )
-        let vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: resolvedBaseline)
+        let vitalsEval: OvernightVitalsEvaluation?
+        let hasAnyVital = sleep.hrvRmssdMs != nil || sleep.hrvAvgMs != nil || sleep.rhrBpm != nil || sleep.wristTempDeltaC != nil || sleep.respiratoryRate != nil || sleep.spo2Pct != nil
+        if hasAnyVital {
+            let vitalsInput = NocturnalVitalsInput(
+                hrvMs: sleep.hrvRmssdMs ?? sleep.hrvAvgMs ?? profile.hrvBaselineMs,
+                rhrBpm: sleep.rhrBpm ?? profile.restingHeartRateBaselineBpm,
+                wristTempCelsius: sleep.wristTempDeltaC.map { profile.wristTempBaselineCelsius + $0 },
+                wristTempDeltaCelsius: sleep.wristTempDeltaC,
+                respiratoryRateBpm: sleep.respiratoryRate,
+                spo2Pct: sleep.spo2Pct
+            )
+            let resolvedBaseline = vitalsBaseline ?? NocturnalVitalsBaseline(
+                hrvMeanMs: profile.hrvBaselineMs,
+                rhrMeanBpm: profile.restingHeartRateBaselineBpm,
+                wristTempMeanCelsius: profile.wristTempBaselineCelsius,
+                respiratoryRateMeanBpm: profile.respiratoryRateBaselineBpm,
+                spo2MeanPct: profile.spo2BaselinePct
+            )
+            vitalsEval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: vitalsInput, baseline: resolvedBaseline)
+        } else {
+            vitalsEval = nil
+        }
 
         // 2. Garmin Firstbeat TRIMP & EWMA ACWR
         var workoutHours: [(hour: Int, trimp: Double)] = []
@@ -699,7 +689,7 @@ public final class HealthKitManager: @unchecked Sendable {
             targetSleepHours: profile.targetSleepHours,
             pureNeatKcal: neatKcal,
             workouts: workoutHours,
-            immuneState: vitalsEval.state,
+            immuneState: vitalsEval?.state ?? .optimal,
             currentHour: currentHour,
             trimpDrainFactor: trimpDrainFactor
         )
@@ -734,61 +724,41 @@ public final class HealthKitManager: @unchecked Sendable {
     // MARK: - 6. Longitudinal Trends Data Pipelines
 
     /// Fetches daily weigh-ins over the specified number of days (default 30/60/90).
-    /// If HealthKit has sparse weigh-ins, generates high-fidelity baseline data for Sasha (~78.4 - 79.2 kg).
+    /// Returns real measured samples or empty array without synthetic fallbacks.
     public func fetchBodyWeightHistory(days: Int = 30) async -> [DateWeightSample] {
-        guard isAvailable else { return generateFallbackWeightSamples(days: days) }
+        guard isAvailable else { return [] }
 
         let calendar = Calendar.current
         let now = Date()
         guard let startDate = calendar.date(byAdding: .day, value: -days, to: now) else {
-            return generateFallbackWeightSamples(days: days)
+            return []
         }
 
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: now, options: .strictStartDate)
-        let weightType = HKQuantityType(.bodyMass)
-        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
-
-        let realSamples: [DateWeightSample] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(
-                sampleType: weightType,
-                predicate: predicate,
-                limit: HKObjectQueryNoLimit,
-                sortDescriptors: [sortDescriptor]
-            ) { _, results, _ in
-                guard let samples = results as? [HKQuantitySample], !samples.isEmpty else {
-                    continuation.resume(returning: [])
-                    return
-                }
-
-                // Group by start-of-day, taking the morning or latest value
-                var dailyDict: [Date: Double] = [:]
-                for s in samples {
-                    let dayStart = calendar.startOfDay(for: s.startDate)
-                    let kg = s.quantity.doubleValue(for: .gramUnit(with: .kilo))
-                    dailyDict[dayStart] = round(kg * 100) / 100
-                }
-
-                let sorted = dailyDict.map { DateWeightSample(date: $0.key, weightKg: $0.value) }
-                    .sorted(by: { $0.date < $1.date })
-                continuation.resume(returning: sorted)
+        let interval = DateInterval(start: startDate, end: now)
+        do {
+            let observations = try await weightHistory(in: interval)
+            var dailyDict: [Date: Double] = [:]
+            for obs in observations {
+                guard let date = obs.observedAt, let kg = obs.value else { continue }
+                let dayStart = calendar.startOfDay(for: date)
+                dailyDict[dayStart] = kg
             }
-            healthStore.execute(query)
-        }
-
-        if realSamples.count >= 5 {
-            return realSamples
-        } else {
-            return generateFallbackWeightSamples(days: days)
+            return dailyDict.map { DateWeightSample(date: $0.key, weightKg: $0.value) }
+                .sorted(by: { $0.date < $1.date })
+        } catch {
+            return []
         }
     }
 
     /// Fetches daily morning HRV and sleeping Resting Heart Rate over the specified period,
     /// calculating rolling 30-day baseline corridor envelopes (Mean ± 0.5 σ).
     public func fetchAutonomicLongitudinalHistory(days: Int = 30) async -> [DateAutonomicSample] {
+        guard isAvailable else { return [] }
+
         let calendar = Calendar.current
         let now = Date()
         guard let startDate = calendar.date(byAdding: .day, value: -(days + 30), to: now) else {
-            return generateFallbackAutonomicSamples(days: days)
+            return []
         }
 
         let hrvType = HKQuantityType(.heartRateVariabilitySDNN)
@@ -799,6 +769,7 @@ public final class HealthKitManager: @unchecked Sendable {
         async let rhrTask = (try? fetchDailyQuantityMap(for: rhrType, unit: HKUnit.count().unitDivided(by: .minute()), predicate: predicate)) ?? [:]
 
         let (hrvMap, rhrMap) = await (hrvTask, rhrTask)
+        guard !hrvMap.isEmpty || !rhrMap.isEmpty else { return [] }
 
         var samples: [DateAutonomicSample] = []
         let targetDays = days
@@ -850,17 +821,12 @@ public final class HealthKitManager: @unchecked Sendable {
             )
         }
 
-        let nonNilCount = samples.compactMap(\.hrvMs).count
-        if nonNilCount >= 5 {
-            return samples
-        } else {
-            return generateFallbackAutonomicSamples(days: days)
-        }
+        return samples
     }
 
     /// Fetches historical running workout efficiency (EF = speed / HR) and aerobic decoupling.
     public func fetchAerobicEfficiencyHistory(limit: Int = 15) async -> [AerobicEfficiencyTrendSample] {
-        guard isAvailable else { return generateFallbackEfSamples(limit: limit) }
+        guard isAvailable else { return [] }
 
         let predicate = HKQuery.predicateForWorkouts(with: .running)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
@@ -914,113 +880,7 @@ public final class HealthKitManager: @unchecked Sendable {
             if trendSamples.count >= limit { break }
         }
 
-        if trendSamples.count >= 3 {
-            return trendSamples.reversed() // Chronological order
-        } else {
-            return generateFallbackEfSamples(limit: limit)
-        }
-    }
-
-    // MARK: - Realistic Fallback Generators for Trends
-
-    private func generateFallbackWeightSamples(days: Int) -> [DateWeightSample] {
-        let calendar = Calendar.current
-        let now = Date()
-        var samples: [DateWeightSample] = []
-
-        // Sasha baseline: ~79.2 kg with gradual trend to ~78.4 kg
-        for i in (0..<days).reversed() {
-            guard let date = calendar.date(byAdding: .day, value: -i, to: now) else { continue }
-            let dayStart = calendar.startOfDay(for: date)
-
-            let progress = Double(days - i) / Double(days)
-            var base = 79.2 - (0.75 * progress)
-
-            // Realistic cyclical fluctuation (±0.3 kg)
-            let cycle = sin(Double(i) * 0.7) * 0.3
-            base += cycle
-
-            // Water noise spike simulation (e.g. sodium/carb refeed at day 12 and day 24)
-            if i == 6 || i == 18 {
-                base += 1.35 // Triggers +1.35 kg acute water retention spike
-            }
-
-            samples.append(DateWeightSample(date: dayStart, weightKg: round(base * 10) / 10))
-        }
-
-        return samples
-    }
-
-    private func generateFallbackAutonomicSamples(days: Int) -> [DateAutonomicSample] {
-        let calendar = Calendar.current
-        let now = Date()
-        var samples: [DateAutonomicSample] = []
-
-        for i in (0..<days).reversed() {
-            guard let date = calendar.date(byAdding: .day, value: -i, to: now) else { continue }
-            let dayStart = calendar.startOfDay(for: date)
-
-            // Sasha baseline: HRV ~102ms, RHR ~49bpm
-            let hrvNoise = sin(Double(i) * 0.8) * 11.0 + cos(Double(i) * 0.4) * 6.0
-            let rhrNoise = -sin(Double(i) * 0.8) * 3.0
-
-            let hrv = max(65.0, round(102.0 + hrvNoise))
-            let rhr = max(44.0, round(49.0 + rhrNoise))
-
-            let baselineMean = 102.0
-            let baselineLower = 95.0
-            let baselineUpper = 109.0
-
-            samples.append(
-                DateAutonomicSample(
-                    date: dayStart,
-                    hrvMs: hrv,
-                    rhrBpm: rhr,
-                    hrvBaselineMean: baselineMean,
-                    hrvBaselineLower: baselineLower,
-                    hrvBaselineUpper: baselineUpper
-                )
-            )
-        }
-
-        return samples
-    }
-
-    private func generateFallbackEfSamples(limit: Int) -> [AerobicEfficiencyTrendSample] {
-        let calendar = Calendar.current
-        let now = Date()
-        var samples: [AerobicEfficiencyTrendSample] = []
-
-        // Sasha's running history over the past 60 days
-        let count = min(12, limit)
-        for i in (0..<count).reversed() {
-            guard let date = calendar.date(byAdding: .day, value: -(i * 4 + 2), to: now) else { continue }
-
-            let dist = (i % 3 == 0) ? 10.0 : ((i % 2 == 0) ? 6.5 : 4.17)
-            let pace = 5.25 - (Double(count - i) * 0.02) // Gradual speed improvement
-            let duration = dist * pace
-            let avgHr = 154.0 - (Double(count - i) * 0.4) // Improving cardiac efficiency
-
-            let speedMPerMin = (dist * 1000.0) / duration
-            let ef = round((speedMPerMin / avgHr) * 1000) / 1000
-
-            let drift = max(2.1, 4.2 - (Double(count - i) * 0.15) + (dist > 8 ? 2.5 : 0.0))
-
-            samples.append(
-                AerobicEfficiencyTrendSample(
-                    date: date,
-                    workoutName: "Біг \(String(format: "%.1f", dist)) км",
-                    distanceKm: dist,
-                    durationMin: round(duration * 10) / 10,
-                    avgPaceMinKm: round(pace * 100) / 100,
-                    avgHrBpm: round(avgHr * 10) / 10,
-                    efficiencyFactor: ef,
-                    aerobicDecouplingPct: round(drift * 10) / 10
-                )
-            )
-        }
-
-        return samples
+        return trendSamples.reversed() // Chronological order
     }
 
     private func fetchDailyQuantityMap(for quantityType: HKQuantityType, unit: HKUnit, predicate: NSPredicate) async throws -> [Date: Double] {
@@ -1173,5 +1033,19 @@ public enum HealthKitError: Error, LocalizedError {
         case .queryFailed(let message):
             return "HealthKit query failed: \(message)"
         }
+    }
+}
+
+// MARK: - HealthRepository Conformance
+
+extension HealthKitManager: HealthRepository {
+    public func weightHistory(in interval: DateInterval) async throws -> [Observation<Double>] {
+        let repo = HealthKitRepository(healthStore: healthStore)
+        return try await repo.weightHistory(in: interval)
+    }
+
+    public func sleepEpisode(endingBefore date: Date) async throws -> SleepEpisode? {
+        let repo = HealthKitRepository(healthStore: healthStore)
+        return try await repo.sleepEpisode(endingBefore: date)
     }
 }
