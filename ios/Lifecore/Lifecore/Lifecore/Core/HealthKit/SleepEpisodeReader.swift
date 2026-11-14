@@ -136,19 +136,23 @@ public final class SleepEpisodeReader: Sendable {
             )
         }
 
-        // 3. Sleeping Wrist Temperature Delta
-        var wristTempObs: Observation<Double>? = nil
+        // 3. Sleeping Wrist Temperature (HealthKit stores absolute °C; compute personal delta from prior 30d)
+        var wristTempAbsObs: Observation<Double>? = nil
+        var wristTempDeltaObs: Observation<Double>? = nil
         if let tempSample = await fetchLatestSample(for: HKQuantityType(.appleSleepingWristTemperature), predicate: boundedPredicate) {
-            let delta = tempSample.quantity.doubleValue(for: .degreeCelsius())
-            wristTempObs = Observation<Double>(
-                value: round(delta * 100) / 100,
-                unit: "°C",
-                observedAt: tempSample.startDate,
-                source: .healthKit,
-                quality: .measured,
-                observedCount: 1,
-                expectedCount: 1
+            let absCelsius = tempSample.quantity.doubleValue(for: .degreeCelsius())
+            let baselineStart = episodeInterval.start.addingTimeInterval(-30.0 * 86400.0)
+            let baselineEnd = episodeInterval.start.addingTimeInterval(-1.0)
+            let baselinePredicate = HKQuery.predicateForSamples(withStart: baselineStart, end: baselineEnd, options: .strictStartDate)
+            let priorSamples = await fetchAllSamples(for: HKQuantityType(.appleSleepingWristTemperature), predicate: baselinePredicate)
+            let priorValues = priorSamples.map { $0.quantity.doubleValue(for: .degreeCelsius()) }
+            let resolved = Self.resolveWristTemperature(
+                currentCelsius: absCelsius,
+                priorSamplesCelsius: priorValues,
+                observedAt: tempSample.startDate
             )
+            wristTempAbsObs = resolved.absolute
+            wristTempDeltaObs = resolved.delta
         }
 
         // 4. Respiratory Rate
@@ -194,7 +198,8 @@ public final class SleepEpisodeReader: Sendable {
             hrv: hrvObs,
             hrvMethod: hrvMethod,
             restingHeartRate: rhrObs,
-            wristTemperatureDeltaCelsius: wristTempObs,
+            wristTemperatureCelsius: wristTempAbsObs,
+            wristTemperatureDeltaCelsius: wristTempDeltaObs,
             respiratoryRate: respObs,
             oxygenSaturation: spo2Obs
         )
@@ -272,12 +277,47 @@ public final class SleepEpisodeReader: Sendable {
         return (mergedStages, totalSleepSec, episodeInterval)
     }
 
+    /// Resolves HealthKit absolute sleeping wrist temperature (°C) into an absolute observation and a personal baseline delta when >= 2 prior nights exist.
+    public static func resolveWristTemperature(
+        currentCelsius: Double,
+        priorSamplesCelsius: [Double],
+        observedAt: Date
+    ) -> (absolute: Observation<Double>, delta: Observation<Double>?) {
+        let absRounded = round(currentCelsius * 100) / 100
+        let absObs = Observation<Double>(
+            value: absRounded,
+            unit: "°C",
+            observedAt: observedAt,
+            source: .healthKit,
+            quality: .measured,
+            observedCount: 1,
+            expectedCount: 1
+        )
+        let validPrior = priorSamplesCelsius.filter { $0.isFinite && $0 > 20.0 && $0 < 45.0 }
+        guard validPrior.count >= 2 else {
+            return (absObs, nil)
+        }
+        let meanPrior = validPrior.reduce(0.0, +) / Double(validPrior.count)
+        let deltaRounded = round((currentCelsius - meanPrior) * 100) / 100
+        let deltaObs = Observation<Double>(
+            value: deltaRounded,
+            unit: "°C",
+            observedAt: observedAt,
+            source: .healthKit,
+            quality: .measured,
+            observedCount: validPrior.count,
+            expectedCount: nil
+        )
+        return (absObs, deltaObs)
+    }
+
     /// Assembles an episode directly from segments and optional observations (for testing / manual construction)
     public static func assembleEpisode(
         segments: [RawSleepSegment],
         hrv: Observation<Double>? = nil,
         hrvMethod: HRVMethod? = nil,
         restingHeartRate: Observation<Double>? = nil,
+        wristTemperatureCelsius: Observation<Double>? = nil,
         wristTemperatureDeltaCelsius: Observation<Double>? = nil,
         respiratoryRate: Observation<Double>? = nil,
         oxygenSaturation: Observation<Double>? = nil
@@ -292,6 +332,7 @@ public final class SleepEpisodeReader: Sendable {
             hrv: hrv,
             hrvMethod: hrvMethod,
             restingHeartRate: restingHeartRate,
+            wristTemperatureCelsius: wristTemperatureCelsius,
             wristTemperatureDeltaCelsius: wristTemperatureDeltaCelsius,
             respiratoryRate: respiratoryRate,
             oxygenSaturation: oxygenSaturation

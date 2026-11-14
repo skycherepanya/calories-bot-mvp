@@ -389,8 +389,26 @@ public enum VitalsAndIllnessEngine {
 
         // 3. Wrist Temperature Pillar (Delta in Celsius) - Remains nil if unmeasured
         var tempPillar: VitalsPillarMetric? = nil
-        let tempDelta: Double? = input.wristTempDeltaCelsius ?? (input.wristTempCelsius.map { $0 - baseline.wristTempMeanCelsius })
-        if let deltaT = tempDelta {
+        let rawAbsTemp = input.wristTempCelsius
+        let rawDeltaTemp = input.wristTempDeltaCelsius
+        let resolvedAbsTemp: Double?
+        let tempDelta: Double?
+        if let rawDelta = rawDeltaTemp, abs(rawDelta) >= 15.0 {
+            // Guard against uncalibrated absolute °C readings (e.g., ~36°C) passed in delta field
+            let absT = rawAbsTemp ?? rawDelta
+            resolvedAbsTemp = absT
+            tempDelta = absT - baseline.wristTempMeanCelsius
+        } else if let absT = rawAbsTemp {
+            resolvedAbsTemp = absT
+            tempDelta = rawDeltaTemp ?? (absT - baseline.wristTempMeanCelsius)
+        } else if let d = rawDeltaTemp {
+            resolvedAbsTemp = baseline.wristTempMeanCelsius + d
+            tempDelta = d
+        } else {
+            resolvedAbsTemp = nil
+            tempDelta = nil
+        }
+        if let deltaT = tempDelta, let currentTemp = resolvedAbsTemp {
             let tempStatus: VitalsPillarStatus
             if deltaT >= 0.40 {
                 tempStatus = .outlier
@@ -403,7 +421,7 @@ public enum VitalsAndIllnessEngine {
             }
             tempPillar = VitalsPillarMetric(
                 name: "Температура зап'ястя",
-                currentValue: input.wristTempCelsius ?? (baseline.wristTempMeanCelsius + deltaT),
+                currentValue: currentTemp,
                 baselineValue: baseline.wristTempMeanCelsius,
                 delta: deltaT,
                 unit: "°C",

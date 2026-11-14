@@ -384,4 +384,42 @@ final class PersistenceTests: XCTestCase {
         XCTAssertNotNil(restoreOp)
         XCTAssertEqual(restoreOp?.operationKind, "upsert")
     }
+
+    func testPersistentStoreSchemaAllowsFileBackedReopenAfterMealInsert() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LifecorePersistenceTest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let storeURL = tempDir.appendingPathComponent("test.store")
+        let mealID = UUID()
+
+        do {
+            let config = ModelConfiguration(schema: LifecoreDataStore.sharedSchema, url: storeURL)
+            let container1 = try ModelContainer(for: LifecoreDataStore.sharedSchema, configurations: [config])
+            let ctx1 = ModelContext(container1)
+            let entity = MealEntity(
+                id: mealID,
+                name: "Гречка з куркою",
+                kcal: 540,
+                proteinG: 42,
+                fatG: 14,
+                carbsG: 56,
+                dietaryDate: "2026-11-14",
+                status: .confirmed,
+                provenance: "manual"
+            )
+            ctx1.insert(entity)
+            try ctx1.save()
+        }
+
+        // Reopen file-backed container simulating app close & relaunch
+        let config2 = ModelConfiguration(schema: LifecoreDataStore.sharedSchema, url: storeURL)
+        let container2 = try ModelContainer(for: LifecoreDataStore.sharedSchema, configurations: [config2])
+        let ctx2 = ModelContext(container2)
+        let fetched = try ctx2.fetch(FetchDescriptor<MealEntity>(predicate: #Predicate { $0.id == mealID }))
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertEqual(fetched.first?.name, "Гречка з куркою")
+        XCTAssertEqual(fetched.first?.kcal, 540)
+    }
 }

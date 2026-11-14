@@ -469,22 +469,43 @@ public struct LiveDailySnapshotDataSource: DailySnapshotDataSource {
         let hrv = (episode.hrv?.quality != .unavailable) ? episode.hrv?.value : nil
         let hrvMethod = hrv != nil ? episode.hrvMethod : nil
         let rhr = (episode.restingHeartRate?.quality != .unavailable) ? episode.restingHeartRate?.value : nil
+        let absTemp = (episode.wristTemperatureCelsius?.quality != .unavailable)
+            ? episode.wristTemperatureCelsius?.value
+            : nil
         let tempDelta = (episode.wristTemperatureDeltaCelsius?.quality != .unavailable)
             ? episode.wristTemperatureDeltaCelsius?.value
             : nil
         let respRate = (episode.respiratoryRate?.quality != .unavailable) ? episode.respiratoryRate?.value : nil
         let spo2 = (episode.oxygenSaturation?.quality != .unavailable) ? episode.oxygenSaturation?.value : nil
 
-        guard hrv != nil || rhr != nil || tempDelta != nil || respRate != nil || spo2 != nil else {
+        guard hrv != nil || rhr != nil || absTemp != nil || tempDelta != nil || respRate != nil || spo2 != nil else {
             return nil
+        }
+
+        let resolvedWristTempCelsius: Double?
+        let resolvedWristTempDelta: Double?
+        if let absT = absTemp {
+            resolvedWristTempCelsius = absT
+            resolvedWristTempDelta = tempDelta
+        } else if let d = tempDelta {
+            if abs(d) >= 15.0 {
+                resolvedWristTempCelsius = d
+                resolvedWristTempDelta = nil
+            } else {
+                resolvedWristTempCelsius = baseline.wristTempMeanCelsius + d
+                resolvedWristTempDelta = d
+            }
+        } else {
+            resolvedWristTempCelsius = nil
+            resolvedWristTempDelta = nil
         }
 
         let input = NocturnalVitalsInput(
             hrvMs: hrv,
             hrvMethod: hrvMethod,
             rhrBpm: rhr,
-            wristTempCelsius: tempDelta.map { baseline.wristTempMeanCelsius + $0 },
-            wristTempDeltaCelsius: tempDelta,
+            wristTempCelsius: resolvedWristTempCelsius,
+            wristTempDeltaCelsius: resolvedWristTempDelta,
             respiratoryRateBpm: respRate,
             spo2Pct: spo2
         )

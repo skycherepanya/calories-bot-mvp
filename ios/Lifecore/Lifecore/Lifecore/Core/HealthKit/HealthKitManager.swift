@@ -252,12 +252,30 @@ public final class HealthKitManager: @unchecked Sendable {
         let hrvValue = episode.hrvMethod == .sdnn ? episode.hrv?.value : nil
         let rmssdValue = episode.hrvMethod == .rmssd ? episode.hrv?.value : nil
         let rhrValue = episode.restingHeartRate?.value
-        let wristTempDelta = episode.wristTemperatureDeltaCelsius?.value
+        let wristTempAbs = episode.wristTemperatureCelsius?.value
+        let rawWristTempDelta = episode.wristTemperatureDeltaCelsius?.value
+        let wristTempCelsiusResolved: Double?
+        let wristTempDelta: Double?
+        if let absT = wristTempAbs {
+            wristTempCelsiusResolved = absT
+            wristTempDelta = rawWristTempDelta ?? round((absT - profile.wristTempBaselineCelsius) * 100) / 100
+        } else if let d = rawWristTempDelta {
+            if abs(d) >= 15.0 {
+                wristTempCelsiusResolved = d
+                wristTempDelta = round((d - profile.wristTempBaselineCelsius) * 100) / 100
+            } else {
+                wristTempCelsiusResolved = profile.wristTempBaselineCelsius + d
+                wristTempDelta = d
+            }
+        } else {
+            wristTempCelsiusResolved = nil
+            wristTempDelta = nil
+        }
         let respRateValue = episode.respiratoryRate?.value
         let spo2Value = episode.oxygenSaturation?.value
 
         var immuneStateString: String? = nil
-        if hrvValue != nil || rmssdValue != nil || rhrValue != nil || wristTempDelta != nil || respRateValue != nil || spo2Value != nil {
+        if hrvValue != nil || rmssdValue != nil || rhrValue != nil || wristTempCelsiusResolved != nil || wristTempDelta != nil || respRateValue != nil || spo2Value != nil {
             let selectedHrv: Double?
             let selectedMethod: HRVMethod?
             if profile.hrvMethod == .hybridRMSSD {
@@ -288,7 +306,7 @@ public final class HealthKitManager: @unchecked Sendable {
                 hrvMs: selectedHrv,
                 hrvMethod: selectedMethod,
                 rhrBpm: rhrValue,
-                wristTempCelsius: wristTempDelta.map { profile.wristTempBaselineCelsius + $0 },
+                wristTempCelsius: wristTempCelsiusResolved,
                 wristTempDeltaCelsius: wristTempDelta,
                 respiratoryRateBpm: respRateValue,
                 spo2Pct: spo2Value
@@ -696,12 +714,26 @@ public final class HealthKitManager: @unchecked Sendable {
                 }
             }
 
+            let resolvedSleepTempCelsius: Double?
+            let resolvedSleepTempDelta: Double?
+            if let d = sleep.wristTempDeltaC {
+                if abs(d) >= 15.0 {
+                    resolvedSleepTempCelsius = d
+                    resolvedSleepTempDelta = nil
+                } else {
+                    resolvedSleepTempCelsius = profile.wristTempBaselineCelsius + d
+                    resolvedSleepTempDelta = d
+                }
+            } else {
+                resolvedSleepTempCelsius = nil
+                resolvedSleepTempDelta = nil
+            }
             let vitalsInput = NocturnalVitalsInput(
                 hrvMs: selectedHrv,
                 hrvMethod: selectedMethod,
                 rhrBpm: sleep.rhrBpm,
-                wristTempCelsius: sleep.wristTempDeltaC.map { profile.wristTempBaselineCelsius + $0 },
-                wristTempDeltaCelsius: sleep.wristTempDeltaC,
+                wristTempCelsius: resolvedSleepTempCelsius,
+                wristTempDeltaCelsius: resolvedSleepTempDelta,
                 respiratoryRateBpm: sleep.respiratoryRate,
                 spo2Pct: sleep.spo2Pct
             )

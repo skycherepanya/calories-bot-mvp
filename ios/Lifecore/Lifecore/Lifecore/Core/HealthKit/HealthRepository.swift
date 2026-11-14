@@ -42,6 +42,7 @@ public struct SleepEpisode: Sendable, Equatable {
     public let hrv: Observation<Double>?
     public let hrvMethod: HRVMethod?
     public let restingHeartRate: Observation<Double>?
+    public let wristTemperatureCelsius: Observation<Double>?
     public let wristTemperatureDeltaCelsius: Observation<Double>?
     public let respiratoryRate: Observation<Double>?
     public let oxygenSaturation: Observation<Double>?
@@ -53,6 +54,7 @@ public struct SleepEpisode: Sendable, Equatable {
         hrv: Observation<Double>? = nil,
         hrvMethod: HRVMethod? = nil,
         restingHeartRate: Observation<Double>? = nil,
+        wristTemperatureCelsius: Observation<Double>? = nil,
         wristTemperatureDeltaCelsius: Observation<Double>? = nil,
         respiratoryRate: Observation<Double>? = nil,
         oxygenSaturation: Observation<Double>? = nil
@@ -63,6 +65,7 @@ public struct SleepEpisode: Sendable, Equatable {
         self.hrv = hrv
         self.hrvMethod = hrvMethod
         self.restingHeartRate = restingHeartRate
+        self.wristTemperatureCelsius = wristTemperatureCelsius
         self.wristTemperatureDeltaCelsius = wristTemperatureDeltaCelsius
         self.respiratoryRate = respiratoryRate
         self.oxygenSaturation = oxygenSaturation

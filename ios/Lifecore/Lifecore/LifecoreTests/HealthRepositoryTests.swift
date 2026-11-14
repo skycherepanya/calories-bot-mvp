@@ -370,4 +370,28 @@ final class HealthRepositoryTests: XCTestCase {
         let ef = await HealthKitManager.shared.fetchAerobicEfficiencyHistory(limit: 15)
         XCTAssertEqual(ef.count, 0, "Sparse or unavailable HealthKit must return empty EF history, not synthetic running curves")
     }
+
+    // MARK: - 8. Wrist Temperature Personal Baseline Resolution
+
+    func testResolveWristTemperatureComputesPersonalBaselineDelta() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+
+        // 1. With >= 2 prior nights, computes personal baseline delta instead of treating ~36°C as +36°C
+        let resolvedWithHistory = SleepEpisodeReader.resolveWristTemperature(
+            currentCelsius: 35.85,
+            priorSamplesCelsius: [35.50, 35.60, 35.70],
+            observedAt: now
+        )
+        XCTAssertEqual(resolvedWithHistory.absolute.value ?? -99, 35.85, accuracy: 0.001)
+        XCTAssertEqual(resolvedWithHistory.delta?.value ?? -99, 0.25, accuracy: 0.001)
+
+        // 2. With < 2 prior nights, delta remains nil while absolute °C is preserved
+        let resolvedInsufficient = SleepEpisodeReader.resolveWristTemperature(
+            currentCelsius: 35.90,
+            priorSamplesCelsius: [35.70],
+            observedAt: now
+        )
+        XCTAssertEqual(resolvedInsufficient.absolute.value ?? -99, 35.90, accuracy: 0.001)
+        XCTAssertNil(resolvedInsufficient.delta)
+    }
 }

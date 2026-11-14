@@ -398,4 +398,26 @@ final class PhysiologyTests: XCTestCase {
             XCTAssertEqual(hour, 8, "Parsed hour must be 8:00 AM, not fallback 17:00")
         }
     }
+
+    func testAbsoluteWristTempNeverAddsBaselineToProduce72Degrees() {
+        let baseline = NocturnalVitalsBaseline(
+            hrvMeanMs: 102.0,
+            rhrMeanBpm: 49.0,
+            wristTempMeanCelsius: 36.40
+        )
+
+        // Regression guard: if an uncalibrated 36.15°C HealthKit reading ever reaches delta field,
+        // VitalsAndIllnessEngine must never add 36.40 + 36.15 = 72.55°C.
+        let leakedAbsoluteInput = NocturnalVitalsInput(
+            hrvMs: 102.0,
+            rhrBpm: 49.0,
+            wristTempCelsius: nil,
+            wristTempDeltaCelsius: 36.15
+        )
+        let eval = VitalsAndIllnessEngine.evaluateOvernightVitals(input: leakedAbsoluteInput, baseline: baseline)
+        XCTAssertNotNil(eval.tempPillar)
+        XCTAssertEqual(eval.tempPillar?.currentValue ?? 0, 36.15, accuracy: 0.001)
+        XCTAssertEqual(eval.tempPillar?.delta ?? 0, -0.25, accuracy: 0.001)
+        XCTAssertEqual(eval.tempPillar?.status, .inside)
+    }
 }

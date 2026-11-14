@@ -16,29 +16,29 @@ public enum MealLifecycleState: String, Codable, Sendable, CaseIterable {
 
 @Model
 public final class MealEntity {
-    @Attribute(.unique) public var id: UUID
-    public var clientUUID: UUID
-    public var name: String
-    public var kcal: Double             // Stores final calories including +12.5% deficit buffer
+    @Attribute(.unique) public var id: UUID = UUID()
+    public var clientUUID: UUID = UUID()
+    public var name: String = ""
+    public var kcal: Double = 0             // Stores final calories including +12.5% deficit buffer
     public var kcalExact: Double?       // Unbuffered exact calories if known
-    public var bufferVersion: Int       // Default 1 for +12.5%
-    public var proteinG: Double
-    public var fatG: Double
-    public var carbsG: Double
+    public var bufferVersion: Int = 1       // Default 1 for +12.5%
+    public var proteinG: Double = 0
+    public var fatG: Double = 0
+    public var carbsG: Double = 0
     public var weightG: Double?
     public var confidence: Double?
-    public var tags: [String]
+    public var tags: [String] = []
     public var micronutrientsJson: String?
     public var aminoAcidsJson: String?
-    public var dietaryDate: String      // YYYY-MM-DD adhering to 04:00 AM day shift
-    public var createdAt: Date
-    public var updatedAt: Date
-    public var statusRaw: String        // "draft", "analyzing", "review", "confirmed", "failed", "cancelled"
-    public var revision: Int
-    public var provenance: String       // "camera", "text", "manual", "legacy_seed", "fixture"
-    public var isDeleted: Bool          // Soft delete for sync tombstones
-    public var isOptimisticPending: Bool
-    public var syncedToCloud: Bool
+    public var dietaryDate: String = ""     // YYYY-MM-DD adhering to 04:00 AM day shift
+    public var createdAt: Date = Date()
+    public var updatedAt: Date = Date()
+    public var statusRaw: String = "confirmed" // "draft", "analyzing", "review", "confirmed", "failed", "cancelled"
+    public var revision: Int = 1
+    public var provenance: String = "manual"   // "camera", "text", "manual", "legacy_seed", "fixture"
+    public var isDeleted: Bool = false         // Soft delete for sync tombstones
+    public var isOptimisticPending: Bool = false
+    public var syncedToCloud: Bool = false
     public var remoteId: Int64?
 
     public var legacyRemoteId: Int64? {
@@ -181,25 +181,25 @@ public final class MealEntity {
 
 @Model
 public final class WorkoutAnalysisEntity {
-    @Attribute(.unique) public var id: UUID
-    public var workoutUUID: UUID        // Associated HKWorkout UUID
-    public var workoutType: String
-    public var startedAt: Date
-    public var distanceMeters: Double
-    public var durationSeconds: Double
+    @Attribute(.unique) public var id: UUID = UUID()
+    public var workoutUUID: UUID = UUID()        // Associated HKWorkout UUID
+    public var workoutType: String = ""
+    public var startedAt: Date = Date()
+    public var distanceMeters: Double = 0
+    public var durationSeconds: Double = 0
     public var avgPaceSecPerKm: Double?
     public var avgHeartRate: Double?
     public var maxHeartRate: Double?
     public var elevationGainMeters: Double?
     public var efficiencyFactor: Double?
     public var cardiacDriftPercentage: Double?
-    public var splitsJson: String       // JSON serialized [Split1km]
-    public var lapsJson: String         // JSON serialized [IntervalLap]
+    public var splitsJson: String = "[]"       // JSON serialized [Split1km]
+    public var lapsJson: String = "[]"         // JSON serialized [IntervalLap]
     public var aiCoachReport: String?   // Markdown text from Gemini
     public var revision: Int = 1
-    public var createdAt: Date
-    public var updatedAt: Date
-    public var syncedToCloud: Bool
+    public var createdAt: Date = Date()
+    public var updatedAt: Date = Date()
+    public var syncedToCloud: Bool = false
 
     public init(
         id: UUID = UUID(),
@@ -293,13 +293,35 @@ public final class LifecoreDataStore {
         do {
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
-            print("⚠️ Failed to initialize persistent ModelContainer: \(error). Falling back to memory store.")
+            print("⚠️ Failed to initialize persistent ModelContainer: \(error). Backing up legacy store and retrying persistent initialization.")
             self.isRecoveredFallback = true
             self.containerInitializationError = error
-            let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            return try! ModelContainer(for: schema, configurations: [fallbackConfig])
+            Self.backupIncompatibleStoreFiles(storeURL: config.url)
+            do {
+                return try ModelContainer(for: schema, configurations: [config])
+            } catch let retryError {
+                print("⚠️ Persistent store retry failed: \(retryError). Falling back to memory store.")
+                self.containerInitializationError = retryError
+                let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                return try! ModelContainer(for: schema, configurations: [fallbackConfig])
+            }
         }
     }()
+
+    private static func backupIncompatibleStoreFiles(storeURL: URL) {
+        let fm = FileManager.default
+        let parentDir = storeURL.deletingLastPathComponent()
+        let baseName = storeURL.lastPathComponent
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let backupDir = parentDir.appendingPathComponent("LifecoreStoreBackup-\(timestamp)", isDirectory: true)
+        try? fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
+        for suffix in ["", "-shm", "-wal"] {
+            let source = parentDir.appendingPathComponent(baseName + suffix)
+            guard fm.fileExists(atPath: source.path) else { continue }
+            let dest = backupDir.appendingPathComponent(baseName + suffix)
+            try? fm.moveItem(at: source, to: dest)
+        }
+    }
 
     public var container: ModelContainer {
         if AppEnvironment.current.isFixtureMode {

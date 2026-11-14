@@ -2,6 +2,16 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-14] - Hotfix: SwiftData Meal Migration Persistence & Sleeping Wrist Temperature Calculation
+- **SwiftData Persistence on App Relaunch (`SwiftDataModels.swift`):**
+  - Added inline property defaults on `MealEntity` (`id`, `clientUUID`, `name`, `kcal`, `bufferVersion`, `proteinG`, `fatG`, `carbsG`, `tags`, `dietaryDate`, `createdAt`, `updatedAt`, `statusRaw`, `revision`, `provenance`, `isDeleted`, `isOptimisticPending`, `syncedToCloud`) and `WorkoutAnalysisEntity` so SwiftData lightweight migration from legacy on-device stores succeeds instead of silently failing into an in-memory container.
+  - Updated `LifecoreDataStore.persistentContainer` to back up unmigratable legacy `default.store*` files into `LifecoreStoreBackup-<timestamp>` and retry persistent on-disk container creation before ever falling back to memory.
+- **HealthKit Sleeping Wrist Temperature (`HealthRepository.swift`, `SleepEpisodeReader.swift`, `HealthKitManager.swift`, `DailySnapshotCoordinator.swift`, `VitalsAndIllnessEngine.swift`):**
+  - Fixed `appleSleepingWristTemperature` handling: HealthKit stores absolute skin temperature (`~35–37°C`), not a delta, which previously caused `+36°C` delta and `~72°C` total displays (`baseline + 36`).
+  - Added `SleepEpisode.wristTemperatureCelsius` and `SleepEpisodeReader.resolveWristTemperature(currentCelsius:priorSamplesCelsius:observedAt:)` computing personal 30-day rolling baseline deltas (`>= 2` prior nights), plus defense-in-depth guards in `DailySnapshotCoordinator`, `HealthKitManager`, and `VitalsAndIllnessEngine`.
+- **Verification:** `LifecoreTests` passed **143/143** tests on `iPhone 17` (`iOS 27.0`), including new regression tests in `PhysiologyTests`, `HealthRepositoryTests`, and `PersistenceTests`.
+- **Affected Files:** `SwiftDataModels.swift`, `HealthRepository.swift`, `SleepEpisodeReader.swift`, `HealthKitManager.swift`, `DailySnapshotCoordinator.swift`, `VitalsAndIllnessEngine.swift`, `PhysiologyTests.swift`, `HealthRepositoryTests.swift`, `PersistenceTests.swift`, `CHANGELOG.md`, `PROJECT_KNOWLEDGE.md`.
+
 ## [2026-11-13] - Task D1: Simulator E2E Hardening, Visual Overlap Fixes & Redesign Acceptance Report
 - **Fixture & Coordinator E2E Support:**
   - Updated `AppEnvironment.swift` (`UserDefaults.standard` `LifecoreFixtureMode` flag recognition and isolated persistent `LifecoreFixtureE2E.store` SQLite store outside `XCTestConfigurationFilePath`) so Maestro app relaunches preserve logged/restored meals while keeping unit tests in-memory.
