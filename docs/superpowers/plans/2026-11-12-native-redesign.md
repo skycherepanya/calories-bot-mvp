@@ -46,26 +46,28 @@ U5 can run in a later wave if capacity or integration dependencies require it. W
 
 ## Execution checklist
 
+**2026-11-18 review:** implementation exists, but acceptance is reopened for the tasks below. Follow [the corrective queue](../../verification/2026-11-18-resume-review.md#next-execution-order) at baseline `b0bf0bd`. Old passing test records do not close the live-path defects C01–C13.
+
 - [x] R1 — Enforced tests, isolated fixtures, honest toolchain, explicit Swift 6 gate. (commit `9bf75de`; fixture isolation repaired and verified in Task B)
 - [x] R2 — Observation, dietary-day, interval and screen-state contracts. (commit `18bc227`)
-- [x] R3a — Real HealthKit histories, episode normalization and missingness.
+- [ ] R3a — Real HealthKit histories, episode normalization and missingness.
 - [x] R3b — Workout timing and metadata correctness.
-- [x] R3c — Longitudinal load, timed battery and HRV-method consistency.
-- [x] R3d — Calendar-based joins, signed correlations and adaptive date math.
-- [x] R4 — One daily snapshot and prescription with revisioned invalidation.
+- [ ] R3c — Longitudinal load, timed battery and HRV-method consistency.
+- [ ] R3d — Calendar-based joins, signed correlations and adaptive date math.
+- [ ] R4 — One daily snapshot and prescription with revisioned invalidation.
 - [x] R5a — Validated nutrition and honest AI failures.
 - [x] R5b — Scoped evidence, factual offline explanation and controlled memory.
-- [x] R6 — Durable mutations, migration preservation and meal lifecycle.
-- [x] R7 — Typed, idempotent, revisioned, paginated sync. (Swift/DTO/Coordinator verified via `SyncContractTests`; `supabase db push` deployment pending remote DB check)
-- [x] R8 — Configuration, credential migration and cloud authorization. (`ConfigurationTests` pass; `20261113140000_r8_rls_and_ownership.sql` & `rls_ownership_contract.sql` authored; live `supabase db push`, remote RLS replay, legacy ownership backfill & key rotation pending D1/staging verification)
-- [x] R9 — Durable and truthful AppIntents. (`IntentOutcomeTests` pass)
-- [x] U1 — Semantic design system, native shell and settings.
+- [ ] R6 — Durable mutations, migration preservation and meal lifecycle.
+- [ ] R7 — Typed, idempotent, revisioned, paginated sync. (Swift/DTO/Coordinator verified via `SyncContractTests`; `supabase db push` deployment pending remote DB check)
+- [ ] R8 — Configuration, credential migration and cloud authorization. (`ConfigurationTests` pass; `20261113140000_r8_rls_and_ownership.sql` & `rls_ownership_contract.sql` authored; live `supabase db push`, remote RLS replay, legacy ownership backfill & key rotation pending D1/staging verification)
+- [ ] R9 — Durable and truthful AppIntents. (`IntentOutcomeTests` pass)
+- [ ] U1 — Semantic design system, native shell and settings.
 - [x] U2 — Today hierarchy and all data states. (`TodayViewModelTests` pass; D1 Maestro/screenshot verification pending)
 - [x] U3 — Workout planning/history/detail by sport. (`WorkoutsViewModelTests` pass; D1 Maestro/screenshot verification pending)
-- [x] U4 — Food capture/review/confirm/delete/undo. (`NutritionFlowTests` pass; D1 Maestro/screenshot verification pending)
+- [ ] U4 — Food capture/review/confirm/delete/undo. (`NutritionFlowTests` pass; D1 Maestro/screenshot verification pending)
 - [x] U5 — Trends range, safe domains and coverage. (`TrendsViewModelTests` pass; D1 Maestro/screenshot verification pending)
-- [x] U6 — Coach report/chat/evidence/memory. (`CoachFlowTests` pass; D1 Maestro/screenshot verification pending)
-- [x] D1 — Integrated verification, visual/accessibility acceptance and release evidence. (Simulator Debug tests `140/140`, Release simulator build, Maestro E2E `5/5`, and [acceptance report](../../verification/2026-11-12-redesign-acceptance.md) completed; external remote `supabase db push`/RLS replay, physical HealthKit/VoiceOver hardware checks, and owner key rotation recorded as open external release gates.)
+- [ ] U6 — Coach report/chat/evidence/memory. (`CoachFlowTests` pass; D1 Maestro/screenshot verification pending)
+- [ ] D1 — Integrated verification, visual/accessibility acceptance and release evidence. (Simulator Debug tests `140/140`, Release simulator build, Maestro E2E `5/5`, and [historical acceptance report](../../verification/2026-11-12-redesign-acceptance.md) recorded; C01–C13 and local visual/accessibility acceptance remain open in addition to external remote `supabase db push`/RLS replay, physical HealthKit/VoiceOver hardware checks, and owner key rotation recorded as open external release gates.)
 
 ## Shared commands
 

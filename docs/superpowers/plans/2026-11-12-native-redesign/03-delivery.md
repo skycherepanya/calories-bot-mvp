@@ -1,5 +1,7 @@
 # Redesign integration and release implementation plan
 
+**2026-11-18 status: D1 remains partial.** Complete [C01–C13 and corrective waves A–E](../../../verification/2026-11-18-resume-review.md) before final acceptance. Historical test passes below do not certify the live paths identified by review.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` or `executing-plans` task-by-task.
 
 **Goal:** Demonstrate the redesigned application works across data, storage, UI and accessibility boundaries before declaring release readiness.

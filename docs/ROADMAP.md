@@ -1,24 +1,24 @@
 # Lifecore roadmap
 
-## Active work — 2026-11-13
+## Active work — 2026-11-18
 
-- [x] Architecture/product audit with 28 findings and explicit verification limits.
-- [x] Calm native iOS design specification and dependency-ordered subagent execution plan.
-- [x] Documentation reconciled with current platform, test and persistence limitations.
-- [x] R1–R2: enforced isolated tests and observation/calendar contracts.
-- [x] R3a–R4: correct ingestion/math/history and shared `DailySnapshotCoordinator` + `TrainingPrescriptionService`.
-- [x] R5a–R7: validated AI/evidence, durable SwiftData/outbox storage, and revisioned cloud/HealthKit convergence (SQL deployment pending remote `supabase db push`).
-- [x] R8–R9: account/credential configuration (`CredentialStore`, `AppConfiguration`, `AccountSessionManager`), RLS migration `20261113140000_r8_rls_and_ownership.sql` (live `supabase db push` & legacy backfill pending remote DB check), and truthful AppIntents (`LogMealIntentHandler`, `LifecoreSyncIntentHandler`).
-- [x] U1: semantic design system primitives, native shell, and Settings routes.
-- [x] U2–U6: Today, Workouts, Nutrition, Trends, and Coach/Evidence/Memory vertical slices (verified via `LifecoreTests`, 140/140 passing).
-- [x] D1 (Simulator & Acceptance Evidence): `140/140` `LifecoreTests`, Release simulator build, `5/5` Maestro E2E flows (`./scripts/run_e2e.sh .maestro/suite.yaml`), toolbar Settings & inline Undo overlap fixes, and [acceptance report](verification/2026-11-12-redesign-acceptance.md) complete.
-- [ ] D1 External Release Gates: remote `supabase db push` + `rls_ownership_contract.sql` / legacy backfill (`psql`/`docker` absent; role login `544` timeout), physical iPhone/Apple Watch HealthKit & VoiceOver hardware checks, and owner-side API key rotation.
+Source baseline: `b0bf0bd`. [Resume review and prioritized corrections](verification/2026-11-18-resume-review.md) supersede the earlier blanket completion claim.
 
-Start at the [master execution plan](superpowers/plans/2026-11-12-native-redesign.md) and [acceptance report](verification/2026-11-12-redesign-acceptance.md).
+- [x] Architecture audit, calm native iOS specification and execution packets.
+- [x] Core icon installed; four tabs, shared snapshot and feature ViewModels implemented.
+- [x] November 14 hotfix separates absolute wrist temperature from delta and adds model defaults/reopen coverage.
+- [ ] A — Durable meal confirmation and safe old-store upgrade/recovery; cancelled capture isolation (C01/C02/C12).
+- [ ] B — HRV method identity, workout coverage, personal temperature calibration and complete-day nutrition (C03–C06).
+- [ ] C — Keychain-only Settings and failure-safe credential migration (C09).
+- [ ] D — Outbox restart recovery, account ownership/auth, PATCH retry and truthful Intents (C07/C08/C10/C11).
+- [ ] E — Dark/Dynamic Type, Coach freshness, outcome E2E, accessibility/performance and real CI evidence (C13).
+- [ ] External gates — staging migration/RLS/backfill, physical HealthKit and owner credential rotation. No remote deployment was attempted in the resume review.
+
+Use the [master execution plan](superpowers/plans/2026-11-12-native-redesign.md). Reopened boxes mean correction/acceptance is pending, not that delivered code should be rewritten.
 
 ## Historical delivery record (through October 2026)
 
-The entries below preserve previously reported milestones, not current correctness certification. Claims of passing suites, complete bidirectional sync, guaranteed buffer, clinical validity or measured latency are superseded by the November audit where contradictory. Current baseline: iOS 27.0 / Swift 5.0 language mode; simulator build passes with warnings; test action is absent. Upcoming ideas in the historical section follow the active reliability/redesign work above.
+The entries below preserve previously reported milestones, not current correctness certification. Claims of passing suites, complete bidirectional sync, guaranteed buffer, clinical validity or measured latency are superseded by the November audit where contradictory. Current baseline: iOS 27.0 / Swift 5.0 language mode; test action exists; see the dated verification reports for observed runs. Upcoming ideas in the historical section follow the active reliability/redesign work above.
 
 > **Master Evolution Plan:** Transitioning from the Version 1.0 Telegram MVP to the **Native iOS-First & Athletic Performance Platform** (v2.0), **Clinical Physiological Intelligence** (v3.0), **Self-Learning Adaptive Engine & Liquid Glass Bento UI** (v3.1), **Deterministic Adaptive Training Prescription Engine** (v3.2), **Hallmark v2.0.0 Bevel & Apple Health Daylight Redesign** (v3.3), and **Hierarchical Health RAG & Multi-Layered Conversational Analyst Engine** (v3.4).
 

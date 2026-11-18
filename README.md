@@ -4,7 +4,7 @@ Native iOS athletic-performance application combining Apple Health telemetry, de
 
 ## Current status — 2026-11-13
 
-The application builds (Debug and Release) and passes its `LifecoreTests` suite (**140 tests**, 0 failures on `iPhone 17` / **iOS 27.0**, Xcode `27.1`, language mode **Swift 5.0**) alongside all **5/5** isolated Maestro E2E flows (`./scripts/run_e2e.sh .maestro/suite.yaml`). Reliability/data tasks **R1–R9**, calm native UI tasks **U1–U6**, and simulator/E2E verification **D1** are documented in [2026-11-12-redesign-acceptance.md](docs/verification/2026-11-12-redesign-acceptance.md); remote `supabase db push` / RLS contract replay, physical-device HealthKit/VoiceOver validation, and owner-side API key rotation remain open external gates before production rollout.
+The native redesign and Core icon are implemented, but release acceptance remains partial. The November 14 hotfix (`b0bf0bd`) separates wrist temperature from its delta and adds persistence defaults/tests. The [2026-11-18 review](docs/verification/2026-11-18-resume-review.md) records remaining data-safety, physiology, sync/auth and UI defects, verification limits, and corrective waves A–E. Earlier Release/5-of-5 Maestro evidence is preserved in the [historical acceptance report](docs/verification/2026-11-12-redesign-acceptance.md).
 
 - [Design specification](docs/superpowers/specs/2026-11-12-native-redesign-design.md).
 - [Master execution plan and copyable subagent launch prompt](docs/superpowers/plans/2026-11-12-native-redesign.md).

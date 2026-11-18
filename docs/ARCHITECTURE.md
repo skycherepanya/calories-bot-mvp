@@ -1,5 +1,7 @@
 # Lifecore architecture
 
+**2026-11-18 review:** components below exist, but live-path contracts remain incomplete; see [C01–C13](verification/2026-11-18-resume-review.md). In particular, UI confirmation bypasses throwing durable storage, history adapters lose missingness/method identity, and session abstraction has no complete production sign-in flow.
+
 Updated: 2026-11-13 (Waves 1-6 + D1 Simulator Acceptance: R1-R9, U1-U6, D1). Target architecture specification: [redesign specification](superpowers/specs/2026-11-12-native-redesign-design.md).
 
 ## Product and platform

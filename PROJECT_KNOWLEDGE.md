@@ -197,15 +197,19 @@ Project: `ios/Lifecore/Lifecore/Lifecore.xcodeproj`. Source: `ios/Lifecore/Lifec
 
 ### 3.2. Verification evidence
 
+The paragraph below preserves earlier reported runs. See the [resume review](docs/verification/2026-11-18-resume-review.md) for current verification and remaining coverage gaps.
+
 `LifecoreTests` hosted test suite compiles and passes **143 tests, 0 failures** (`** TEST SUCCEEDED **`) on `iPhone 17` (`iOS 27.0`, Xcode `27.1`), covering `EnvironmentIsolationTests` (Task B), `HealthRepositoryTests` (R3a), `WorkoutTelemetryTests` (R3b), `PhysiologyTests` (R3c), `LongitudinalTests` (R3d), `DailySnapshotTests` (R4), `NutritionContractTests` (R5a), `CoachEvidenceTests` (R5b), `PersistenceTests` (R6), `SyncContractTests` (R7), `ConfigurationTests` (R8), `IntentOutcomeTests` (R9), `NavigationTests` (U1), `TodayViewModelTests` (U2), `WorkoutsViewModelTests` (U3), `NutritionFlowTests` (U4), `TrendsViewModelTests` (U5), and `CoachFlowTests` (U6). Release simulator build succeeds cleanly (`** BUILD SUCCEEDED **`), and `./scripts/run_e2e.sh .maestro/suite.yaml` passes all 5 outcome-based Maestro flows (`01`–`05`) in isolated fixture mode; see [2026-11-12-redesign-acceptance.md](docs/verification/2026-11-12-redesign-acceptance.md). Remaining external gates before production rollout: remote `supabase db push` + `rls_ownership_contract.sql` / legacy backfill replay (`psql`/`docker` unavailable locally and remote project `khmviccwbuktnvdxhnwg` failed role login with status `544` timeout), physical iPhone/Apple Watch HealthKit & VoiceOver validation, and owner-side API key rotation.
 
 ### 3.3. Persistence and cloud limitations
+
+The November 14 fallback moves store files and retries a new persistent store, then may fall back to memory. No old-schema upgrade fixture or user-visible recovery gate proves safe preservation. Meal confirmation still calls the nonthrowing save path. See C01/C02/C07/C08/C10 in the resume review.
 
 Local persistence and sync convergence (R6–R8) implement revisioned CAS uploads (`409` conflict retention), idempotent initial-`POST` retry recovery, paginated `pullIncrementalAll` hydration, tombstone deletions (`is_deleted`), and `PersistenceRecovery` backup preservation. Remote database deployment and multi-account RLS enforcement await live Postgres migration execution (`20261113120000_r7_sync_convergence.sql`, `20261113140000_r8_rls_and_ownership.sql`). Bundled AI credentials were removed (`GeminiService.defaultApiKey = ""`) in favor of Keychain BYOK (`KeychainCredentialStore`).
 
 ### 3.4. Redesign status and execution
 
-All implementation and simulator verification tasks (**R1–R9**, **U1–U6**, and simulator/E2E **D1**) of the [native redesign plan](docs/superpowers/plans/2026-11-12-native-redesign.md) are complete per [acceptance report](docs/verification/2026-11-12-redesign-acceptance.md). Note that `LifecoreApp.swift` keeps `.preferredColorScheme(.light)` (`Hallmark Daylight`), so system Dark Mode remains visual light-paper; physical device HealthKit, VoiceOver, remote Supabase RLS replay, and owner credential rotation remain explicitly tracked open external gates.
+Implementation spans R1–R9/U1–U6, but full acceptance is **not complete**. The [2026-11-18 resume review](docs/verification/2026-11-18-resume-review.md) reconciles `b0bf0bd` with the interrupted independent review and tracks C01–C13. Open paths include silent meal save failure, unsafe store recovery, HRV/load missingness, incomplete temperature calibration, partial-day nutrition, interrupted outbox/account ownership, plaintext Settings credentials, retry/Intent outcomes and UI acceptance. The master checklist reopens affected tasks. Existing test and earlier E2E passes establish only their tested scope. Follow corrective waves A–E before claiming release readiness.
 
 Legacy Telegram code remains archived in `v1.0-telegram-archive`; dual-backend maintenance is not part of the active architecture.
 

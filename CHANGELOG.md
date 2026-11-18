@@ -2,6 +2,12 @@
 
 All changes to the code, data structure, AI prompts, and documentation must be recorded in this log in reverse chronological order.
 
+## [2026-11-18] - Resume review and corrected acceptance status
+- Reconciled interrupted November 13 review at `6f8cd6c` with hotfix `b0bf0bd`; recorded delivered work, remaining C01–C13 defects, required regressions and corrective waves A–E.
+- Reopened affected master tasks and D1 acceptance; retained historical test/E2E evidence. No application, schema or remote deployment changes.
+- Fresh verification at `b0bf0bd`: `xcodebuild test` exit 0, **143 passed / 0 failed / 0 skipped**, iPhone 17 / iOS 27.0; exact command/artifacts recorded in the resume review.
+- Affected files: `docs/verification/2026-11-18-resume-review.md`, `docs/verification/2026-11-12-redesign-acceptance.md`, `docs/superpowers/plans/2026-11-12-native-redesign.md`, `docs/superpowers/plans/2026-11-12-native-redesign/03-delivery.md`, `docs/ROADMAP.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `PROJECT_KNOWLEDGE.md`, `README.md`, `CHANGELOG.md`.
+
 ## [2026-11-14] - Hotfix: SwiftData Meal Migration Persistence & Sleeping Wrist Temperature Calculation
 - **SwiftData Persistence on App Relaunch (`SwiftDataModels.swift`):**
   - Added inline property defaults on `MealEntity` (`id`, `clientUUID`, `name`, `kcal`, `bufferVersion`, `proteinG`, `fatG`, `carbsG`, `tags`, `dietaryDate`, `createdAt`, `updatedAt`, `statusRaw`, `revision`, `provenance`, `isDeleted`, `isOptimisticPending`, `syncedToCloud`) and `WorkoutAnalysisEntity` so SwiftData lightweight migration from legacy on-device stores succeeds instead of silently failing into an in-memory container.

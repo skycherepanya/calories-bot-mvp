@@ -1,5 +1,7 @@
 # Lifecore Native Redesign — Acceptance & Verification Report (D1)
 
+**2026-11-18 correction:** this report preserves earlier run evidence. Its broad resolution/acceptance claims are superseded by [the resume review](2026-11-18-resume-review.md): C01–C13 remain open, including local defects and locally executable acceptance work, not only external gates.
+
 **Date:** 2026-11-13
 **Target Plan:** [2026-11-12-native-redesign.md](../superpowers/plans/2026-11-12-native-redesign.md) / [03-delivery.md](../superpowers/plans/2026-11-12-native-redesign/03-delivery.md)
 **Baseline Commits Covered:** `17b86ff` (R2) → `dbf49c5` (R1) → `430e43c` (R3a) → `89806e2` (R3b/R5a) → `ff2bfef` (R3c/R6) → `661034d` (R3d/R5b) → `318f025` (R4/R7/U1) → `5c0a768` (R8/R9/U2–U6) + D1 integration/E2E fixes

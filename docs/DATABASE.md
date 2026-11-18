@@ -1,5 +1,7 @@
 # Lifecore storage and database reference
 
+**2026-11-18 review:** `b0bf0bd` adds SwiftData property defaults and move-aside/retry recovery. Old-schema migration preservation remains unverified; automatic recovery can hide prior history. Outbox restart and account ownership also need correction. See [C01/C02/C07/C08/C10](verification/2026-11-18-resume-review.md). No schema or remote deployment changed in this review.
+
 Updated: 2026-11-13 (R7 Cloud & HealthKit Convergence + R8 RLS & Ownership Schema). Source: checked-in migrations (`001`–`20261113140000`) and Swift models/DTOs (`SwiftDataModels.swift`, `CloudDTOs.swift`, `SyncCoordinator.swift`, `AccountSession.swift`). Deployed Supabase schema/RLS replay and legacy backfill remain pending `supabase db push` (D1).
 
 ## Current local and cloud roles
